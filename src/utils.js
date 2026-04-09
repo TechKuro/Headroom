@@ -1,0 +1,155 @@
+import { PHASE_TYPES } from './constants';
+
+// --- Month arithmetic (YYYY-MM strings) ---
+
+export function getCurrentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function parseMonth(m) {
+  const [y, mo] = m.split('-').map(Number);
+  return { year: y, month: mo };
+}
+
+export function monthToString(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+export function addMonths(m, n) {
+  const { year, month } = parseMonth(m);
+  const total = (year * 12 + (month - 1)) + n;
+  return monthToString(Math.floor(total / 12), (total % 12) + 1);
+}
+
+export function monthDiff(a, b) {
+  const pa = parseMonth(a);
+  const pb = parseMonth(b);
+  return (pb.year * 12 + pb.month) - (pa.year * 12 + pa.month);
+}
+
+export function monthLabel(m) {
+  const { year, month } = parseMonth(m);
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${names[month - 1]} ${year}`;
+}
+
+export function monthLabelShort(m) {
+  const { year, month } = parseMonth(m);
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${names[month - 1]} '${String(year).slice(2)}`;
+}
+
+export function getMonthRange(start, end) {
+  const months = [];
+  let current = start;
+  while (current <= end) {
+    months.push(current);
+    current = addMonths(current, 1);
+  }
+  return months;
+}
+
+// --- Capacity calculation ---
+
+export function getPhaseIntensity(phase) {
+  if (phase.intensityOverride != null) return phase.intensityOverride;
+  return PHASE_TYPES[phase.type]?.weight ?? 0;
+}
+
+export function calculateLoad(personId, month, projects, whatIfProject = null) {
+  let total = 0;
+  const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
+  for (const project of allProjects) {
+    for (const phase of project.phases) {
+      if (phase.personId === personId && month >= phase.startMonth && month <= phase.endMonth) {
+        total += getPhaseIntensity(phase);
+      }
+    }
+  }
+  return total;
+}
+
+export function getLoadColor(load) {
+  if (load === 0)   return 'var(--surface-2)';
+  if (load <= 60)   return '#16a34a';
+  if (load <= 80)   return '#ca8a04';
+  if (load <= 100)  return '#ea580c';
+  return '#dc2626';
+}
+
+export function getLoadTextColor(load) {
+  if (load === 0) return 'var(--text-3)';
+  return '#fff';
+}
+
+// --- ID generation ---
+
+let _id = Date.now();
+export function genId() {
+  return String(++_id);
+}
+
+// --- Active phases for a person in a given month ---
+
+export function getActivePhases(personId, month, projects, whatIfProject = null) {
+  const result = [];
+  const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
+  for (const project of allProjects) {
+    for (const phase of project.phases) {
+      if (phase.personId === personId && month >= phase.startMonth && month <= phase.endMonth) {
+        result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false });
+      }
+    }
+  }
+  return result;
+}
+
+// --- Phases for a person across a month range (for timeline bars) ---
+
+export function getPersonPhases(personId, projects, whatIfProject = null) {
+  const result = [];
+  const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
+  for (const project of allProjects) {
+    for (const phase of project.phases) {
+      if (phase.personId === personId) {
+        result.push({
+          ...phase,
+          projectId: project.id,
+          projectName: project.name,
+          projectColor: project.color,
+          isWhatIf: project.isWhatIf || false,
+        });
+      }
+    }
+  }
+  return result;
+}
+
+// --- Stack overlapping bars ---
+
+export function stackBars(bars) {
+  // Sort by start, then by duration (longest first)
+  const sorted = [...bars].sort((a, b) => {
+    if (a.startMonth !== b.startMonth) return a.startMonth < b.startMonth ? -1 : 1;
+    return monthDiff(a.startMonth, a.endMonth) > monthDiff(b.startMonth, b.endMonth) ? -1 : 1;
+  });
+  const rows = [];
+  for (const bar of sorted) {
+    let placed = false;
+    for (let i = 0; i < rows.length; i++) {
+      const last = rows[i][rows[i].length - 1];
+      if (bar.startMonth > last.endMonth) {
+        rows[i].push(bar);
+        bar._row = i;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      bar._row = rows.length;
+      rows.push([bar]);
+    }
+  }
+  return { bars: sorted, rowCount: rows.length };
+}

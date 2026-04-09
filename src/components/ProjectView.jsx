@@ -1,0 +1,159 @@
+import React, { useMemo } from 'react';
+import { useStore } from '../store';
+import { getMonthRange, getCurrentMonth, monthDiff, getPhaseIntensity, stackBars } from '../utils';
+import { PHASE_TYPES, MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING } from '../constants';
+
+export default function ProjectView({ viewStart, viewEnd, selectedProjectId, setSelectedProjectId, whatIfProject, onAddPhase, onEditPhase }) {
+  const { team, projects } = useStore();
+  const months = useMemo(() => getMonthRange(viewStart, viewEnd), [viewStart, viewEnd]);
+  const now = getCurrentMonth();
+
+  const allProjects = useMemo(() => {
+    const list = [...projects];
+    if (whatIfProject) list.push(whatIfProject);
+    return list;
+  }, [projects, whatIfProject]);
+
+  const project = allProjects.find(p => p.id === selectedProjectId) || allProjects[0];
+
+  if (!project) {
+    return (
+      <div className="empty-state">
+        <p>No projects yet. Add one in the sidebar to get started.</p>
+      </div>
+    );
+  }
+
+  // Group phases by person
+  const phasesByPerson = useMemo(() => {
+    const map = {};
+    for (const ph of project.phases) {
+      if (!map[ph.personId]) map[ph.personId] = [];
+      map[ph.personId].push({ ...ph, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false });
+    }
+    return map;
+  }, [project]);
+
+  const involvedPeople = team.filter(m => phasesByPerson[m.id]);
+  const uninvolved = team.filter(m => !phasesByPerson[m.id]);
+  const gridWidth = months.length * MONTH_WIDTH;
+
+  // Deadline
+  const deadlineOffset = project.deadline && project.deadline >= viewStart && project.deadline <= viewEnd
+    ? monthDiff(viewStart, project.deadline)
+    : null;
+
+  return (
+    <div className="project-view">
+      <div className="project-view-header">
+        <select
+          value={project.id}
+          onChange={e => setSelectedProjectId(e.target.value)}
+          className="project-select"
+          style={{ borderColor: project.color }}
+        >
+          {allProjects.map(p => (
+            <option key={p.id} value={p.id}>{p.name}{p.isWhatIf ? ' (What-If)' : ''}</option>
+          ))}
+        </select>
+        <span className="project-dot-lg" style={{ background: project.color }} />
+        {project.deadline && <span className="project-deadline">Deadline: {formatMonth(project.deadline)}</span>}
+        <button className="text-btn-sm" onClick={() => onAddPhase(project.id)}>+ Add Phase</button>
+      </div>
+
+      <div className="timeline-scroll">
+        <div className="timeline-header" style={{ width: gridWidth }}>
+          <div className="timeline-label-col">Team Member</div>
+          <div className="timeline-months">
+            {months.map(m => (
+              <div key={m} className={`timeline-month-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}>
+                {formatMonth(m)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Current month */}
+        {now >= viewStart && now <= viewEnd && (
+          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${monthDiff(viewStart, now) * MONTH_WIDTH + MONTH_WIDTH / 2}px)` }} />
+        )}
+
+        {/* Deadline */}
+        {deadlineOffset != null && (
+          <div className="deadline-line" style={{ left: `calc(var(--label-width) + ${deadlineOffset * MONTH_WIDTH + MONTH_WIDTH - 2}px)`, borderColor: project.color }}>
+            <span className="deadline-label" style={{ color: project.color }}>Deadline</span>
+          </div>
+        )}
+
+        {/* Involved people */}
+        {involvedPeople.map(person => {
+          const bars = phasesByPerson[person.id] || [];
+          const { bars: stacked, rowCount } = stackBars(bars);
+          const rowHeight = Math.max(1, rowCount) * (BAR_HEIGHT + BAR_GAP) + ROW_PADDING * 2;
+
+          return (
+            <div key={person.id} className="timeline-row" style={{ minHeight: rowHeight }}>
+              <div className="timeline-label-col person-label">
+                <span className="person-name">{person.name}</span>
+              </div>
+              <div className="timeline-cells" style={{ width: gridWidth }}>
+                {months.map(m => (
+                  <div key={m} className={`timeline-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}
+                    onClick={() => onAddPhase(project.id, { personId: person.id, startMonth: m, endMonth: m })}
+                  />
+                ))}
+                {stacked.map(bar => {
+                  const startOffset = monthDiff(viewStart, bar.startMonth);
+                  const span = monthDiff(bar.startMonth, bar.endMonth) + 1;
+                  if (startOffset + span < 0 || startOffset > months.length) return null;
+                  const left = Math.max(0, startOffset) * MONTH_WIDTH;
+                  const clippedSpan = Math.min(span - Math.max(0, -startOffset), months.length - Math.max(0, startOffset));
+                  const width = clippedSpan * MONTH_WIDTH - 4;
+                  const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
+                  const intensity = getPhaseIntensity(bar);
+                  const phaseInfo = PHASE_TYPES[bar.type];
+                  return (
+                    <div
+                      key={bar.id}
+                      className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''}`}
+                      style={{ left, top, width: Math.max(width, 30), height: BAR_HEIGHT, background: project.color, opacity: 0.4 + (intensity / 100) * 0.6 }}
+                      title={`${phaseInfo?.label || bar.type} (${intensity}%)`}
+                      onClick={e => { e.stopPropagation(); onEditPhase(project.id, bar); }}
+                    >
+                      <span className="bar-label">
+                        {phaseInfo?.label || bar.type}
+                        <span className="bar-phase">{intensity}%</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Uninvolved people (dimmed) */}
+        {uninvolved.map(person => (
+          <div key={person.id} className="timeline-row dimmed" style={{ minHeight: BAR_HEIGHT + ROW_PADDING * 2 }}>
+            <div className="timeline-label-col person-label">
+              <span className="person-name">{person.name}</span>
+            </div>
+            <div className="timeline-cells" style={{ width: gridWidth }}>
+              {months.map(m => (
+                <div key={m} className={`timeline-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}
+                  onClick={() => onAddPhase(project.id, { personId: person.id, startMonth: m, endMonth: m })}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatMonth(m) {
+  const [y, mo] = m.split('-');
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${names[parseInt(mo) - 1]} '${y.slice(2)}`;
+}
