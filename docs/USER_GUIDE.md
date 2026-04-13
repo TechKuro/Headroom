@@ -239,6 +239,34 @@ In the Quick Plan modal:
 
 After applying, you can edit individual phases to reassign them to different people, adjust dates, or tweak intensity.
 
+### Putting a Project on Hold
+
+When a project is paused (e.g. waiting on client, budget approval, or deprioritised), you can put it on hold to free up the engineer's capacity without deleting any phases.
+
+**To hold a project:**
+1. In the sidebar, find the project and click the **pause icon** (two vertical bars)
+2. Choose a hold duration:
+
+| Duration | Effect |
+|---|---|
+| **1 week** | 25% load reduction for the current month |
+| **2 weeks** | 50% load reduction for the current month |
+| **1 month** | 100% load removed for the current month |
+| **2 months** | 100% load removed for this month and next |
+| **Until resumed** | 100% load removed indefinitely until you manually resume |
+
+**While a project is on hold:**
+- A **"HELD"** badge appears next to the project name in the sidebar
+- The project name is struck through and dimmed
+- Phase bars on the timeline turn **grey with a striped pattern**
+- The held project's load is **reduced or removed** from the heatmap, freeing up capacity
+- All phases remain intact — nothing is deleted
+
+**To resume a project:**
+- Click the **play icon** (triangle) next to the held project — it immediately returns to normal
+
+**Why sub-month holds?** Since the app runs at monthly resolution, a "1 week hold" translates to a 25% reduction in that project's load for the current month. This is useful when a project is only briefly paused — the engineer is mostly free but not entirely.
+
 ### Leave / Reduced Capacity
 
 Click the **calendar icon** next to a team member's name in the sidebar to open the Leave Modal.
@@ -364,6 +392,14 @@ For best results, print the **Heatmap View** — it's the most useful thing to s
 2. Set the date range and capacity (0% for full leave, 50% for half-time)
 3. Switch to the **Heatmap View** — check if any months are now red
 4. If overcommitted: drag their phase bars to shift work to other months, or reassign phases to colleagues
+
+### "A project is on hold — client went quiet"
+
+1. Click the **pause icon** next to the project in the sidebar
+2. Choose **"Until resumed"** (or a specific duration if you know when it'll restart)
+3. The heatmap immediately shows the freed capacity — that engineer now has room
+4. If you want to reallocate that time, add phases for other projects in the freed months
+5. When the client comes back: click the **play icon** to resume — all phases come back as they were
 
 ### "Client moved a deadline forward by 2 months"
 
