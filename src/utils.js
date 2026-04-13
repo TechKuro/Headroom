@@ -50,6 +50,24 @@ export function getMonthRange(start, end) {
   return months;
 }
 
+// --- Urgency weighting (deadline proximity) ---
+
+export function getProjectEndMonth(project) {
+  if (project.deadline) return project.deadline;
+  let latest = null;
+  for (const phase of project.phases) {
+    if (!latest || phase.endMonth > latest) latest = phase.endMonth;
+  }
+  return latest;
+}
+
+export function getUrgencyFactor(month, projectEndMonth) {
+  if (!projectEndMonth) return 1;
+  const remaining = monthDiff(month, projectEndMonth);
+  if (remaining <= 0) return 1;                          // at or past end — full urgency
+  return Math.max(0.7, 1.0 - (remaining - 1) * 0.06);   // 1.0 → 0.7 over ~6 months
+}
+
 // --- Capacity calculation ---
 
 export function getPhaseIntensity(phase) {
@@ -75,9 +93,10 @@ export function calculateLoad(personId, month, projects, whatIfProject = null) {
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
     const holdFactor = getProjectHoldFactor(project, month);
+    const urgency = getUrgencyFactor(month, getProjectEndMonth(project));
     for (const phase of project.phases) {
       if (phase.personId === personId && month >= phase.startMonth && month <= phase.endMonth) {
-        total += Math.round(getPhaseIntensity(phase) * holdFactor);
+        total += Math.round(getPhaseIntensity(phase) * holdFactor * urgency);
       }
     }
   }
@@ -116,9 +135,12 @@ export function getActivePhases(personId, month, projects, whatIfProject = null)
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
     const holdFactor = getProjectHoldFactor(project, month);
+    const urgencyFactor = getUrgencyFactor(month, getProjectEndMonth(project));
     for (const phase of project.phases) {
       if (phase.personId === personId && month >= phase.startMonth && month <= phase.endMonth) {
-        result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false, holdFactor });
+        const baseIntensity = getPhaseIntensity(phase);
+        const effectiveIntensity = Math.round(baseIntensity * holdFactor * urgencyFactor);
+        result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false, holdFactor, urgencyFactor, effectiveIntensity });
       }
     }
   }

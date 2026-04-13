@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, calculateLoad, getPhaseIntensity, getCurrentMonth } from '../utils';
+import { genId, calculateLoad, getPhaseIntensity, getProjectEndMonth, getUrgencyFactor, getCurrentMonth } from '../utils';
 import { PHASE_TYPES } from '../constants';
 
 export default function PhaseModal({ projectId, phase, presets, whatIfProject, setWhatIfProject, onClose }) {
@@ -24,21 +24,25 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
 
   const effectiveIntensity = useOverride && intensityOverride != null ? intensityOverride : PHASE_TYPES[type]?.weight ?? 0;
 
-  // Calculate overcommitment warning
+  // Calculate overcommitment warning (urgency-adjusted)
   const warnings = useMemo(() => {
     if (!personId) return [];
     const msgs = [];
+    const projectEndMonth = project ? getProjectEndMonth(project) : null;
     // Check each month in the phase range
     let m = startMonth;
     while (m <= endMonth) {
       let existingLoad = calculateLoad(personId, m, projects, whatIfProject);
-      // If editing, subtract the old phase's contribution
+      // If editing, subtract the old phase's contribution (already urgency-adjusted in calculateLoad)
       if (isEditing && phase) {
         if (m >= phase.startMonth && m <= phase.endMonth) {
-          existingLoad -= getPhaseIntensity(phase);
+          const oldUrgency = getUrgencyFactor(m, projectEndMonth);
+          existingLoad -= Math.round(getPhaseIntensity(phase) * oldUrgency);
         }
       }
-      const newLoad = existingLoad + effectiveIntensity;
+      const urgency = getUrgencyFactor(m, projectEndMonth);
+      const adjustedIntensity = Math.round(effectiveIntensity * urgency);
+      const newLoad = existingLoad + adjustedIntensity;
       if (newLoad > 100) {
         const person = team.find(t => t.id === personId);
         msgs.push(`${person?.name || 'Person'} would be at ${newLoad}% in ${m}`);
@@ -49,7 +53,7 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
       m = next;
     }
     return msgs;
-  }, [personId, startMonth, endMonth, effectiveIntensity, projects, whatIfProject, phase, isEditing, team]);
+  }, [personId, startMonth, endMonth, effectiveIntensity, projects, whatIfProject, phase, isEditing, team, project]);
 
   function handleSave() {
     const phaseData = {

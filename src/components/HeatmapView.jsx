@@ -137,7 +137,11 @@ const HeatmapRow = React.memo(function HeatmapRow({ person, months, now, project
               className={`heatmap-cell ${m === now ? 'current' : ''} ${colorLoad > 100 ? 'overcommit' : ''} ${hasWhatIf ? 'has-whatif' : ''} ${isFinderMatch ? 'finder-match' : ''}`}
               style={{ width: MONTH_WIDTH, background: getLoadColor(colorLoad), color: getLoadTextColor(colorLoad) }}
               title={[
-                ...phases.map(p => `${p.projectName}: ${PHASE_TYPES[p.type]?.label} (${p.intensityOverride ?? PHASE_TYPES[p.type]?.weight}%)${p.isWhatIf ? ' [what-if]' : ''}`),
+                ...phases.map(p => {
+                  const base = p.intensityOverride ?? PHASE_TYPES[p.type]?.weight;
+                  const urg = p.urgencyFactor < 1 ? ` × ${Math.round(p.urgencyFactor * 100)}% urgency → ${p.effectiveIntensity}%` : '';
+                  return `${p.projectName}: ${PHASE_TYPES[p.type]?.label} (${base}%${urg})${p.isWhatIf ? ' [what-if]' : ''}`;
+                }),
                 hasCapOverride ? `Capacity: ${capacity}%` : '',
               ].filter(Boolean).join('\n')}
             >

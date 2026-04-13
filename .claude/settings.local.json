@@ -13,7 +13,8 @@
       "Bash(grep -n \"disabled\\\\|alert\\\\|error\" components/*.jsx App.jsx)",
       "Bash(grep -n \"\\\\.map\\\\|\\\\.filter\\\\|\\\\.find\\\\|\\\\.reduce\" components/*.jsx utils.js)",
       "Bash(grep -n \"useMemo\\\\|useCallback\" components/*.jsx)",
-      "Bash(grep -n \"startMonth.*endMonth\\\\|endMonth.*startMonth\" components/*.jsx)"
+      "Bash(grep -n \"startMonth.*endMonth\\\\|endMonth.*startMonth\" components/*.jsx)",
+      "Bash(npm run:*)"
     ]
   }
 }
