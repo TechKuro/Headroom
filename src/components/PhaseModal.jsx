@@ -88,6 +88,9 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
 
   function handleDelete() {
     if (!phase) return;
+    const phaseInfo = PHASE_TYPES[phase.type];
+    const person = team.find(t => t.id === phase.personId);
+    if (!confirm(`Delete this ${phaseInfo?.label || phase.type} phase for ${person?.name || 'unknown'}?`)) return;
     if (isWhatIf) {
       setWhatIfProject(prev => ({
         ...prev,

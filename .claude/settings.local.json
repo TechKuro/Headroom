@@ -4,7 +4,16 @@
       "Bash(npm install:*)",
       "Bash(npx vite:*)",
       "Bash(curl -s http://localhost:5173)",
-      "Bash(pkill -f \"vite\")"
+      "Bash(pkill -f \"vite\")",
+      "Bash(grep -n \"phase.startMonth.*phase.endMonth\\\\|month.*phase.startMonth\\\\|month.*phase.endMonth\" utils.js components/*.jsx)",
+      "Bash(python3)",
+      "Bash(grep -n \"type=\\\\\"month\\\\\"\" components/*.jsx App.jsx)",
+      "Bash(grep -n \"split\\('-'\\)\" components/*.jsx utils.js App.jsx)",
+      "Bash(grep -n \"whatIfProject\" App.jsx components/*.jsx)",
+      "Bash(grep -n \"disabled\\\\|alert\\\\|error\" components/*.jsx App.jsx)",
+      "Bash(grep -n \"\\\\.map\\\\|\\\\.filter\\\\|\\\\.find\\\\|\\\\.reduce\" components/*.jsx utils.js)",
+      "Bash(grep -n \"useMemo\\\\|useCallback\" components/*.jsx)",
+      "Bash(grep -n \"startMonth.*endMonth\\\\|endMonth.*startMonth\" components/*.jsx)"
     ]
   }
 }

@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { genId, getCurrentMonth, addMonths } from './utils';
 import { PROJECT_COLORS } from './constants';
+import { addToast } from './toast';
 
 const STORAGE_KEY = 'headroom-capacity-planner';
+const MAX_HISTORY = 50;
 
 // --- Sample data ---
 
@@ -17,10 +19,7 @@ function createSampleData() {
 
   const projects = [
     {
-      id: genId(),
-      name: 'Portal Redesign',
-      color: PROJECT_COLORS[0],
-      deadline: addMonths(now, 5),
+      id: genId(), name: 'Portal Redesign', color: PROJECT_COLORS[0], deadline: addMonths(now, 5),
       phases: [
         { id: genId(), personId: team[0].id, type: 'scoping',       startMonth: addMonths(now, -1), endMonth: now,               intensityOverride: null },
         { id: genId(), personId: team[0].id, type: 'active-build',  startMonth: addMonths(now, 1),  endMonth: addMonths(now, 3), intensityOverride: null },
@@ -29,10 +28,7 @@ function createSampleData() {
       ],
     },
     {
-      id: genId(),
-      name: 'API Migration',
-      color: PROJECT_COLORS[1],
-      deadline: addMonths(now, 3),
+      id: genId(), name: 'API Migration', color: PROJECT_COLORS[1], deadline: addMonths(now, 3),
       phases: [
         { id: genId(), personId: team[1].id, type: 'active-build',  startMonth: addMonths(now, -2), endMonth: addMonths(now, 1), intensityOverride: null },
         { id: genId(), personId: team[3].id, type: 'active-build',  startMonth: addMonths(now, 0),  endMonth: addMonths(now, 2), intensityOverride: 60 },
@@ -40,10 +36,7 @@ function createSampleData() {
       ],
     },
     {
-      id: genId(),
-      name: 'Mobile App',
-      color: PROJECT_COLORS[2],
-      deadline: addMonths(now, 8),
+      id: genId(), name: 'Mobile App', color: PROJECT_COLORS[2], deadline: addMonths(now, 8),
       phases: [
         { id: genId(), personId: team[2].id, type: 'scoping',       startMonth: now,               endMonth: addMonths(now, 1), intensityOverride: null },
         { id: genId(), personId: team[2].id, type: 'waiting',       startMonth: addMonths(now, 2),  endMonth: addMonths(now, 3), intensityOverride: null },
@@ -52,10 +45,7 @@ function createSampleData() {
       ],
     },
     {
-      id: genId(),
-      name: 'Data Pipeline',
-      color: PROJECT_COLORS[3],
-      deadline: addMonths(now, 4),
+      id: genId(), name: 'Data Pipeline', color: PROJECT_COLORS[3], deadline: addMonths(now, 4),
       phases: [
         { id: genId(), personId: team[3].id, type: 'scoping',       startMonth: addMonths(now, -1), endMonth: now,               intensityOverride: null },
         { id: genId(), personId: team[1].id, type: 'active-build',  startMonth: addMonths(now, 2),  endMonth: addMonths(now, 3), intensityOverride: null },
@@ -65,7 +55,11 @@ function createSampleData() {
     },
   ];
 
-  return { team, projects };
+  const capacityOverrides = {
+    [`${team[2].id}-${addMonths(now, 3)}`]: 50, // Charlie half-time demo
+  };
+
+  return { team, projects, capacityOverrides };
 }
 
 // --- State shape ---
@@ -75,13 +69,15 @@ function getInitialState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.team && parsed.projects) return parsed;
+      if (parsed.team && parsed.projects) {
+        return { ...parsed, capacityOverrides: parsed.capacityOverrides || {} };
+      }
     }
   } catch { /* ignore */ }
   return createSampleData();
 }
 
-// --- Reducer ---
+// --- Core reducer ---
 
 function reducer(state, action) {
   switch (action.type) {
@@ -92,13 +88,16 @@ function reducer(state, action) {
       return { ...state, team: state.team.map(m => m.id === action.payload.id ? { ...m, ...action.payload } : m) };
     case 'REMOVE_TEAM_MEMBER': {
       const id = action.payload;
+      // Also clean up capacity overrides for this person
+      const newOverrides = {};
+      for (const [key, val] of Object.entries(state.capacityOverrides)) {
+        if (!key.startsWith(id + '-')) newOverrides[key] = val;
+      }
       return {
         ...state,
         team: state.team.filter(m => m.id !== id),
-        projects: state.projects.map(p => ({
-          ...p,
-          phases: p.phases.filter(ph => ph.personId !== id),
-        })),
+        projects: state.projects.map(p => ({ ...p, phases: p.phases.filter(ph => ph.personId !== id) })),
+        capacityOverrides: newOverrides,
       };
     }
 
@@ -113,12 +112,7 @@ function reducer(state, action) {
     // Phases
     case 'ADD_PHASE': {
       const { projectId, phase } = action.payload;
-      return {
-        ...state,
-        projects: state.projects.map(p =>
-          p.id === projectId ? { ...p, phases: [...p.phases, phase] } : p
-        ),
-      };
+      return { ...state, projects: state.projects.map(p => p.id === projectId ? { ...p, phases: [...p.phases, phase] } : p) };
     }
     case 'UPDATE_PHASE': {
       const { projectId, phase } = action.payload;
@@ -133,51 +127,104 @@ function reducer(state, action) {
     }
     case 'REMOVE_PHASE': {
       const { projectId, phaseId } = action.payload;
-      return {
-        ...state,
-        projects: state.projects.map(p =>
-          p.id === projectId ? { ...p, phases: p.phases.filter(ph => ph.id !== phaseId) } : p
-        ),
-      };
+      return { ...state, projects: state.projects.map(p => p.id === projectId ? { ...p, phases: p.phases.filter(ph => ph.id !== phaseId) } : p) };
+    }
+
+    // Capacity overrides (leave / reduced hours)
+    case 'SET_CAPACITY_OVERRIDE':
+      return { ...state, capacityOverrides: { ...state.capacityOverrides, [action.payload.key]: action.payload.value } };
+    case 'SET_CAPACITY_OVERRIDES_BATCH': {
+      const newOverrides = { ...state.capacityOverrides };
+      for (const { key, value } of action.payload) {
+        if (value === 100 || value === null) {
+          delete newOverrides[key];
+        } else {
+          newOverrides[key] = value;
+        }
+      }
+      return { ...state, capacityOverrides: newOverrides };
+    }
+    case 'REMOVE_CAPACITY_OVERRIDE': {
+      const { [action.payload]: _, ...rest } = state.capacityOverrides;
+      return { ...state, capacityOverrides: rest };
     }
 
     // Bulk import
     case 'IMPORT_DATA':
-      return { team: action.payload.team, projects: action.payload.projects };
+      return { team: action.payload.team, projects: action.payload.projects, capacityOverrides: action.payload.capacityOverrides || {} };
 
     default:
       return state;
   }
 }
 
-// --- Context ---
+// --- Undo/redo wrapper ---
+
+function undoableReducer(history, action) {
+  switch (action.type) {
+    case 'UNDO': {
+      if (history.past.length === 0) return history;
+      const previous = history.past[history.past.length - 1];
+      return {
+        past: history.past.slice(0, -1),
+        present: previous,
+        future: [history.present, ...history.future.slice(0, MAX_HISTORY)],
+      };
+    }
+    case 'REDO': {
+      if (history.future.length === 0) return history;
+      const next = history.future[0];
+      return {
+        past: [...history.past.slice(-MAX_HISTORY), history.present],
+        present: next,
+        future: history.future.slice(1),
+      };
+    }
+    default: {
+      const newPresent = reducer(history.present, action);
+      if (newPresent === history.present) return history;
+      return {
+        past: [...history.past.slice(-(MAX_HISTORY - 1)), history.present],
+        present: newPresent,
+        future: [],
+      };
+    }
+  }
+}
+
+// --- Contexts ---
 
 const StoreContext = createContext(null);
 const DispatchContext = createContext(null);
+const HistoryContext = createContext({ canUndo: false, canRedo: false });
 
 export function StoreProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, null, getInitialState);
+  const [history, dispatch] = useReducer(undoableReducer, null, () => ({
+    past: [],
+    present: getInitialState(),
+    future: [],
+  }));
 
-  // Persist to localStorage on every change
+  // Persist present state
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch { /* quota exceeded, etc. */ }
-  }, [state]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.present));
+    } catch {
+      addToast('Failed to save — localStorage may be full. Export your data as a backup.', 'error');
+    }
+  }, [history.present]);
 
   return (
-    <StoreContext.Provider value={state}>
+    <StoreContext.Provider value={history.present}>
       <DispatchContext.Provider value={dispatch}>
-        {children}
+        <HistoryContext.Provider value={{ canUndo: history.past.length > 0, canRedo: history.future.length > 0 }}>
+          {children}
+        </HistoryContext.Provider>
       </DispatchContext.Provider>
     </StoreContext.Provider>
   );
 }
 
-export function useStore() {
-  return useContext(StoreContext);
-}
-
-export function useDispatch() {
-  return useContext(DispatchContext);
-}
+export function useStore() { return useContext(StoreContext); }
+export function useDispatch() { return useContext(DispatchContext); }
+export function useHistory() { return useContext(HistoryContext); }

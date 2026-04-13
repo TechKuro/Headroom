@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { getMonthRange, getCurrentMonth, monthDiff, getPhaseIntensity, stackBars } from '../utils';
+import { getMonthRange, getCurrentMonth, monthDiff, addMonths, getPhaseIntensity, stackBars, monthLabelShort } from '../utils';
 import { PHASE_TYPES, MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING } from '../constants';
 
-export default function ProjectView({ viewStart, viewEnd, selectedProjectId, setSelectedProjectId, whatIfProject, onAddPhase, onEditPhase }) {
+export default function ProjectView({ viewStart, viewEnd, selectedProjectId, setSelectedProjectId, whatIfProject, onAddPhase, onEditPhase, onDragUpdate }) {
   const { team, projects } = useStore();
   const months = useMemo(() => getMonthRange(viewStart, viewEnd), [viewStart, viewEnd]);
   const now = getCurrentMonth();
@@ -57,7 +57,7 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
           ))}
         </select>
         <span className="project-dot-lg" style={{ background: project.color }} />
-        {project.deadline && <span className="project-deadline">Deadline: {formatMonth(project.deadline)}</span>}
+        {project.deadline && <span className="project-deadline">Deadline: {monthLabelShort(project.deadline)}</span>}
         <button className="text-btn-sm" onClick={() => onAddPhase(project.id)}>+ Add Phase</button>
       </div>
 
@@ -67,7 +67,7 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
           <div className="timeline-months">
             {months.map(m => (
               <div key={m} className={`timeline-month-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}>
-                {formatMonth(m)}
+                {monthLabelShort(m)}
               </div>
             ))}
           </div>
@@ -86,51 +86,21 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
         )}
 
         {/* Involved people */}
-        {involvedPeople.map(person => {
-          const bars = phasesByPerson[person.id] || [];
-          const { bars: stacked, rowCount } = stackBars(bars);
-          const rowHeight = Math.max(1, rowCount) * (BAR_HEIGHT + BAR_GAP) + ROW_PADDING * 2;
-
-          return (
-            <div key={person.id} className="timeline-row" style={{ minHeight: rowHeight }}>
-              <div className="timeline-label-col person-label">
-                <span className="person-name">{person.name}</span>
-              </div>
-              <div className="timeline-cells" style={{ width: gridWidth }}>
-                {months.map(m => (
-                  <div key={m} className={`timeline-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}
-                    onClick={() => onAddPhase(project.id, { personId: person.id, startMonth: m, endMonth: m })}
-                  />
-                ))}
-                {stacked.map(bar => {
-                  const startOffset = monthDiff(viewStart, bar.startMonth);
-                  const span = monthDiff(bar.startMonth, bar.endMonth) + 1;
-                  if (startOffset + span < 0 || startOffset > months.length) return null;
-                  const left = Math.max(0, startOffset) * MONTH_WIDTH;
-                  const clippedSpan = Math.min(span - Math.max(0, -startOffset), months.length - Math.max(0, startOffset));
-                  const width = clippedSpan * MONTH_WIDTH - 4;
-                  const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
-                  const intensity = getPhaseIntensity(bar);
-                  const phaseInfo = PHASE_TYPES[bar.type];
-                  return (
-                    <div
-                      key={bar.id}
-                      className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''}`}
-                      style={{ left, top, width: Math.max(width, 30), height: BAR_HEIGHT, background: project.color, opacity: 0.4 + (intensity / 100) * 0.6 }}
-                      title={`${phaseInfo?.label || bar.type} (${intensity}%)`}
-                      onClick={e => { e.stopPropagation(); onEditPhase(project.id, bar); }}
-                    >
-                      <span className="bar-label">
-                        {phaseInfo?.label || bar.type}
-                        <span className="bar-phase">{intensity}%</span>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        {involvedPeople.map(person => (
+          <ProjectPersonRow
+            key={person.id}
+            person={person}
+            bars={phasesByPerson[person.id] || []}
+            project={project}
+            months={months}
+            viewStart={viewStart}
+            gridWidth={gridWidth}
+            now={now}
+            onAddPhase={onAddPhase}
+            onEditPhase={onEditPhase}
+            onDragUpdate={onDragUpdate}
+          />
+        ))}
 
         {/* Uninvolved people (dimmed) */}
         {uninvolved.map(person => (
@@ -152,8 +122,70 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
   );
 }
 
-function formatMonth(m) {
-  const [y, mo] = m.split('-');
-  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${names[parseInt(mo) - 1]} '${y.slice(2)}`;
+function ProjectPersonRow({ person, bars: rawBars, project, months, viewStart, gridWidth, now, onAddPhase, onEditPhase, onDragUpdate }) {
+  const { bars: stacked, rowCount } = useMemo(() => stackBars(rawBars), [rawBars]);
+  const rowHeight = Math.max(1, rowCount) * (BAR_HEIGHT + BAR_GAP) + ROW_PADDING * 2;
+  const [drag, setDrag] = useState(null);
+
+  useEffect(() => {
+    if (!drag) return;
+    function onMouseMove(e) {
+      const deltaX = e.clientX - drag.startX;
+      const dm = Math.round(deltaX / MONTH_WIDTH);
+      let ns, ne;
+      if (drag.mode === 'left') { ns = addMonths(drag.origStart, dm); ne = drag.origEnd; if (ns > ne) ns = ne; }
+      else if (drag.mode === 'right') { ns = drag.origStart; ne = addMonths(drag.origEnd, dm); if (ne < ns) ne = ns; }
+      else { ns = addMonths(drag.origStart, dm); ne = addMonths(drag.origEnd, dm); }
+      setDrag(prev => ({ ...prev, previewStart: ns, previewEnd: ne }));
+    }
+    function onMouseUp() {
+      if (drag.previewStart !== undefined && (drag.previewStart !== drag.origStart || drag.previewEnd !== drag.origEnd))
+        onDragUpdate(drag.projectId, drag.phaseId, { startMonth: drag.previewStart, endMonth: drag.previewEnd }, drag.isWhatIf);
+      setDrag(null);
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+  }, [drag, onDragUpdate]);
+
+  function startDrag(e, bar, mode) {
+    e.stopPropagation(); e.preventDefault();
+    setDrag({ phaseId: bar.id, projectId: bar.projectId, isWhatIf: bar.isWhatIf, mode, startX: e.clientX, origStart: bar.startMonth, origEnd: bar.endMonth });
+  }
+
+  return (
+    <div className="timeline-row" style={{ minHeight: rowHeight }}>
+      <div className="timeline-label-col person-label"><span className="person-name">{person.name}</span></div>
+      <div className="timeline-cells" style={{ width: gridWidth }}>
+        {months.map(m => (
+          <div key={m} className={`timeline-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}
+            onClick={() => onAddPhase(project.id, { personId: person.id, startMonth: m, endMonth: m })} />
+        ))}
+        {stacked.map(bar => {
+          const isDragging = drag && drag.phaseId === bar.id;
+          const bs = isDragging && drag.previewStart ? drag.previewStart : bar.startMonth;
+          const be = isDragging && drag.previewEnd ? drag.previewEnd : bar.endMonth;
+          const so = monthDiff(viewStart, bs); const sp = monthDiff(bs, be) + 1;
+          if (so + sp < 0 || so > months.length) return null;
+          const left = Math.max(0, so) * MONTH_WIDTH;
+          const cs = Math.min(sp - Math.max(0, -so), months.length - Math.max(0, so));
+          const width = cs * MONTH_WIDTH - 4;
+          const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
+          const intensity = getPhaseIntensity(bar); const pi = PHASE_TYPES[bar.type];
+          return (
+            <div key={bar.id} className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''} ${isDragging ? 'dragging' : ''}`}
+              style={{ left, top, width: Math.max(width, 30), height: BAR_HEIGHT, background: project.color, opacity: 0.4 + (intensity / 100) * 0.6 }}
+              title={`${pi?.label || bar.type} (${intensity}%)`}
+              onClick={e => { e.stopPropagation(); if (!isDragging) onEditPhase(project.id, bar); }}>
+              <div className="drag-handle drag-handle-left" onMouseDown={e => startDrag(e, bar, 'left')} />
+              <span className="bar-label" onMouseDown={e => startDrag(e, bar, 'move')} style={{ cursor: 'grab' }}>
+                {pi?.label || bar.type}<span className="bar-phase">{intensity}%</span>
+              </span>
+              <div className="drag-handle drag-handle-right" onMouseDown={e => startDrag(e, bar, 'right')} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

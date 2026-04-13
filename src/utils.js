@@ -57,6 +57,10 @@ export function getPhaseIntensity(phase) {
   return PHASE_TYPES[phase.type]?.weight ?? 0;
 }
 
+export function getPersonCapacity(personId, month, capacityOverrides = {}) {
+  return capacityOverrides[`${personId}-${month}`] ?? 100;
+}
+
 export function calculateLoad(personId, month, projects, whatIfProject = null) {
   let total = 0;
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
@@ -68,6 +72,11 @@ export function calculateLoad(personId, month, projects, whatIfProject = null) {
     }
   }
   return total;
+}
+
+export function getEffectiveUtilisation(load, capacity) {
+  if (capacity <= 0) return load > 0 ? 999 : 0;
+  return Math.round(load / capacity * 100);
 }
 
 export function getLoadColor(load) {
@@ -129,7 +138,6 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
 // --- Stack overlapping bars ---
 
 export function stackBars(bars) {
-  // Sort by start, then by duration (longest first)
   const sorted = [...bars].sort((a, b) => {
     if (a.startMonth !== b.startMonth) return a.startMonth < b.startMonth ? -1 : 1;
     return monthDiff(a.startMonth, a.endMonth) > monthDiff(b.startMonth, b.endMonth) ? -1 : 1;
@@ -152,4 +160,29 @@ export function stackBars(bars) {
     }
   }
   return { bars: sorted, rowCount: rows.length };
+}
+
+// --- Availability finder ---
+
+export function findAvailableSlots(team, months, projects, whatIfProject, capacityOverrides, phaseType, duration) {
+  const weight = PHASE_TYPES[phaseType]?.weight ?? 100;
+  const result = {}; // { personId: Set<month> }
+
+  for (const person of team) {
+    const validMonths = new Set();
+    for (let i = 0; i <= months.length - duration; i++) {
+      let ok = true;
+      for (let j = 0; j < duration; j++) {
+        const m = months[i + j];
+        const load = calculateLoad(person.id, m, projects, whatIfProject);
+        const cap = getPersonCapacity(person.id, m, capacityOverrides);
+        if (load + weight > cap) { ok = false; break; }
+      }
+      if (ok) {
+        for (let j = 0; j < duration; j++) validMonths.add(months[i + j]);
+      }
+    }
+    if (validMonths.size > 0) result[person.id] = validMonths;
+  }
+  return result;
 }

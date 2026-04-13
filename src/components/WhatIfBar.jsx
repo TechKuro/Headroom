@@ -1,39 +1,27 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useDispatch } from '../store';
 import { PROJECT_COLORS } from '../constants';
 
 export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
   const dispatch = useDispatch();
-  const [name, setName] = useState(whatIfProject.name);
-  const [deadline, setDeadline] = useState(whatIfProject.deadline);
 
-  function updateName(val) {
-    setName(val);
-    setWhatIfProject(prev => ({ ...prev, name: val }));
-  }
-
-  function updateDeadline(val) {
-    setDeadline(val);
-    setWhatIfProject(prev => ({ ...prev, deadline: val }));
-  }
-
-  function updateColor(color) {
-    setWhatIfProject(prev => ({ ...prev, color }));
+  function updateField(field, value) {
+    setWhatIfProject(prev => ({ ...prev, [field]: value }));
   }
 
   function commit() {
     const { isWhatIf, ...project } = whatIfProject;
-    // Generate a clean id
     const cleanProject = {
       ...project,
       id: project.id.replace('what-if-', ''),
-      name: name || 'Unnamed Project',
+      name: whatIfProject.name.trim() || 'Unnamed Project',
     };
     dispatch({ type: 'ADD_PROJECT', payload: cleanProject });
     setWhatIfProject(null);
   }
 
   function discard() {
+    if (whatIfProject.phases.length > 0 && !confirm(`Discard "${whatIfProject.name}" and its ${whatIfProject.phases.length} phase(s)?`)) return;
     setWhatIfProject(null);
   }
 
@@ -47,15 +35,15 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
       </div>
       <div className="what-if-fields">
         <input
-          value={name}
-          onChange={e => updateName(e.target.value)}
+          value={whatIfProject.name}
+          onChange={e => updateField('name', e.target.value)}
           placeholder="Project name…"
           className="what-if-input"
         />
         <input
           type="month"
-          value={deadline}
-          onChange={e => updateDeadline(e.target.value)}
+          value={whatIfProject.deadline}
+          onChange={e => updateField('deadline', e.target.value)}
           className="what-if-input month-input"
           placeholder="Deadline"
         />
@@ -65,7 +53,7 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
               key={c}
               className={`color-swatch-sm ${whatIfProject.color === c ? 'active' : ''}`}
               style={{ background: c }}
-              onClick={() => updateColor(c)}
+              onClick={() => updateField('color', c)}
             />
           ))}
         </div>
@@ -74,7 +62,7 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
         <span className="phase-count">{whatIfProject.phases.length} phase{whatIfProject.phases.length !== 1 ? 's' : ''}</span>
       </div>
       <div className="what-if-actions">
-        <button className="btn btn-sm btn-success" onClick={commit} disabled={!name.trim()}>
+        <button className="btn btn-sm btn-success" onClick={commit} disabled={!whatIfProject.name.trim()}>
           Commit Project
         </button>
         <button className="btn btn-sm btn-ghost" onClick={discard}>Discard</button>

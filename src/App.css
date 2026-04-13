@@ -1009,3 +1009,454 @@ body {
   color: var(--text-3);
   font-size: 14px;
 }
+
+/* ============================================
+   What-If Heatmap Distinction
+   ============================================ */
+
+.heatmap-cell.has-whatif {
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+}
+
+.heatmap-whatif-delta {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--warning);
+  opacity: 0.9;
+}
+
+.heatmap-dot.whatif-dot {
+  outline: 1px dashed rgba(255,255,255,0.5);
+  outline-offset: 1px;
+}
+
+/* ============================================
+   Toasts
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-1);
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in 0.2s ease-out;
+  max-width: 380px;
+}
+
+.toast-error {
+  border-color: var(--danger);
+  background: linear-gradient(135deg, var(--bg-3), #ef444418);
+}
+.toast-error svg { color: var(--danger); }
+
+.toast-warn {
+  border-color: var(--warning);
+  background: linear-gradient(135deg, var(--bg-3), #f59e0b18);
+}
+.toast-warn svg { color: var(--warning); }
+
+.toast-success {
+  border-color: var(--success);
+  background: linear-gradient(135deg, var(--bg-3), #22c55e18);
+}
+.toast-success svg { color: var(--success); }
+
+.toast-info {
+  border-color: var(--accent);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   Drag Handles
+   ============================================ */
+
+.drag-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 4;
+  transition: background 0.1s;
+  border-radius: 2px;
+}
+.drag-handle:hover { background: rgba(255,255,255,0.25); }
+.drag-handle-left { left: 0; }
+.drag-handle-right { right: 0; }
+
+.phase-bar.dragging {
+  opacity: 0.9 !important;
+  filter: brightness(1.2);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  z-index: 10;
+}
+
+/* ============================================
+   Undo/Redo & Header extras
+   ============================================ */
+
+.undo-redo {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-btn:disabled { opacity: 0.25; cursor: default; }
+.icon-btn:disabled:hover { background: transparent; }
+
+.header-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.icon-btn.active-tool {
+  background: var(--accent);
+  color: #fff;
+}
+.icon-btn.active-tool:hover { background: var(--accent-dim); }
+
+/* ============================================
+   Availability Finder Bar
+   ============================================ */
+
+.finder-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, #22c55e11, #22c55e08);
+  border-bottom: 1px solid #22c55e44;
+  flex-shrink: 0;
+}
+
+.finder-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.finder-fields {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.finder-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.finder-field label {
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.finder-select {
+  padding: 4px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-1);
+  font-size: 11px;
+  outline: none;
+  color-scheme: dark;
+}
+
+.finder-duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.finder-dur-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: center;
+}
+
+.finder-result {
+  flex: 1;
+  font-size: 12px;
+}
+
+.finder-match-text { color: var(--success); font-weight: 500; }
+.finder-no-match { color: var(--text-3); font-style: italic; }
+
+.timeline-cell.finder-match,
+.heatmap-cell.finder-match {
+  background: rgba(34, 197, 94, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.3);
+}
+
+/* ============================================
+   Leave Modal
+   ============================================ */
+
+.leave-existing {
+  padding: 10px;
+  background: var(--bg-3);
+  border-radius: 6px;
+}
+
+.leave-existing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.leave-existing-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leave-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.leave-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.leave-chip-x {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.leave-chip-x:hover { color: var(--danger); }
+
+.capacity-presets {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.preset-btn {
+  padding: 4px 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.preset-btn:hover { border-color: var(--accent); color: var(--text-1); }
+.preset-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.leave-indicator {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--warning);
+  background: #f59e0b22;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.heatmap-cap-indicator {
+  font-size: 9px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+/* ============================================
+   Quick Plan / Templates
+   ============================================ */
+
+.phase-list-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+.template-card:hover { border-color: var(--accent); }
+.template-card.active { border-color: var(--accent); background: var(--accent)15; }
+
+.template-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.template-desc {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.template-preview {
+  padding: 10px;
+  background: var(--bg-3);
+  border-radius: 6px;
+}
+
+.template-preview-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.template-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.template-preview-row:last-child { border-bottom: none; }
+
+.template-preview-type { flex: 1; color: var(--text-1); font-weight: 500; }
+.template-preview-weight { color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.template-preview-range { color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.template-preview-dur { color: var(--accent); font-weight: 600; font-size: 10px; }
+
+/* ============================================
+   Utilisation Summary
+   ============================================ */
+
+.util-summary {
+  padding: 16px;
+  border-top: 2px solid var(--border);
+  background: var(--bg-1);
+}
+
+.util-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+
+.util-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.util-name {
+  width: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+
+.util-bar-track {
+  flex: 1;
+  height: 16px;
+  background: var(--bg-3);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.util-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.util-bar-peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text-3);
+}
+
+.util-avg {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-2);
+  min-width: 55px;
+  text-align: right;
+}
+
+.util-peak {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-3);
+  min-width: 60px;
+  text-align: right;
+}
+.util-peak.over { color: var(--danger); font-weight: 600; }
+
+.util-free {
+  font-size: 10px;
+  color: var(--success);
+  min-width: 45px;
+  text-align: right;
+}
