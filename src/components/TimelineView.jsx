@@ -156,13 +156,13 @@ const PersonRow = React.memo(function PersonRow({ person, projects, whatIfProjec
           return (
             <div
               key={bar.id}
-              className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''} ${isDragging ? 'dragging' : ''}`}
+              className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''} ${isDragging ? 'dragging' : ''} ${bar.isHeld ? 'held' : ''}`}
               style={{
                 left, top, width: Math.max(width, 30), height: BAR_HEIGHT,
-                background: bar.projectColor,
-                opacity: 0.4 + (intensity / 100) * 0.6,
+                background: bar.isHeld ? 'var(--text-3)' : bar.projectColor,
+                opacity: bar.isHeld ? 0.35 : (0.4 + (intensity / 100) * 0.6),
               }}
-              title={`${bar.projectName} — ${phaseInfo?.label || bar.type} (${intensity}%)${isDragging ? `\n${barStart} → ${barEnd}` : ''}`}
+              title={`${bar.projectName} — ${phaseInfo?.label || bar.type} (${intensity}%)${bar.isHeld ? ' [HELD]' : ''}${isDragging ? `\n${barStart} → ${barEnd}` : ''}`}
               onClick={(e) => { e.stopPropagation(); if (!isDragging) onEditPhase(bar.projectId, bar); }}
             >
               {/* Left drag handle */}

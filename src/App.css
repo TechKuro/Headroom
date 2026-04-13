@@ -575,6 +575,87 @@ body {
 
 .view-project-btn { align-self: flex-start; margin-top: 4px; }
 
+/* ---- Project Hold ---- */
+
+.project-held .project-name { opacity: 0.5; text-decoration: line-through; }
+
+.hold-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--warning);
+  background: #f59e0b22;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.hold-controls {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hold-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 200px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  padding: 4px;
+  z-index: 50;
+  animation: doc-menu-in 0.12s ease-out;
+}
+
+.hold-menu-title {
+  padding: 6px 10px 4px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-3);
+}
+
+.hold-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.hold-menu-item:hover { background: var(--bg-3); color: var(--text-1); }
+
+.hold-hint {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.hold-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+
+.phase-bar.held {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 3px,
+    rgba(255,255,255,0.08) 3px,
+    rgba(255,255,255,0.08) 6px
+  ) !important;
+}
+
 /* ---- What-If sidebar ---- */
 
 .what-if-btn {

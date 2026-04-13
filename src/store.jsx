@@ -148,6 +148,15 @@ function reducer(state, action) {
       return { ...state, capacityOverrides: rest };
     }
 
+    // Project hold
+    case 'HOLD_PROJECT': {
+      const { projectId, hold } = action.payload;
+      return { ...state, projects: state.projects.map(p => p.id === projectId ? { ...p, hold } : p) };
+    }
+    case 'RESUME_PROJECT': {
+      return { ...state, projects: state.projects.map(p => p.id === action.payload ? { ...p, hold: null } : p) };
+    }
+
     // Bulk import
     case 'IMPORT_DATA':
       return { team: action.payload.team, projects: action.payload.projects, capacityOverrides: action.payload.capacityOverrides || {} };

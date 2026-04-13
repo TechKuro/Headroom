@@ -61,13 +61,23 @@ export function getPersonCapacity(personId, month, capacityOverrides = {}) {
   return capacityOverrides[`${personId}-${month}`] ?? 100;
 }
 
+export function getProjectHoldFactor(project, month) {
+  if (!project.hold) return 1;
+  const { startMonth, endMonth, reduction } = project.hold;
+  if (month >= startMonth && (endMonth === null || month <= endMonth)) {
+    return 1 - (reduction / 100);
+  }
+  return 1;
+}
+
 export function calculateLoad(personId, month, projects, whatIfProject = null) {
   let total = 0;
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
+    const holdFactor = getProjectHoldFactor(project, month);
     for (const phase of project.phases) {
       if (phase.personId === personId && month >= phase.startMonth && month <= phase.endMonth) {
-        total += getPhaseIntensity(phase);
+        total += Math.round(getPhaseIntensity(phase) * holdFactor);
       }
     }
   }
@@ -105,9 +115,10 @@ export function getActivePhases(personId, month, projects, whatIfProject = null)
   const result = [];
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
+    const holdFactor = getProjectHoldFactor(project, month);
     for (const phase of project.phases) {
       if (phase.personId === personId && month >= phase.startMonth && month <= phase.endMonth) {
-        result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false });
+        result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false, holdFactor });
       }
     }
   }
@@ -120,6 +131,7 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
   const result = [];
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
+    const isHeld = !!project.hold;
     for (const phase of project.phases) {
       if (phase.personId === personId) {
         result.push({
@@ -128,6 +140,8 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
           projectName: project.name,
           projectColor: project.color,
           isWhatIf: project.isWhatIf || false,
+          isHeld,
+          hold: project.hold,
         });
       }
     }
