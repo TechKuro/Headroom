@@ -82,6 +82,15 @@ export default function HeatmapView({ viewStart, viewEnd, whatIfProject, finderM
           </div>
         </div>
 
+        {/* Print legend — hidden on screen, visible in PDF */}
+        <div className="print-legend">
+          <span className="print-legend-title">Legend</span>
+          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#16a34a' }} />0–60% Light</span>
+          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#ca8a04' }} />61–80% Moderate</span>
+          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#ea580c' }} />81–100% At capacity</span>
+          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#dc2626' }} />Over 100% Overcommitted</span>
+        </div>
+
         {/* Utilisation summary */}
         <div className="util-summary">
           <div className="util-header">Utilisation Summary — {months.length} months shown</div>

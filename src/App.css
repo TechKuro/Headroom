@@ -1600,6 +1600,12 @@ body {
 }
 
 /* ============================================
+   Print Legend (hidden on screen)
+   ============================================ */
+
+.print-legend { display: none; }
+
+/* ============================================
    Print / PDF Export
    ============================================ */
 
@@ -1705,6 +1711,41 @@ body {
   .util-summary { background: #fff; border-color: #dee2e6; }
   .util-bar-track { background: #e9ecef; }
   .util-bar-fill {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Print legend */
+  .print-legend {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    margin-top: 12px;
+    border-top: 1px solid #dee2e6;
+    font-size: 10px;
+    color: #495057;
+  }
+
+  .print-legend-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 9px;
+    color: #868e96;
+  }
+
+  .print-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .print-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

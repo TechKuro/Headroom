@@ -11,6 +11,7 @@ import AvailabilityFinder from './components/AvailabilityFinder';
 import DocumentBar from './components/DocumentBar';
 import Toasts from './components/Toasts';
 import { getCurrentMonth, addMonths } from './utils';
+import { addToast } from './toast';
 import * as docManager from './docManager';
 
 export default function App() {
@@ -58,6 +59,11 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
         dispatch({ type: 'REDO' });
+      }
+      // Ctrl+S / Cmd+S = confirm save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        addToast('Saved', 'success');
       }
     }
     window.addEventListener('keydown', handleKey);
