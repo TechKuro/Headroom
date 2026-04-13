@@ -2,8 +2,8 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { genId, getCurrentMonth, addMonths } from './utils';
 import { PROJECT_COLORS } from './constants';
 import { addToast } from './toast';
+import * as docManager from './docManager';
 
-const STORAGE_KEY = 'headroom-capacity-planner';
 const MAX_HISTORY = 50;
 
 // --- Sample data ---
@@ -65,15 +65,14 @@ function createSampleData() {
 // --- State shape ---
 
 function getInitialState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.team && parsed.projects) {
-        return { ...parsed, capacityOverrides: parsed.capacityOverrides || {} };
-      }
+  docManager.migrateIfNeeded();
+  const activeId = docManager.getActiveDocId();
+  if (activeId) {
+    const data = docManager.loadDoc(activeId);
+    if (data?.team && data?.projects) {
+      return { ...data, capacityOverrides: data.capacityOverrides || {} };
     }
-  } catch { /* ignore */ }
+  }
   return createSampleData();
 }
 
@@ -162,6 +161,9 @@ function reducer(state, action) {
 
 function undoableReducer(history, action) {
   switch (action.type) {
+    case 'LOAD_DOCUMENT': {
+      return { past: [], present: action.payload, future: [] };
+    }
     case 'UNDO': {
       if (history.past.length === 0) return history;
       const previous = history.past[history.past.length - 1];
@@ -205,10 +207,13 @@ export function StoreProvider({ children }) {
     future: [],
   }));
 
-  // Persist present state
+  // Persist present state to active document
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.present));
+      const activeId = docManager.getActiveDocId();
+      if (activeId) {
+        docManager.saveDoc(activeId, history.present);
+      }
     } catch {
       addToast('Failed to save — localStorage may be full. Export your data as a backup.', 'error');
     }

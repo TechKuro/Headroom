@@ -23,9 +23,9 @@ The app opens at `http://localhost:5173` in your browser.
 
 ### First run
 
-The app comes pre-loaded with sample data (4 team members, 4 projects) so you can explore immediately. All changes are automatically saved to your browser's localStorage.
+The app comes pre-loaded with a "Sample Plan" containing 4 team members and 4 projects so you can explore immediately. All changes are automatically saved to your browser's localStorage.
 
-To start fresh, clear your browser's localStorage for the site, or import a blank JSON file.
+To start a fresh plan, use the document menu (see below).
 
 ---
 
@@ -58,6 +58,7 @@ Everything operates at month granularity. No hours, no days, no sprints. This is
 | Element | What it does |
 |---|---|
 | **Hamburger menu** | Show/hide the sidebar |
+| **Document menu** | Click the plan name to open: New, Save As Copy, Load, Rename, Delete, Export to PDF |
 | **Timeline / Heatmap / Project** tabs | Switch between the three main views |
 | **Undo / Redo** buttons | Undo or redo any change (also Ctrl+Z / Ctrl+Y) |
 | **Search icon** | Toggle the Availability Finder |
@@ -240,10 +241,23 @@ Every action (adding, editing, removing phases/projects/members, applying templa
 - Or click the arrow buttons in the header
 - History stores up to 50 steps
 
-### Export / Import
+### Document Management (Plans)
+
+The document menu is in the header — click the plan name to open it.
+
+- **Rename**: Edit the plan name inline
+- **New Plan**: Creates a blank plan (empty team, no projects). Your current plan is saved automatically.
+- **Save As Copy**: Duplicates the current plan under a new name. Useful for creating "what if we hired?" variations.
+- **Load**: Switch to a different saved plan. All your plans are listed with their last modified date.
+- **Delete**: Remove a plan permanently (with confirmation).
+- **Export to PDF**: Opens the browser's print dialog. Choose "Save as PDF" to create a file. The print layout uses a clean white background with landscape orientation.
+
+All plans auto-save to localStorage as you work. Switching between plans resets the undo history.
+
+### Export / Import (JSON)
 
 - **Export**: Downloads a JSON file with all your data (team, projects, capacity overrides)
-- **Import**: Loads a JSON file, replacing all current data
+- **Import**: Loads a JSON file, replacing the current plan's data
 
 Use this for backups, sharing with colleagues, or migrating between machines.
 

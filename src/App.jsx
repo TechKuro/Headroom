@@ -8,8 +8,10 @@ import PhaseModal from './components/PhaseModal';
 import WhatIfBar from './components/WhatIfBar';
 import ExportImport from './components/ExportImport';
 import AvailabilityFinder from './components/AvailabilityFinder';
+import DocumentBar from './components/DocumentBar';
 import Toasts from './components/Toasts';
 import { getCurrentMonth, addMonths } from './utils';
+import * as docManager from './docManager';
 
 export default function App() {
   const store = useStore();
@@ -22,6 +24,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderMatches, setFinderMatches] = useState(null);
+  const [activeDocId, setActiveDocId] = useState(() => docManager.getActiveDocId());
 
   const now = getCurrentMonth();
   const [viewStart, setViewStart] = useState(addMonths(now, -2));
@@ -71,8 +74,9 @@ export default function App() {
             </svg>
           </button>
           <h1 className="app-title">Headroom</h1>
-          <span className="app-subtitle">Capacity Planner</span>
         </div>
+
+        <DocumentBar activeDocId={activeDocId} setActiveDocId={setActiveDocId} />
 
         <nav className="view-tabs">
           <button className={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => setView('timeline')}>Timeline</button>
