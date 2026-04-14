@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { genId, getCurrentMonth, addMonths } from './utils';
+import { genId, getCurrentMonth, getCurrentDate, addMonths, addDays, migratePhase } from './utils';
 import { PROJECT_COLORS } from './constants';
 import { addToast } from './toast';
 import * as docManager from './docManager';
@@ -7,6 +7,15 @@ import * as docManager from './docManager';
 const MAX_HISTORY = 50;
 
 // --- Sample data ---
+
+function toDate(monthStr, isEnd = false) {
+  if (isEnd) {
+    const [y, m] = monthStr.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+  }
+  return `${monthStr}-01`;
+}
 
 function createSampleData() {
   const now = getCurrentMonth();
@@ -21,36 +30,34 @@ function createSampleData() {
     {
       id: genId(), name: 'Portal Redesign', color: PROJECT_COLORS[0], deadline: addMonths(now, 5),
       phases: [
-        { id: genId(), personId: team[0].id, type: 'scoping',       startMonth: addMonths(now, -1), endMonth: now,               intensityOverride: null },
-        { id: genId(), personId: team[0].id, type: 'active-build',  startMonth: addMonths(now, 1),  endMonth: addMonths(now, 3), intensityOverride: null },
-        { id: genId(), personId: team[2].id, type: 'active-build',  startMonth: addMonths(now, 1),  endMonth: addMonths(now, 4), intensityOverride: null },
-        { id: genId(), personId: team[0].id, type: 'final-push',    startMonth: addMonths(now, 4),  endMonth: addMonths(now, 5), intensityOverride: null },
+        { id: genId(), personIds: [team[0].id],           type: 'scoping',       startMonth: toDate(addMonths(now, -1)),      endMonth: toDate(now, true),               intensityOverride: null },
+        { id: genId(), personIds: [team[0].id, team[2].id], type: 'active-build', startMonth: toDate(addMonths(now, 1)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
+        { id: genId(), personIds: [team[0].id],           type: 'final-push',    startMonth: toDate(addMonths(now, 4)),       endMonth: toDate(addMonths(now, 5), true),  intensityOverride: null },
       ],
     },
     {
       id: genId(), name: 'API Migration', color: PROJECT_COLORS[1], deadline: addMonths(now, 3),
       phases: [
-        { id: genId(), personId: team[1].id, type: 'active-build',  startMonth: addMonths(now, -2), endMonth: addMonths(now, 1), intensityOverride: null },
-        { id: genId(), personId: team[3].id, type: 'active-build',  startMonth: addMonths(now, 0),  endMonth: addMonths(now, 2), intensityOverride: 60 },
-        { id: genId(), personId: team[1].id, type: 'final-push',    startMonth: addMonths(now, 2),  endMonth: addMonths(now, 3), intensityOverride: null },
+        { id: genId(), personIds: [team[1].id],           type: 'active-build',  startMonth: toDate(addMonths(now, -2)),      endMonth: toDate(addMonths(now, 1), true),  intensityOverride: null },
+        { id: genId(), personIds: [team[3].id],           type: 'active-build',  startMonth: toDate(addMonths(now, 0)),       endMonth: toDate(addMonths(now, 2), true),  intensityOverride: 60 },
+        { id: genId(), personIds: [team[1].id],           type: 'final-push',    startMonth: toDate(addMonths(now, 2)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
       ],
     },
     {
       id: genId(), name: 'Mobile App', color: PROJECT_COLORS[2], deadline: addMonths(now, 8),
       phases: [
-        { id: genId(), personId: team[2].id, type: 'scoping',       startMonth: now,               endMonth: addMonths(now, 1), intensityOverride: null },
-        { id: genId(), personId: team[2].id, type: 'waiting',       startMonth: addMonths(now, 2),  endMonth: addMonths(now, 3), intensityOverride: null },
-        { id: genId(), personId: team[2].id, type: 'active-build',  startMonth: addMonths(now, 5),  endMonth: addMonths(now, 7), intensityOverride: null },
-        { id: genId(), personId: team[2].id, type: 'handover',      startMonth: addMonths(now, 8),  endMonth: addMonths(now, 8), intensityOverride: null },
+        { id: genId(), personIds: [team[2].id],           type: 'scoping',       startMonth: toDate(now),                     endMonth: toDate(addMonths(now, 1), true),  intensityOverride: null },
+        { id: genId(), personIds: [team[2].id],           type: 'waiting',       startMonth: toDate(addMonths(now, 2)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
+        { id: genId(), personIds: [team[2].id],           type: 'active-build',  startMonth: toDate(addMonths(now, 5)),       endMonth: toDate(addMonths(now, 7), true),  intensityOverride: null },
+        { id: genId(), personIds: [team[2].id],           type: 'handover',      startMonth: toDate(addMonths(now, 8)),       endMonth: toDate(addMonths(now, 8), true),  intensityOverride: null },
       ],
     },
     {
       id: genId(), name: 'Data Pipeline', color: PROJECT_COLORS[3], deadline: addMonths(now, 4),
       phases: [
-        { id: genId(), personId: team[3].id, type: 'scoping',       startMonth: addMonths(now, -1), endMonth: now,               intensityOverride: null },
-        { id: genId(), personId: team[1].id, type: 'active-build',  startMonth: addMonths(now, 2),  endMonth: addMonths(now, 3), intensityOverride: null },
-        { id: genId(), personId: team[3].id, type: 'active-build',  startMonth: addMonths(now, 1),  endMonth: addMonths(now, 3), intensityOverride: null },
-        { id: genId(), personId: team[3].id, type: 'final-push',    startMonth: addMonths(now, 4),  endMonth: addMonths(now, 4), intensityOverride: null },
+        { id: genId(), personIds: [team[3].id],           type: 'scoping',       startMonth: toDate(addMonths(now, -1)),      endMonth: toDate(now, true),                intensityOverride: null },
+        { id: genId(), personIds: [team[1].id, team[3].id], type: 'active-build', startMonth: toDate(addMonths(now, 1)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
+        { id: genId(), personIds: [team[3].id],           type: 'final-push',    startMonth: toDate(addMonths(now, 4)),       endMonth: toDate(addMonths(now, 4), true),  intensityOverride: null },
       ],
     },
   ];
@@ -64,13 +71,24 @@ function createSampleData() {
 
 // --- State shape ---
 
+function migrateData(data) {
+  return {
+    ...data,
+    capacityOverrides: data.capacityOverrides || {},
+    projects: data.projects.map(p => ({
+      ...p,
+      phases: p.phases.map(ph => migratePhase(ph)),
+    })),
+  };
+}
+
 function getInitialState() {
   docManager.migrateIfNeeded();
   const activeId = docManager.getActiveDocId();
   if (activeId) {
     const data = docManager.loadDoc(activeId);
     if (data?.team && data?.projects) {
-      return { ...data, capacityOverrides: data.capacityOverrides || {} };
+      return migrateData(data);
     }
   }
   return createSampleData();
@@ -95,7 +113,12 @@ function reducer(state, action) {
       return {
         ...state,
         team: state.team.filter(m => m.id !== id),
-        projects: state.projects.map(p => ({ ...p, phases: p.phases.filter(ph => ph.personId !== id) })),
+        projects: state.projects.map(p => ({
+          ...p,
+          phases: p.phases
+            .map(ph => ({ ...ph, personIds: (ph.personIds || []).filter(pid => pid !== id) }))
+            .filter(ph => ph.personIds.length > 0),
+        })),
         capacityOverrides: newOverrides,
       };
     }
@@ -159,7 +182,7 @@ function reducer(state, action) {
 
     // Bulk import
     case 'IMPORT_DATA':
-      return { team: action.payload.team, projects: action.payload.projects, capacityOverrides: action.payload.capacityOverrides || {} };
+      return migrateData({ team: action.payload.team, projects: action.payload.projects, capacityOverrides: action.payload.capacityOverrides || {} });
 
     default:
       return state;
@@ -171,7 +194,7 @@ function reducer(state, action) {
 function undoableReducer(history, action) {
   switch (action.type) {
     case 'LOAD_DOCUMENT': {
-      return { past: [], present: action.payload, future: [] };
+      return { past: [], present: migrateData(action.payload), future: [] };
     }
     case 'UNDO': {
       if (history.past.length === 0) return history;

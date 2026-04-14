@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { getMonthRange, getCurrentMonth, monthDiff, addMonths, getPhaseIntensity, stackBars, monthLabelShort } from '../utils';
+import { getMonthRange, getCurrentMonth, getCurrentDate, monthDiff, addMonths, getPhaseIntensity, stackBars, monthLabelShort, dateOffset, dateOffsetEnd, getPhasePersonIds } from '../utils';
 import { PHASE_TYPES, MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING } from '../constants';
 
 export default function ProjectView({ viewStart, viewEnd, selectedProjectId, setSelectedProjectId, whatIfProject, onAddPhase, onEditPhase, onDragUpdate }) {
@@ -24,12 +24,15 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
     );
   }
 
-  // Group phases by person
+  // Group phases by person — a phase with multiple personIds appears under each person
   const phasesByPerson = useMemo(() => {
     const map = {};
     for (const ph of project.phases) {
-      if (!map[ph.personId]) map[ph.personId] = [];
-      map[ph.personId].push({ ...ph, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false });
+      const pids = getPhasePersonIds(ph);
+      for (const pid of pids) {
+        if (!map[pid]) map[pid] = [];
+        map[pid].push({ ...ph, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false });
+      }
     }
     return map;
   }, [project]);
@@ -111,7 +114,10 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
             <div className="timeline-cells" style={{ width: gridWidth }}>
               {months.map(m => (
                 <div key={m} className={`timeline-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}
-                  onClick={() => onAddPhase(project.id, { personId: person.id, startMonth: m, endMonth: m })}
+                  onClick={() => {
+                    const clickDate = `${m}-01`;
+                    onAddPhase(project.id, { personIds: [person.id], startMonth: clickDate, endMonth: clickDate });
+                  }}
                 />
               ))}
             </div>
@@ -159,22 +165,31 @@ function ProjectPersonRow({ person, bars: rawBars, project, months, viewStart, g
       <div className="timeline-cells" style={{ width: gridWidth }}>
         {months.map(m => (
           <div key={m} className={`timeline-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}
-            onClick={() => onAddPhase(project.id, { personId: person.id, startMonth: m, endMonth: m })} />
+            onClick={() => {
+              const clickDate = `${m}-01`;
+              onAddPhase(project.id, { personIds: [person.id], startMonth: clickDate, endMonth: clickDate });
+            }} />
         ))}
         {stacked.map(bar => {
           const isDragging = drag && drag.phaseId === bar.id;
           const bs = isDragging && drag.previewStart ? drag.previewStart : bar.startMonth;
           const be = isDragging && drag.previewEnd ? drag.previewEnd : bar.endMonth;
-          const so = monthDiff(viewStart, bs); const sp = monthDiff(bs, be) + 1;
-          if (so + sp < 0 || so > months.length) return null;
-          const left = Math.max(0, so) * MONTH_WIDTH;
-          const cs = Math.min(sp - Math.max(0, -so), months.length - Math.max(0, so));
-          const width = cs * MONTH_WIDTH - 4;
+
+          const startOff = dateOffset(viewStart, bs);
+          const endOff = dateOffsetEnd(viewStart, be);
+          const totalMonths = months.length;
+
+          if (endOff < 0 || startOff > totalMonths) return null;
+
+          const clampedStart = Math.max(0, startOff);
+          const clampedEnd = Math.min(totalMonths, endOff);
+          const left = clampedStart * MONTH_WIDTH;
+          const width = Math.max((clampedEnd - clampedStart) * MONTH_WIDTH - 4, 30);
           const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
           const intensity = getPhaseIntensity(bar); const pi = PHASE_TYPES[bar.type];
           return (
             <div key={bar.id} className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''} ${isDragging ? 'dragging' : ''}`}
-              style={{ left, top, width: Math.max(width, 30), height: BAR_HEIGHT, background: project.color, opacity: 0.4 + (intensity / 100) * 0.6 }}
+              style={{ left, top, width, height: BAR_HEIGHT, background: project.color, opacity: 0.4 + (intensity / 100) * 0.6 }}
               title={`${pi?.label || bar.type} (${intensity}%)`}
               onClick={e => { e.stopPropagation(); if (!isDragging) onEditPhase(project.id, bar); }}>
               <div className="drag-handle drag-handle-left" onMouseDown={e => startDrag(e, bar, 'left')} />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getPersonCapacity, getCurrentMonth, addMonths, getMonthRange } from '../utils';
+import { genId, getPersonCapacity, getCurrentMonth, addMonths, getMonthRange, getPhasePersonIds, formatDateShort } from '../utils';
 import { PROJECT_COLORS, PHASE_TYPES } from '../constants';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
@@ -90,9 +90,9 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </button>
                   <button className="icon-btn-sm danger" onClick={() => {
-                    const phaseCount = projects.reduce((sum, p) => sum + p.phases.filter(ph => ph.personId === m.id).length, 0);
+                    const phaseCount = projects.reduce((sum, p) => sum + p.phases.filter(ph => getPhasePersonIds(ph).includes(m.id)).length, 0);
                     const msg = phaseCount > 0
-                      ? `Remove ${m.name}? This will also delete their ${phaseCount} assigned phase${phaseCount !== 1 ? 's' : ''}.`
+                      ? `Remove ${m.name}? This will also remove them from ${phaseCount} assigned phase${phaseCount !== 1 ? 's' : ''}.`
                       : `Remove ${m.name}?`;
                     if (confirm(msg)) dispatch({ type: 'REMOVE_TEAM_MEMBER', payload: m.id });
                   }} title="Remove">×</button>
@@ -183,15 +183,16 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                       </div>
                     </div>
                     {p.phases.map(ph => {
-                      const person = team.find(m => m.id === ph.personId);
+                      const pids = getPhasePersonIds(ph);
+                      const names = pids.map(id => team.find(m => m.id === id)?.name).filter(Boolean).join(', ');
                       const phaseType = PHASE_TYPES[ph.type];
                       return (
                         <div key={ph.id} className="phase-item" onClick={() => onEditPhase(p.id, ph)}>
                           <span className="phase-type-badge" style={{ background: p.color + '33', color: p.color }}>
                             {phaseType?.short || ph.type}
                           </span>
-                          <span className="phase-person">{person?.name || '??'}</span>
-                          <span className="phase-dates">{ph.startMonth} → {ph.endMonth}</span>
+                          <span className="phase-person">{names || '??'}</span>
+                          <span className="phase-dates">{formatDateShort(ph.startMonth)} → {formatDateShort(ph.endMonth)}</span>
                           {ph.intensityOverride != null && <span className="phase-override">{ph.intensityOverride}%</span>}
                         </div>
                       );

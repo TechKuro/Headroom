@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getCurrentMonth, addMonths } from '../utils';
+import { genId, getCurrentDate, addMonths, addDays, formatDateShort } from '../utils';
 import { PHASE_TEMPLATES, PHASE_TYPES } from '../constants';
 
 export default function QuickPlanModal({ projectId, onClose }) {
@@ -8,17 +8,17 @@ export default function QuickPlanModal({ projectId, onClose }) {
   const dispatch = useDispatch();
   const [templateIdx, setTemplateIdx] = useState(0);
   const [personId, setPersonId] = useState(team[0]?.id ?? '');
-  const [startMonth, setStartMonth] = useState(getCurrentMonth());
+  const [startDate, setStartDate] = useState(getCurrentDate());
 
   const template = PHASE_TEMPLATES[templateIdx];
 
-  // Preview the phases that will be created
+  // Preview the phases that will be created (date-based)
   const preview = [];
-  let cursor = startMonth;
+  let cursor = startDate;
   for (const p of template.phases) {
-    const end = addMonths(cursor, p.months - 1);
-    preview.push({ type: p.type, startMonth: cursor, endMonth: end, months: p.months });
-    cursor = addMonths(end, 1);
+    const endDate = addDays(addMonths(cursor, p.months), -1);
+    preview.push({ type: p.type, startMonth: cursor, endMonth: endDate, months: p.months });
+    cursor = addDays(endDate, 1);
   }
   const totalMonths = preview.reduce((s, p) => s + p.months, 0);
 
@@ -30,7 +30,7 @@ export default function QuickPlanModal({ projectId, onClose }) {
           projectId,
           phase: {
             id: genId(),
-            personId,
+            personIds: [personId],
             type: p.type,
             startMonth: p.startMonth,
             endMonth: p.endMonth,
@@ -75,8 +75,8 @@ export default function QuickPlanModal({ projectId, onClose }) {
               </select>
             </div>
             <div className="form-group">
-              <label>Start month</label>
-              <input type="month" value={startMonth} onChange={e => setStartMonth(e.target.value)} className="form-input" />
+              <label>Start date</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="form-input" />
             </div>
           </div>
 
@@ -88,7 +88,7 @@ export default function QuickPlanModal({ projectId, onClose }) {
                 <div key={i} className="template-preview-row">
                   <span className="template-preview-type">{phaseInfo.label}</span>
                   <span className="template-preview-weight">{phaseInfo.weight}%</span>
-                  <span className="template-preview-range">{p.startMonth} → {p.endMonth}</span>
+                  <span className="template-preview-range">{formatDateShort(p.startMonth)} → {formatDateShort(p.endMonth)}</span>
                   <span className="template-preview-dur">{p.months}mo</span>
                 </div>
               );

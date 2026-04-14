@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, calculateLoad, getPhaseIntensity, getProjectEndMonth, getUrgencyFactor, getCurrentMonth } from '../utils';
+import { genId, calculateLoad, getPhaseIntensity, getProjectEndMonth, getUrgencyFactor, getCurrentDate, dateToMonth, monthCoverageFraction, getPhasePersonIds } from '../utils';
 import { PHASE_TYPES } from '../constants';
 
 export default function PhaseModal({ projectId, phase, presets, whatIfProject, setWhatIfProject, onClose }) {
@@ -14,61 +14,81 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
 
   const isEditing = !!phase;
 
-  const [personId, setPersonId] = useState(phase?.personId || presets?.personId || (team[0]?.id ?? ''));
+  // Multi-person selection
+  const initialPersonIds = phase?.personIds
+    || (phase?.personId ? [phase.personId] : null)
+    || presets?.personIds
+    || (presets?.personId ? [presets.personId] : null)
+    || (team[0] ? [team[0].id] : []);
+
+  const [personIds, setPersonIds] = useState(initialPersonIds);
   const [type, setType] = useState(phase?.type || 'active-build');
-  const [startMonth, setStartMonth] = useState(phase?.startMonth || presets?.startMonth || getCurrentMonth());
-  const [endMonth, setEndMonth] = useState(phase?.endMonth || presets?.endMonth || getCurrentMonth());
+  const [startDate, setStartDate] = useState(phase?.startMonth || presets?.startMonth || getCurrentDate());
+  const [endDate, setEndDate] = useState(phase?.endMonth || presets?.endMonth || getCurrentDate());
   const [intensityOverride, setIntensityOverride] = useState(phase?.intensityOverride);
   const [useOverride, setUseOverride] = useState(phase?.intensityOverride != null);
   const [targetProjectId, setTargetProjectId] = useState(projectId);
 
   const effectiveIntensity = useOverride && intensityOverride != null ? intensityOverride : PHASE_TYPES[type]?.weight ?? 0;
 
-  // Calculate overcommitment warning (urgency-adjusted)
+  function togglePerson(id) {
+    setPersonIds(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  }
+
+  // Calculate overcommitment warnings per person (urgency-adjusted, prorated by month coverage)
   const warnings = useMemo(() => {
-    if (!personId) return [];
+    if (!personIds.length) return [];
     const msgs = [];
     const projectEndMonth = project ? getProjectEndMonth(project) : null;
-    // Check each month in the phase range
-    let m = startMonth;
-    while (m <= endMonth) {
-      let existingLoad = calculateLoad(personId, m, projects, whatIfProject);
-      // If editing, subtract the old phase's contribution (already urgency-adjusted in calculateLoad)
-      if (isEditing && phase) {
-        if (m >= phase.startMonth && m <= phase.endMonth) {
-          const oldUrgency = getUrgencyFactor(m, projectEndMonth);
-          existingLoad -= Math.round(getPhaseIntensity(phase) * oldUrgency);
+    const startM = dateToMonth(startDate);
+    const endM = dateToMonth(endDate);
+
+    for (const pid of personIds) {
+      const person = team.find(t => t.id === pid);
+      let m = startM;
+      while (m <= endM) {
+        let existingLoad = calculateLoad(pid, m, projects, whatIfProject);
+        // If editing, subtract the old phase's contribution for this person
+        if (isEditing && phase) {
+          const oldPids = getPhasePersonIds(phase);
+          if (oldPids.includes(pid)) {
+            const oldFraction = monthCoverageFraction(phase.startMonth, phase.endMonth, m);
+            if (oldFraction > 0) {
+              const oldUrgency = getUrgencyFactor(m, projectEndMonth);
+              existingLoad -= Math.round(getPhaseIntensity(phase) * oldFraction * oldUrgency);
+            }
+          }
         }
+        const fraction = monthCoverageFraction(startDate, endDate, m);
+        const urgency = getUrgencyFactor(m, projectEndMonth);
+        const adjustedIntensity = Math.round(effectiveIntensity * fraction * urgency);
+        const newLoad = existingLoad + adjustedIntensity;
+        if (newLoad > 100) {
+          msgs.push(`${person?.name || 'Person'} would be at ${newLoad}% in ${m}`);
+        }
+        // Advance month
+        const [y, mo] = m.split('-').map(Number);
+        m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
       }
-      const urgency = getUrgencyFactor(m, projectEndMonth);
-      const adjustedIntensity = Math.round(effectiveIntensity * urgency);
-      const newLoad = existingLoad + adjustedIntensity;
-      if (newLoad > 100) {
-        const person = team.find(t => t.id === personId);
-        msgs.push(`${person?.name || 'Person'} would be at ${newLoad}% in ${m}`);
-      }
-      // Advance month
-      const [y, mo] = m.split('-').map(Number);
-      const next = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
-      m = next;
     }
     return msgs;
-  }, [personId, startMonth, endMonth, effectiveIntensity, projects, whatIfProject, phase, isEditing, team, project]);
+  }, [personIds, startDate, endDate, effectiveIntensity, projects, whatIfProject, phase, isEditing, team, project]);
 
   function handleSave() {
     const phaseData = {
       id: phase?.id || genId(),
-      personId,
+      personIds,
       type,
-      startMonth,
-      endMonth: endMonth < startMonth ? startMonth : endMonth,
+      startMonth: startDate,
+      endMonth: endDate < startDate ? startDate : endDate,
       intensityOverride: useOverride ? (intensityOverride ?? PHASE_TYPES[type].weight) : null,
     };
 
     const actualProjectId = isWhatIf ? whatIfProject.id : targetProjectId;
 
     if (isWhatIf) {
-      // Mutate what-if project
       if (isEditing) {
         setWhatIfProject(prev => ({
           ...prev,
@@ -93,8 +113,8 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
   function handleDelete() {
     if (!phase) return;
     const phaseInfo = PHASE_TYPES[phase.type];
-    const person = team.find(t => t.id === phase.personId);
-    if (!confirm(`Delete this ${phaseInfo?.label || phase.type} phase for ${person?.name || 'unknown'}?`)) return;
+    const names = getPhasePersonIds(phase).map(id => team.find(t => t.id === id)?.name).filter(Boolean).join(', ');
+    if (!confirm(`Delete this ${phaseInfo?.label || phase.type} phase for ${names || 'unknown'}?`)) return;
     if (isWhatIf) {
       setWhatIfProject(prev => ({
         ...prev,
@@ -132,10 +152,23 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
           )}
 
           <div className="form-group">
-            <label>Team Member</label>
-            <select value={personId} onChange={e => setPersonId(e.target.value)} className="form-select">
-              {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
+            <label>Team Members</label>
+            <div className="team-select">
+              {team.map(m => (
+                <label key={m.id} className={`team-select-item ${personIds.includes(m.id) ? 'selected' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={personIds.includes(m.id)}
+                    onChange={() => togglePerson(m.id)}
+                  />
+                  <span className="team-select-name">{m.name}</span>
+                  {m.role && <span className="team-select-role">{m.role}</span>}
+                </label>
+              ))}
+            </div>
+            {personIds.length === 0 && (
+              <span className="form-hint danger">Select at least one team member</span>
+            )}
           </div>
 
           <div className="form-group">
@@ -149,12 +182,12 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
 
           <div className="form-row">
             <div className="form-group">
-              <label>Start Month</label>
-              <input type="month" value={startMonth} onChange={e => setStartMonth(e.target.value)} className="form-input" />
+              <label>Start Date</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="form-input" />
             </div>
             <div className="form-group">
-              <label>End Month</label>
-              <input type="month" value={endMonth} onChange={e => setEndMonth(e.target.value)} className="form-input" />
+              <label>End Date</label>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="form-input" />
             </div>
           </div>
 
@@ -193,8 +226,8 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
               </svg>
               <div>
                 <strong>Overcommitment Warning</strong>
-                {warnings.slice(0, 3).map((w, i) => <div key={i}>{w}</div>)}
-                {warnings.length > 3 && <div>…and {warnings.length - 3} more</div>}
+                {warnings.slice(0, 5).map((w, i) => <div key={i}>{w}</div>)}
+                {warnings.length > 5 && <div>...and {warnings.length - 5} more</div>}
               </div>
             </div>
           )}
@@ -206,7 +239,7 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
           )}
           <div className="modal-spacer" />
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={personIds.length === 0}>
             {isEditing ? 'Save' : 'Add Phase'}
           </button>
         </div>

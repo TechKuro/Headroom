@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
-import { getMonthRange, getCurrentMonth, getPersonPhases, stackBars, monthDiff, getPhaseIntensity, calculateLoad, addMonths, monthLabelShort } from '../utils';
+import { getMonthRange, getCurrentMonth, getCurrentDate, getPersonPhases, stackBars, monthDiff, getPhaseIntensity, calculateLoad, addMonths, monthLabelShort, dateOffset, dateOffsetEnd, getPhasePersonIds } from '../utils';
 import { PHASE_TYPES, MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING } from '../constants';
 import { addToast } from '../toast';
 
@@ -113,6 +113,7 @@ const PersonRow = React.memo(function PersonRow({ person, projects, whatIfProjec
   }
 
   const personFinderMonths = finderMatches?.[person.id];
+  const today = getCurrentDate();
 
   return (
     <div className="timeline-row" style={{ minHeight: rowHeight }}>
@@ -132,7 +133,8 @@ const PersonRow = React.memo(function PersonRow({ person, projects, whatIfProjec
             style={{ width: MONTH_WIDTH }}
             onClick={() => {
               if (projects.length > 0) {
-                onAddPhase(projects[0].id, { personId: person.id, startMonth: m, endMonth: m });
+                const clickDate = `${m}-01`;
+                onAddPhase(projects[0].id, { personIds: [person.id], startMonth: clickDate, endMonth: clickDate });
               } else {
                 addToast('Add a project first to start planning phases.', 'warn');
               }
@@ -143,22 +145,34 @@ const PersonRow = React.memo(function PersonRow({ person, projects, whatIfProjec
           const isDragging = drag && drag.phaseId === bar.id;
           const barStart = isDragging && drag.previewStart ? drag.previewStart : bar.startMonth;
           const barEnd = isDragging && drag.previewEnd ? drag.previewEnd : bar.endMonth;
-          const startOffset = monthDiff(viewStart, barStart);
-          const span = monthDiff(barStart, barEnd) + 1;
-          if (startOffset + span < 0 || startOffset > months.length) return null;
-          const left = Math.max(0, startOffset) * MONTH_WIDTH;
-          const clippedSpan = Math.min(span - Math.max(0, -startOffset), months.length - Math.max(0, startOffset));
-          const width = clippedSpan * MONTH_WIDTH - 4;
+
+          const startOff = dateOffset(viewStart, barStart);
+          const endOff = dateOffsetEnd(viewStart, barEnd);
+          const totalMonths = months.length;
+
+          if (endOff < 0 || startOff > totalMonths) return null;
+
+          const clampedStart = Math.max(0, startOff);
+          const clampedEnd = Math.min(totalMonths, endOff);
+          const left = clampedStart * MONTH_WIDTH;
+          const width = Math.max((clampedEnd - clampedStart) * MONTH_WIDTH - 4, 30);
           const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
           const intensity = getPhaseIntensity(bar);
           const phaseInfo = PHASE_TYPES[bar.type];
+          const assignees = getPhasePersonIds(bar);
+          const otherNames = assignees.length > 1
+            ? assignees.filter(id => id !== person.id).map(id => {
+                const p = (bar._team || []).find(t => t.id === id);
+                return p?.name;
+              }).filter(Boolean)
+            : [];
 
           return (
             <div
               key={bar.id}
               className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''} ${isDragging ? 'dragging' : ''} ${bar.isHeld ? 'held' : ''}`}
               style={{
-                left, top, width: Math.max(width, 30), height: BAR_HEIGHT,
+                left, top, width, height: BAR_HEIGHT,
                 background: bar.isHeld ? 'var(--text-3)' : bar.projectColor,
                 opacity: bar.isHeld ? 0.35 : (0.4 + (intensity / 100) * 0.6),
               }}
