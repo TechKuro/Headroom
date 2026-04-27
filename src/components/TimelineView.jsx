@@ -155,7 +155,11 @@ const PersonRow = React.memo(function PersonRow({ person, projects, whatIfProjec
           const clampedStart = Math.max(0, startOff);
           const clampedEnd = Math.min(totalMonths, endOff);
           const left = clampedStart * MONTH_WIDTH;
-          const width = Math.max((clampedEnd - clampedStart) * MONTH_WIDTH - 4, 30);
+          let width = Math.max((clampedEnd - clampedStart) * MONTH_WIDTH - 4, 30);
+          if (bar._nextStart) {
+            const ceiling = dateOffset(viewStart, bar._nextStart) * MONTH_WIDTH - left - 4;
+            if (ceiling < width) width = Math.max(0, ceiling);
+          }
           const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
           const intensity = getPhaseIntensity(bar);
           const phaseInfo = PHASE_TYPES[bar.type];

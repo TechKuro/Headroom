@@ -293,29 +293,71 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
 
 // --- Stack overlapping bars ---
 
+// Phases are grouped by project so all of a project's phases stay on the same
+// row when they don't overlap each other. Different projects are then packed
+// against each other only when their entire spans don't collide.
 export function stackBars(bars) {
-  const sorted = [...bars].sort((a, b) => {
-    if (a.startMonth !== b.startMonth) return a.startMonth < b.startMonth ? -1 : 1;
-    return monthDiff(a.startMonth, a.endMonth) > monthDiff(b.startMonth, b.endMonth) ? -1 : 1;
-  });
-  const rows = [];
-  for (const bar of sorted) {
-    let placed = false;
-    for (let i = 0; i < rows.length; i++) {
-      const last = rows[i][rows[i].length - 1];
-      if (bar.startMonth > last.endMonth) {
-        rows[i].push(bar);
-        bar._row = i;
-        placed = true;
-        break;
+  const projectMap = new Map();
+  for (const bar of bars) {
+    const arr = projectMap.get(bar.projectId) || [];
+    arr.push(bar);
+    projectMap.set(bar.projectId, arr);
+  }
+
+  const projects = [];
+  for (const [projectId, projBars] of projectMap) {
+    const sorted = [...projBars].sort((a, b) =>
+      a.startMonth < b.startMonth ? -1 : a.startMonth > b.startMonth ? 1 : 0
+    );
+    const subRows = [];
+    for (const bar of sorted) {
+      let placed = false;
+      for (const row of subRows) {
+        if (bar.startMonth > row[row.length - 1].endMonth) {
+          row.push(bar);
+          placed = true;
+          break;
+        }
       }
+      if (!placed) subRows.push([bar]);
     }
-    if (!placed) {
-      bar._row = rows.length;
-      rows.push([bar]);
+    projects.push({ projectId, subRows, earliestStart: sorted[0].startMonth });
+  }
+
+  projects.sort((a, b) => a.earliestStart < b.earliestStart ? -1 : 1);
+
+  const globalRows = []; // [{ lastEnd }]
+  for (const project of projects) {
+    for (const subRow of project.subRows) {
+      const subStart = subRow[0].startMonth;
+      const subEnd = subRow[subRow.length - 1].endMonth;
+      let target = globalRows.findIndex(r => r.lastEnd < subStart);
+      if (target === -1) {
+        target = globalRows.length;
+        globalRows.push({ lastEnd: '' });
+      }
+      for (const bar of subRow) bar._row = target;
+      if (subEnd > globalRows[target].lastEnd) globalRows[target].lastEnd = subEnd;
     }
   }
-  return { bars: sorted, rowCount: rows.length };
+
+  // Record the start of the next bar on the same row so renderers can snap
+  // a bar's width against its neighbour rather than overlapping it.
+  const byRow = new Map();
+  for (const bar of bars) {
+    if (bar._row == null) continue;
+    const arr = byRow.get(bar._row) || [];
+    arr.push(bar);
+    byRow.set(bar._row, arr);
+  }
+  for (const rowBars of byRow.values()) {
+    rowBars.sort((a, b) => a.startMonth < b.startMonth ? -1 : 1);
+    for (let i = 0; i < rowBars.length; i++) {
+      rowBars[i]._nextStart = rowBars[i + 1]?.startMonth ?? null;
+    }
+  }
+
+  return { bars, rowCount: globalRows.length };
 }
 
 // --- Availability finder ---
