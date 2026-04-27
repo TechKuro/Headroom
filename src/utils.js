@@ -293,9 +293,10 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
 
 // --- Stack overlapping bars ---
 
-// Phases are grouped by project so all of a project's phases stay on the same
-// row when they don't overlap each other. Different projects are then packed
-// against each other only when their entire spans don't collide.
+// Each project occupies a single row regardless of whether its phases happen
+// to touch or overlap each other — the project reads as one continuous track.
+// Different projects are packed against each other only when their spans
+// don't collide.
 export function stackBars(bars) {
   const projectMap = new Map();
   for (const bar of bars) {
@@ -309,36 +310,26 @@ export function stackBars(bars) {
     const sorted = [...projBars].sort((a, b) =>
       a.startMonth < b.startMonth ? -1 : a.startMonth > b.startMonth ? 1 : 0
     );
-    const subRows = [];
+    let earliestStart = sorted[0].startMonth;
+    let latestEnd = sorted[0].endMonth;
     for (const bar of sorted) {
-      let placed = false;
-      for (const row of subRows) {
-        if (bar.startMonth > row[row.length - 1].endMonth) {
-          row.push(bar);
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) subRows.push([bar]);
+      if (bar.startMonth < earliestStart) earliestStart = bar.startMonth;
+      if (bar.endMonth > latestEnd) latestEnd = bar.endMonth;
     }
-    projects.push({ projectId, subRows, earliestStart: sorted[0].startMonth });
+    projects.push({ projectId, phases: sorted, earliestStart, latestEnd });
   }
 
   projects.sort((a, b) => a.earliestStart < b.earliestStart ? -1 : 1);
 
   const globalRows = []; // [{ lastEnd }]
   for (const project of projects) {
-    for (const subRow of project.subRows) {
-      const subStart = subRow[0].startMonth;
-      const subEnd = subRow[subRow.length - 1].endMonth;
-      let target = globalRows.findIndex(r => r.lastEnd < subStart);
-      if (target === -1) {
-        target = globalRows.length;
-        globalRows.push({ lastEnd: '' });
-      }
-      for (const bar of subRow) bar._row = target;
-      if (subEnd > globalRows[target].lastEnd) globalRows[target].lastEnd = subEnd;
+    let target = globalRows.findIndex(r => r.lastEnd < project.earliestStart);
+    if (target === -1) {
+      target = globalRows.length;
+      globalRows.push({ lastEnd: '' });
     }
+    for (const bar of project.phases) bar._row = target;
+    if (project.latestEnd > globalRows[target].lastEnd) globalRows[target].lastEnd = project.latestEnd;
   }
 
   // Record the start of the next bar on the same row so renderers can snap
@@ -353,7 +344,9 @@ export function stackBars(bars) {
   for (const rowBars of byRow.values()) {
     rowBars.sort((a, b) => a.startMonth < b.startMonth ? -1 : 1);
     for (let i = 0; i < rowBars.length; i++) {
-      rowBars[i]._nextStart = rowBars[i + 1]?.startMonth ?? null;
+      const next = rowBars[i + 1];
+      rowBars[i]._nextStart = next?.startMonth ?? null;
+      rowBars[i]._nextProjectId = next?.projectId ?? null;
     }
   }
 

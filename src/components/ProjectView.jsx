@@ -7,6 +7,7 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
   const { team, projects } = useStore();
   const months = useMemo(() => getMonthRange(viewStart, viewEnd), [viewStart, viewEnd]);
   const now = getCurrentMonth();
+  const today = getCurrentDate();
 
   const allProjects = useMemo(() => {
     const list = [...projects];
@@ -78,7 +79,7 @@ export default function ProjectView({ viewStart, viewEnd, selectedProjectId, set
 
         {/* Current month */}
         {now >= viewStart && now <= viewEnd && (
-          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${monthDiff(viewStart, now) * MONTH_WIDTH + MONTH_WIDTH / 2}px)` }} />
+          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${dateOffset(viewStart, today) * MONTH_WIDTH}px)` }} />
         )}
 
         {/* Deadline */}
@@ -184,9 +185,9 @@ function ProjectPersonRow({ person, bars: rawBars, project, months, viewStart, g
           const clampedStart = Math.max(0, startOff);
           const clampedEnd = Math.min(totalMonths, endOff);
           const left = clampedStart * MONTH_WIDTH;
-          let width = Math.max((clampedEnd - clampedStart) * MONTH_WIDTH - 4, 30);
-          if (bar._nextStart) {
-            const ceiling = dateOffset(viewStart, bar._nextStart) * MONTH_WIDTH - left - 4;
+          let width = Math.max((clampedEnd - clampedStart) * MONTH_WIDTH - 2, 30);
+          if (bar._nextStart && (bar._nextStart >= bar.endMonth || bar._nextProjectId === bar.projectId)) {
+            const ceiling = dateOffset(viewStart, bar._nextStart) * MONTH_WIDTH - left - 2;
             if (ceiling < width) width = Math.max(0, ceiling);
           }
           const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
