@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import { getMonthRange, getCurrentMonth, getCurrentDate, getPersonPhases, stackBars, monthDiff, getPhaseIntensity, calculateLoad, addMonths, monthLabelShort, dateOffset, dateOffsetEnd, getPhasePersonIds } from '../utils';
-import { PHASE_TYPES, MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING } from '../constants';
+import { PHASE_TYPES, MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
 import { addToast } from '../toast';
 
 export default function TimelineView({ viewStart, viewEnd, whatIfProject, onAddPhase, onEditPhase, onDragUpdate, finderMatches }) {
@@ -181,7 +181,7 @@ const PersonRow = React.memo(function PersonRow({ person, projects, whatIfProjec
                 background: bar.isHeld ? 'var(--text-3)' : bar.projectColor,
                 opacity: bar.isHeld ? 0.35 : (0.4 + (intensity / 100) * 0.6),
               }}
-              title={`${bar.projectName} — ${phaseInfo?.label || bar.type} (${intensity}%)${bar.isHeld ? ' [HELD]' : ''}${isDragging ? `\n${barStart} → ${barEnd}` : ''}`}
+              title={`${bar.projectName} — ${phaseInfo?.label || bar.type} (${intensity}%)${bar.isHeld ? ' [HELD]' : ''}${bar.initiative ? `\n${INITIATIVE_TYPES[bar.initiative.type]?.label || bar.initiative.type} · ${INITIATIVE_STATUSES[bar.initiative.status]?.label || bar.initiative.status}${bar.initiative.chargeable ? ' · Chargeable' : ''}` : ''}${isDragging ? `\n${barStart} → ${barEnd}` : ''}`}
               onClick={(e) => { e.stopPropagation(); if (!isDragging) onEditPhase(bar.projectId, bar); }}
             >
               {/* Left drag handle */}

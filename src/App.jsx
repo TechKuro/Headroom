@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore, useDispatch, useHistory } from './store';
 import Sidebar from './components/Sidebar';
+import OverviewView from './components/OverviewView';
+import StandupView from './components/StandupView';
+import PeopleCostView from './components/PeopleCostView';
 import TimelineView from './components/TimelineView';
 import HeatmapView from './components/HeatmapView';
 import ProjectView from './components/ProjectView';
@@ -18,6 +21,7 @@ export default function App() {
   const store = useStore();
   const dispatch = useDispatch();
   const { canUndo, canRedo } = useHistory();
+  const blendedRate = store.settings?.blendedRate ?? 45;
   const [view, setView] = useState('timeline');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [phaseModal, setPhaseModal] = useState(null);
@@ -85,12 +89,37 @@ export default function App() {
         <DocumentBar activeDocId={activeDocId} setActiveDocId={setActiveDocId} />
 
         <nav className="view-tabs">
+          <button className={`tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
           <button className={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => setView('timeline')}>Timeline</button>
           <button className={`tab ${view === 'heatmap' ? 'active' : ''}`} onClick={() => setView('heatmap')}>Heatmap</button>
           <button className={`tab ${view === 'project' ? 'active' : ''}`} onClick={() => setView('project')}>Project</button>
+          <button className={`tab ${view === 'standup' ? 'active' : ''}`} onClick={() => setView('standup')}>Standup</button>
+          <button className={`tab ${view === 'people' ? 'active' : ''}`} onClick={() => setView('people')}>People &amp; Cost</button>
         </nav>
 
         <div className="header-right">
+          {/* Blended rate — drives cost & ROI across Overview / Standup / People */}
+          <div className="rate-control" title="Blended hourly rate used for cost & ROI">
+            <label htmlFor="blended-rate">Rate £/h</label>
+            <input
+              id="blended-rate"
+              type="number"
+              min="1"
+              max="999"
+              value={blendedRate}
+              onChange={e => {
+                const raw = e.target.value;
+                if (raw === '') return; // ignore transient empty — rate must stay ≥ 1
+                const v = Math.round(Number(raw));
+                if (Number.isNaN(v)) return;
+                dispatch({ type: 'SET_BLENDED_RATE', payload: Math.max(1, Math.min(999, v)) });
+              }}
+              className="rate-input"
+            />
+          </div>
+
+          <div className="header-divider" />
+
           {/* Undo / Redo */}
           <div className="undo-redo">
             <button className="icon-btn" onClick={() => dispatch({ type: 'UNDO' })} disabled={!canUndo} title="Undo (Ctrl+Z)">
@@ -155,6 +184,9 @@ export default function App() {
         )}
 
         <main className="main-content">
+          {view === 'overview' && <OverviewView />}
+          {view === 'standup' && <StandupView />}
+          {view === 'people' && <PeopleCostView />}
           {view === 'timeline' && (
             <TimelineView
               viewStart={viewStart}

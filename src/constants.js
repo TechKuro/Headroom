@@ -6,6 +6,41 @@ export const PHASE_TYPES = {
   handover:      { label: 'Handover',             weight: 30,  short: 'H/O' },
 };
 
+// --- Initiative / commercial layer ---
+
+// Default per-project initiative metadata. Applied as a safe fallback wherever
+// a project predates the initiative layer (old localStorage docs, imports).
+export const DEFAULT_INITIATIVE = {
+  type: 'internal',       // 'internal' | 'client'
+  status: 'backlog',      // 'done' | 'progress' | 'backlog'
+  progress: 0,            // 0-100
+  estimatedValue: 0,      // GBP
+  description: '',
+  chargeable: false,
+  valueNote: '',
+};
+
+export const INITIATIVE_TYPES = {
+  internal: { label: 'Internal' },
+  client:   { label: 'Client' },
+};
+
+export const INITIATIVE_STATUSES = {
+  done:     { label: 'Done' },
+  progress: { label: 'In Progress' },
+  backlog:  { label: 'Backlog' },
+};
+
+// App-level settings persisted with each document.
+export const DEFAULT_SETTINGS = {
+  blendedRate: 45,        // GBP / hour
+};
+
+// Approximate working hours in a calendar month — a phase running at 100%
+// intensity for a full month is treated as this many person-hours. Kept as a
+// single constant so the labour estimate can be refined in one place later.
+export const HOURS_PER_MONTH = 160;
+
 // Ordered for stark contrast on consecutive picks: each color is ~opposite or
 // well-separated in hue from its neighbour, so the first N projects look as
 // distinct as possible.

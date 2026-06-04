@@ -1,4 +1,4 @@
-import { PHASE_TYPES } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, HOURS_PER_MONTH } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -259,7 +259,7 @@ export function getActivePhases(personId, month, projects, whatIfProject = null)
         if (fraction > 0) {
           const baseIntensity = getPhaseIntensity(phase);
           const effectiveIntensity = Math.round(baseIntensity * fraction * holdFactor * urgencyFactor);
-          result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, isWhatIf: project.isWhatIf || false, holdFactor, urgencyFactor, effectiveIntensity });
+          result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, initiative: getInitiative(project), isWhatIf: project.isWhatIf || false, holdFactor, urgencyFactor, effectiveIntensity });
         }
       }
     }
@@ -281,6 +281,7 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
           projectId: project.id,
           projectName: project.name,
           projectColor: project.color,
+          initiative: getInitiative(project),
           isWhatIf: project.isWhatIf || false,
           isHeld,
           hold: project.hold,
@@ -351,6 +352,74 @@ export function stackBars(bars) {
   }
 
   return { bars, rowCount: globalRows.length };
+}
+
+// --- Initiative / commercial calculations ---
+
+/** Normalise a project's initiative metadata, filling safe defaults. */
+export function getInitiative(project) {
+  return { ...DEFAULT_INITIATIVE, ...(project?.initiative || {}) };
+}
+
+/**
+ * Estimate labour hours, cost and per-person breakdown for a project.
+ *
+ * Reuses Headroom's month-intensity model: a phase at intensity I% covering
+ * fraction F of a month contributes (I/100) × F × hoursPerMonth person-hours
+ * for each assigned person. Urgency and hold weighting are deliberately
+ * excluded — those are scheduling/visual amplifiers, not real effort.
+ */
+export function getProjectLabourSummary(project, blendedRate, hoursPerMonth = HOURS_PER_MONTH) {
+  const assignedHoursByPerson = {};
+  let totalHours = 0;
+
+  for (const phase of project.phases || []) {
+    const intensity = getPhaseIntensity(phase);
+    if (intensity <= 0) continue;
+    const months = getMonthRange(dateToMonth(phase.startMonth), dateToMonth(phase.endMonth));
+    let phaseHoursPerPerson = 0;
+    for (const m of months) {
+      const fraction = monthCoverageFraction(phase.startMonth, phase.endMonth, m);
+      phaseHoursPerPerson += (intensity / 100) * fraction * hoursPerMonth;
+    }
+    for (const pid of getPhasePersonIds(phase)) {
+      assignedHoursByPerson[pid] = (assignedHoursByPerson[pid] || 0) + phaseHoursPerPerson;
+      totalHours += phaseHoursPerPerson;
+    }
+  }
+
+  const isClient = getInitiative(project).type === 'client';
+  return {
+    totalHours,
+    cost: totalHours * blendedRate,
+    assignedHoursByPerson,
+    clientHours: isClient ? totalHours : 0,
+    internalHours: isClient ? 0 : totalHours,
+  };
+}
+
+/** ROI from estimated value and labour cost. */
+export function getRoi(estimatedValue, cost) {
+  const roi = (estimatedValue || 0) - cost;
+  const roiPercent = cost > 0 ? (roi / cost) * 100 : 0;
+  return { roi, roiPercent };
+}
+
+// --- Formatting ---
+
+export function formatCurrency(n) {
+  return '£' + Math.round(n || 0).toLocaleString('en-GB');
+}
+
+/** Currency with an explicit +/- sign, so colour is never the only signal. */
+export function formatSignedCurrency(n) {
+  const rounded = Math.round(n || 0);
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '-' : '';
+  return `${sign}£${Math.abs(rounded).toLocaleString('en-GB')}`;
+}
+
+export function formatHours(n) {
+  return Math.round(n || 0).toLocaleString('en-GB') + 'h';
 }
 
 // --- Availability finder ---
