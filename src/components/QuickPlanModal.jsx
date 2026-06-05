@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getCurrentDate, addMonths, addDays, formatDateShort } from '../utils';
-import { PHASE_TEMPLATES, PHASE_TYPES } from '../constants';
+import { genId, getCurrentDate, getWorkingDayRange, addDays } from '../utils';
+import { PHASE_TEMPLATES, PHASE_TYPES, HALVES } from '../constants';
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
 
 export default function QuickPlanModal({ projectId, onClose }) {
   const { team } = useStore();
@@ -11,31 +14,27 @@ export default function QuickPlanModal({ projectId, onClose }) {
   const [startDate, setStartDate] = useState(getCurrentDate());
 
   const template = PHASE_TEMPLATES[templateIdx];
+  const totalDays = template.phases.reduce((s, p) => s + p.days, 0);
 
-  // Preview the phases that will be created (date-based)
-  const preview = [];
-  let cursor = startDate;
-  for (const p of template.phases) {
-    const endDate = addDays(addMonths(cursor, p.months), -1);
-    preview.push({ type: p.type, startMonth: cursor, endMonth: endDate, months: p.months });
-    cursor = addDays(endDate, 1);
-  }
-  const totalMonths = preview.reduce((s, p) => s + p.months, 0);
+  // Lay each template phase across N consecutive working days from the start.
+  const allDays = getWorkingDayRange(startDate, addDays(startDate, totalDays * 2 + 14));
+  let idx = 0;
+  const preview = template.phases.map(p => {
+    const span = allDays.slice(idx, idx + p.days);
+    idx += p.days;
+    return { type: p.type, days: p.days, span, start: span[0], end: span[span.length - 1] };
+  });
 
   function handleApply() {
+    if (!personId) { onClose(); return; }
     for (const p of preview) {
+      if (!p.span.length) continue;
+      const slots = p.span.flatMap(date => HALVES.map(half => ({ personId, date, half })));
       dispatch({
         type: 'ADD_PHASE',
         payload: {
           projectId,
-          phase: {
-            id: genId(),
-            personIds: [personId],
-            type: p.type,
-            startMonth: p.startMonth,
-            endMonth: p.endMonth,
-            intensityOverride: null,
-          },
+          phase: { id: genId(), personIds: [personId], type: p.type, startMonth: p.start, endMonth: p.end, slots },
         },
       });
     }
@@ -55,11 +54,7 @@ export default function QuickPlanModal({ projectId, onClose }) {
             <label>Template</label>
             <div className="template-list">
               {PHASE_TEMPLATES.map((t, i) => (
-                <button
-                  key={i}
-                  className={`template-card ${templateIdx === i ? 'active' : ''}`}
-                  onClick={() => setTemplateIdx(i)}
-                >
+                <button key={i} className={`template-card ${templateIdx === i ? 'active' : ''}`} onClick={() => setTemplateIdx(i)}>
                   <span className="template-name">{t.name}</span>
                   <span className="template-desc">{t.description}</span>
                 </button>
@@ -81,18 +76,14 @@ export default function QuickPlanModal({ projectId, onClose }) {
           </div>
 
           <div className="template-preview">
-            <div className="template-preview-header">Preview — {totalMonths} months total</div>
-            {preview.map((p, i) => {
-              const phaseInfo = PHASE_TYPES[p.type];
-              return (
-                <div key={i} className="template-preview-row">
-                  <span className="template-preview-type">{phaseInfo.label}</span>
-                  <span className="template-preview-weight">{phaseInfo.weight}%</span>
-                  <span className="template-preview-range">{formatDateShort(p.startMonth)} → {formatDateShort(p.endMonth)}</span>
-                  <span className="template-preview-dur">{p.months}mo</span>
-                </div>
-              );
-            })}
+            <div className="template-preview-header">Preview — {totalDays} working days, both halves filled</div>
+            {preview.map((p, i) => (
+              <div key={i} className="template-preview-row">
+                <span className="template-preview-type">{PHASE_TYPES[p.type].label}</span>
+                <span className="template-preview-range">{p.start ? `${dayLabel(p.start)} → ${dayLabel(p.end)}` : '—'}</span>
+                <span className="template-preview-dur">{p.days}d</span>
+              </div>
+            ))}
           </div>
         </div>
 

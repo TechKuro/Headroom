@@ -1,18 +1,21 @@
 import React, { useMemo } from 'react';
 import { useStore, useDispatch } from '../store';
 import { PROJECT_COLORS } from '../constants';
-import { getWhatIfImpact, formatHours, formatCurrency, formatSignedCurrency, monthLabelShort } from '../utils';
+import { getWhatIfImpact, formatHours, formatCurrency, formatSignedCurrency } from '../utils';
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
 
 export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
   const dispatch = useDispatch();
-  const { projects, team, settings, capacityOverrides } = useStore();
-  const blendedRate = settings?.blendedRate ?? 45;
+  const { projects, team, settings } = useStore();
+  const blendedRate = settings?.blendedRate ?? 110;
 
   const estimatedValue = whatIfProject.initiative?.estimatedValue ?? 0;
 
   const impact = useMemo(
-    () => getWhatIfImpact(whatIfProject, { projects, team, blendedRate, capacityOverrides }),
-    [whatIfProject, projects, team, blendedRate, capacityOverrides],
+    () => getWhatIfImpact(whatIfProject, { projects, team, blendedRate }),
+    [whatIfProject, projects, team, blendedRate],
   );
 
   function updateField(field, value) {
@@ -95,7 +98,7 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
             {impact.overloadedPeople.length > 0 && (
               <span
                 className="wii-warn"
-                title={impact.overloadedPeople.map(p => `${p.name}: ${p.months.map(monthLabelShort).join(', ')}`).join('\n')}
+                title={impact.overloadedPeople.map(p => `${p.name}: ${p.days.map(dayLabel).join(', ')}`).join('\n')}
               >
                 ⚠ Overloads {impact.overloadedPeople.map(p => p.name).join(', ')}
               </span>

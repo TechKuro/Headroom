@@ -23,7 +23,7 @@ const NEEDS_INFO_LABELS = {
 
 export default function OverviewView() {
   const { team, projects, settings, capacityOverrides } = useStore();
-  const blendedRate = settings?.blendedRate ?? 45;
+  const blendedRate = settings?.blendedRate ?? 110;
 
   const [statusFilter, setStatusFilter] = useState('all');   // all | done | progress | backlog
   const [typeFilter, setTypeFilter] = useState('all');       // all | internal | client

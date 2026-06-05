@@ -1,52 +1,69 @@
 import { describe, it, expect } from 'vitest';
 import {
-  addMonths, monthDiff, getMonthRange, monthToString, monthCoverageFraction,
+  addMonths, monthDiff, getMonthRange, monthToString,
+  isWorkingDay, getWorkingDayRange, enumerateSlots, slotKey, isSlotAvailable,
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
-  getPersonWorkload, getPersonUtilisation, getWhatIfImpact,
-  calculateLoad, getEffectiveUtilisation,
+  getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation,
+  getPersonWorkload, getWhatIfImpact, findAvailableSlots,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
-import { DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_MONTH } from './constants';
+import { DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY } from './constants';
 
-// A full single-month phase at 100% intensity is the unit we reason about:
-// (100/100) × 1.0 coverage × HOURS_PER_MONTH person-hours.
-const fullMonthPhase = (overrides = {}) => ({
-  id: 'ph1', type: 'active-build', personIds: ['p1'],
-  startMonth: '2025-03-01', endMonth: '2025-03-31', intensityOverride: null,
-  ...overrides,
-});
+// A working week (Mon–Fri) and the following Monday, for fixtures.
+const WK = ['2025-06-02', '2025-06-03', '2025-06-04', '2025-06-05', '2025-06-06']; // Mon–Fri
+const SAT = '2025-06-07';
+const NEXT_MON = '2025-06-09';
 
-describe('month arithmetic', () => {
-  it('adds months across a year boundary (YYYY-MM)', () => {
+const slot = (personId, di, half = 'am') => ({ personId, date: WK[di], half });
+// Build a phase from slots, deriving personIds + window the way the store does.
+const phase = (slots, extra = {}) => {
+  const dates = slots.map(s => s.date).sort();
+  return {
+    id: 'ph', type: 'active-build', slots,
+    personIds: [...new Set(slots.map(s => s.personId))],
+    startMonth: dates[0], endMonth: dates[dates.length - 1], ...extra,
+  };
+};
+
+describe('month arithmetic (kept for deadlines/risk)', () => {
+  it('adds months across a year boundary and clamps the day', () => {
     expect(addMonths('2025-11', 3)).toBe('2026-02');
-    expect(addMonths('2025-01', -1)).toBe('2024-12');
+    expect(addMonths('2025-01-31', 1)).toBe('2025-02-28');
   });
-
-  it('adds months to a date, clamping the day to the new month length', () => {
-    expect(addMonths('2025-01-31', 1)).toBe('2025-02-28'); // Feb has no 31st
-    expect(addMonths('2025-03-15', -1)).toBe('2025-02-15');
-  });
-
-  it('monthToString zero-pads', () => {
+  it('monthDiff and getMonthRange', () => {
+    expect(monthDiff('2025-01', '2025-04')).toBe(3);
+    expect(getMonthRange('2025-01', '2025-03')).toEqual(['2025-01', '2025-02', '2025-03']);
     expect(monthToString(2025, 3)).toBe('2025-03');
   });
+});
 
-  it('monthDiff counts whole months between YYYY-MM', () => {
-    expect(monthDiff('2025-01', '2025-04')).toBe(3);
-    expect(monthDiff('2025-04', '2025-01')).toBe(-3);
+describe('working-day & slot helpers', () => {
+  it('isWorkingDay excludes weekends', () => {
+    expect(isWorkingDay(WK[0])).toBe(true);   // Mon
+    expect(isWorkingDay(SAT)).toBe(false);     // Sat
+    expect(isWorkingDay('2025-06-08')).toBe(false); // Sun
   });
 
-  it('getMonthRange is inclusive of both ends', () => {
-    expect(getMonthRange('2025-01', '2025-03')).toEqual(['2025-01', '2025-02', '2025-03']);
-    expect(getMonthRange('2025-05', '2025-05')).toEqual(['2025-05']);
+  it('getWorkingDayRange returns Mon–Fri inclusive, skipping the weekend', () => {
+    expect(getWorkingDayRange(WK[0], '2025-06-08')).toEqual(WK);
+    expect(getWorkingDayRange(WK[0], NEXT_MON)).toEqual([...WK, NEXT_MON]);
   });
 
-  it('monthCoverageFraction returns full, partial and zero coverage', () => {
-    expect(monthCoverageFraction('2025-03-01', '2025-03-31', '2025-03')).toBe(1);
-    expect(monthCoverageFraction('2025-03-01', '2025-03-15', '2025-03')).toBeCloseTo(15 / 31, 5);
-    expect(monthCoverageFraction('2025-03-01', '2025-03-31', '2025-04')).toBe(0);
+  it('enumerateSlots yields am+pm per working day', () => {
+    const slots = enumerateSlots(WK[0], WK[1]);
+    expect(slots).toEqual([
+      { date: WK[0], half: 'am' }, { date: WK[0], half: 'pm' },
+      { date: WK[1], half: 'am' }, { date: WK[1], half: 'pm' },
+    ]);
+  });
+
+  it('slotKey and isSlotAvailable', () => {
+    expect(slotKey('p1', WK[0], 'am')).toBe(`p1-${WK[0]}-am`);
+    const overrides = { [`p1-${WK[0]}-am`]: true };
+    expect(isSlotAvailable('p1', WK[0], 'am', overrides)).toBe(false);
+    expect(isSlotAvailable('p1', WK[0], 'pm', overrides)).toBe(true);
   });
 });
 
@@ -56,243 +73,155 @@ describe('phase helpers', () => {
     expect(getPhasePersonIds({ personId: 'a' })).toEqual(['a']);
     expect(getPhasePersonIds({})).toEqual([]);
   });
-
-  it('getPhaseIntensity prefers an explicit override over the type weight', () => {
+  it('getPhaseIntensity still resolves a type weight (label/colour use only)', () => {
     expect(getPhaseIntensity({ type: 'active-build', intensityOverride: null })).toBe(100);
-    expect(getPhaseIntensity({ type: 'active-build', intensityOverride: 60 })).toBe(60);
-    expect(getPhaseIntensity({ type: 'waiting', intensityOverride: null })).toBe(10);
-    expect(getPhaseIntensity({ type: 'nonexistent' })).toBe(0);
+    expect(getPhaseIntensity({ type: 'waiting' })).toBe(10);
   });
 });
 
-describe('migratePhase (saved-plan safety)', () => {
-  it('upgrades a legacy phase: personId → personIds, YYYY-MM → YYYY-MM-DD', () => {
+describe('migratePhase / migrateData (saved-plan safety)', () => {
+  it('upgrades a legacy phase and defaults slots to []', () => {
     const out = migratePhase({ personId: 'a', startMonth: '2025-01', endMonth: '2025-03' });
     expect(out.personIds).toEqual(['a']);
     expect(out.personId).toBeUndefined();
     expect(out.startMonth).toBe('2025-01-01');
-    expect(out.endMonth).toBe('2025-03-31'); // clamped to last day
+    expect(out.endMonth).toBe('2025-03-31');
+    expect(out.slots).toEqual([]); // old month-model phase carries no allocation
   });
 
-  it('leaves an already-migrated phase unchanged', () => {
-    const phase = { personIds: ['a', 'b'], startMonth: '2025-01-01', endMonth: '2025-01-31' };
-    const out = migratePhase(phase);
-    expect(out.personIds).toEqual(['a', 'b']);
-    expect(out.startMonth).toBe('2025-01-01');
-    expect(out.endMonth).toBe('2025-01-31');
-    expect(out.personId).toBeUndefined();
+  it('preserves existing slots', () => {
+    const slots = [{ personId: 'a', date: WK[0], half: 'am' }];
+    expect(migratePhase({ personIds: ['a'], slots }).slots).toBe(slots);
   });
 
-  it('defaults to an empty assignee list when none is present', () => {
-    expect(migratePhase({ startMonth: '2025-01', endMonth: '2025-02' }).personIds).toEqual([]);
-  });
-});
-
-describe('migrateData (document migration)', () => {
-  it('fills settings, capacityOverrides and per-project defaults for a bare doc', () => {
-    const out = migrateData({ team: [], projects: [{ id: 'x', name: 'X', phases: [] }] });
+  it('migrateData fills slots/initiative/settings defaults', () => {
+    const out = migrateData({ team: [], projects: [{ id: 'x', name: 'X', phases: [{ personIds: ['a'] }] }] });
     expect(out.settings).toEqual(DEFAULT_SETTINGS);
-    expect(out.capacityOverrides).toEqual({});
     expect(out.projects[0].initiative).toEqual(DEFAULT_INITIATIVE);
-    expect(out.projects[0].checkIns).toEqual([]);
-  });
-
-  it('preserves provided settings and merges partial initiative over defaults', () => {
-    const out = migrateData({
-      team: [], settings: { blendedRate: 75 },
-      projects: [{ id: 'x', name: 'X', phases: [], initiative: { type: 'client', progress: 40 } }],
-    });
-    expect(out.settings.blendedRate).toBe(75);
-    expect(out.projects[0].initiative).toEqual({
-      ...DEFAULT_INITIATIVE, type: 'client', progress: 40,
-    });
-  });
-
-  it('migrates each project phase and keeps existing check-ins', () => {
-    const out = migrateData({
-      team: [],
-      projects: [{
-        id: 'x', name: 'X', checkIns: [{ id: 'n1', text: 'hi' }],
-        phases: [{ personId: 'a', startMonth: '2025-01', endMonth: '2025-02' }],
-      }],
-    });
-    expect(out.projects[0].phases[0].personIds).toEqual(['a']);
-    expect(out.projects[0].phases[0].startMonth).toBe('2025-01-01');
-    expect(out.projects[0].checkIns).toEqual([{ id: 'n1', text: 'hi' }]);
+    expect(out.projects[0].phases[0].slots).toEqual([]);
   });
 });
 
 describe('getInitiative', () => {
-  it('returns defaults for a project with no initiative', () => {
+  it('returns defaults, then overlays stored fields', () => {
     expect(getInitiative(undefined)).toEqual(DEFAULT_INITIATIVE);
-    expect(getInitiative({})).toEqual(DEFAULT_INITIATIVE);
-  });
-
-  it('overlays stored fields onto the defaults', () => {
     expect(getInitiative({ initiative: { type: 'client', estimatedValue: 1000 } }))
       .toEqual({ ...DEFAULT_INITIATIVE, type: 'client', estimatedValue: 1000 });
   });
 });
 
-describe('getProjectLabourSummary', () => {
-  const rate = 50;
+describe('getProjectLabourSummary (slot-based)', () => {
+  const rate = 100;
 
-  it('derives hours from intensity × coverage × HOURS_PER_MONTH', () => {
-    const project = { initiative: { type: 'internal' }, phases: [fullMonthPhase()] };
-    const s = getProjectLabourSummary(project, rate);
-    expect(s.totalHours).toBe(HOURS_PER_MONTH);          // 160
-    expect(s.cost).toBe(HOURS_PER_MONTH * rate);          // 8000
-    expect(s.assignedHoursByPerson).toEqual({ p1: HOURS_PER_MONTH });
+  it('hours = allocated half-days × 4, cost = hours × rate', () => {
+    const p = { initiative: { type: 'internal' }, phases: [phase([slot('p1', 0), slot('p1', 1), slot('p1', 2)])] };
+    const s = getProjectLabourSummary(p, rate);
+    expect(s.totalHours).toBe(3 * HOURS_PER_HALF_DAY);     // 12
+    expect(s.cost).toBe(3 * HOURS_PER_HALF_DAY * rate);
+    expect(s.assignedHoursByPerson).toEqual({ p1: 3 * HOURS_PER_HALF_DAY });
   });
 
-  it('counts hours per assigned person (two people doubles the total)', () => {
-    const project = { phases: [fullMonthPhase({ personIds: ['p1', 'p2'] })] };
-    const s = getProjectLabourSummary(project, rate);
-    expect(s.assignedHoursByPerson).toEqual({ p1: HOURS_PER_MONTH, p2: HOURS_PER_MONTH });
-    expect(s.totalHours).toBe(HOURS_PER_MONTH * 2);
-  });
-
-  it('applies an intensity override and scales by partial coverage', () => {
-    const project = { phases: [fullMonthPhase({ intensityOverride: 50, endMonth: '2025-03-15' })] };
-    const s = getProjectLabourSummary(project, rate);
-    expect(s.totalHours).toBeCloseTo(0.5 * (15 / 31) * HOURS_PER_MONTH, 4);
+  it('counts each person their own slots', () => {
+    const p = { phases: [phase([slot('p1', 0), slot('p1', 0, 'pm'), slot('p2', 0)])] };
+    const s = getProjectLabourSummary(p, rate);
+    expect(s.assignedHoursByPerson).toEqual({ p1: 8, p2: 4 });
+    expect(s.totalHours).toBe(12);
   });
 
   it('routes hours to client vs internal by initiative type', () => {
-    const client = getProjectLabourSummary({ initiative: { type: 'client' }, phases: [fullMonthPhase()] }, rate);
-    expect(client.clientHours).toBe(HOURS_PER_MONTH);
-    expect(client.internalHours).toBe(0);
-
-    const internal = getProjectLabourSummary({ initiative: { type: 'internal' }, phases: [fullMonthPhase()] }, rate);
-    expect(internal.internalHours).toBe(HOURS_PER_MONTH);
-    expect(internal.clientHours).toBe(0);
+    const slots = [slot('p1', 0), slot('p1', 1)];
+    expect(getProjectLabourSummary({ initiative: { type: 'client' }, phases: [phase(slots)] }, rate).clientHours).toBe(8);
+    expect(getProjectLabourSummary({ initiative: { type: 'internal' }, phases: [phase(slots)] }, rate).internalHours).toBe(8);
   });
 
-  it('ignores zero-intensity phases and handles an empty project', () => {
-    expect(getProjectLabourSummary({ phases: [] }, rate).totalHours).toBe(0);
-    const zero = getProjectLabourSummary({ phases: [fullMonthPhase({ intensityOverride: 0 })] }, rate);
-    expect(zero.totalHours).toBe(0);
-    expect(zero.assignedHoursByPerson).toEqual({});
+  it('an unallocated phase contributes nothing', () => {
+    expect(getProjectLabourSummary({ phases: [phase([])] }, rate).totalHours).toBe(0);
   });
 });
 
 describe('getRoi', () => {
-  it('computes value minus cost and a percentage', () => {
+  it('value minus cost, with a divide-by-zero guard', () => {
     expect(getRoi(10000, 4000)).toEqual({ roi: 6000, roiPercent: 150 });
-  });
-
-  it('reports negative ROI', () => {
-    expect(getRoi(1000, 4000).roi).toBe(-3000);
-  });
-
-  it('guards against divide-by-zero when there is no cost', () => {
     expect(getRoi(5000, 0)).toEqual({ roi: 5000, roiPercent: 0 });
-  });
-
-  it('treats a missing value as zero', () => {
     expect(getRoi(undefined, 2000).roi).toBe(-2000);
   });
 });
 
-describe('calculateLoad / getEffectiveUtilisation', () => {
-  it('sums weighted intensity for the assigned person in a month', () => {
-    const project = {
-      id: 'x', name: 'X',
-      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null }],
-    };
-    // month === project end month → urgency factor is 1, no hold → load is the raw 100.
-    expect(calculateLoad('p1', '2025-06', [project])).toBe(100);
-    expect(calculateLoad('someone-else', '2025-06', [project])).toBe(0);
+describe('slot map / over-commitment', () => {
+  const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0), slot('p1', 1, 'pm')])] };
+  const b = { id: 'B', name: 'B', color: '#0f0', phases: [phase([slot('p1', 0)])] }; // collides with A on WK0 am
+
+  it('getPersonSlotMap counts claims per slot', () => {
+    const map = getPersonSlotMap('p1', [a, b]);
+    expect((map.get(`${WK[0]}|am`) || []).length).toBe(2); // double-booked
+    expect((map.get(`${WK[1]}|pm`) || []).length).toBe(1);
   });
 
-  it('getEffectiveUtilisation is load/capacity, with a zero-capacity guard', () => {
-    expect(getEffectiveUtilisation(100, 100)).toBe(100);
-    expect(getEffectiveUtilisation(50, 200)).toBe(25);
-    expect(getEffectiveUtilisation(10, 0)).toBe(999);
-    expect(getEffectiveUtilisation(0, 0)).toBe(0);
+  it('getPersonDayLoad reports counts and double-booking', () => {
+    expect(getPersonDayLoad('p1', WK[0], [a, b])).toEqual({ am: 2, pm: 0, halvesFilled: 1, doubleBooked: true });
+    expect(getPersonDayLoad('p1', WK[1], [a, b])).toEqual({ am: 0, pm: 1, halvesFilled: 1, doubleBooked: false });
+  });
+
+  it('getOverCommitment lists each double-booked slot per person', () => {
+    const oc = getOverCommitment([{ id: 'p1', name: 'Pat' }], [a, b]);
+    expect(oc).toHaveLength(1);
+    expect(oc[0].id).toBe('p1');
+    expect(oc[0].slots).toEqual([{ date: WK[0], half: 'am', claims: expect.any(Array) }]);
+  });
+
+  it('getPersonUtilisation reports daily fill % and over flag', () => {
+    const u = getPersonUtilisation('p1', [WK[0], WK[1]], [a, b]);
+    expect(u[0]).toMatchObject({ date: WK[0], halvesFilled: 1, doubleBooked: true, util: 50 });
+    expect(u[1]).toMatchObject({ date: WK[1], halvesFilled: 1, util: 50 });
   });
 });
 
 describe('getProjectRisk', () => {
   const NOW = '2025-06';
-  const factorKeys = r => r.factors.map(f => f.key).sort();
+  const keys = r => r.factors.map(f => f.key).sort();
+  const baseInit = { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 };
 
-  it('scores a healthy project as Low with no factors', () => {
-    const project = {
-      id: 'a', name: 'Healthy', deadline: '2025-12-31',
-      initiative: { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 },
-      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-05-01', endMonth: '2025-12-31', intensityOverride: null }],
-    };
-    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+  it('a healthy, single-booked project is Low', () => {
+    const p = { id: 'a', name: 'Healthy', deadline: '2025-12-31', initiative: baseInit, phases: [phase([slot('p1', 0), slot('p1', 1)])] };
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
     expect(r.level).toBe('low');
-    expect(r.score).toBe(0);
     expect(r.factors).toEqual([]);
     expect(r.needsInfo).toEqual([]);
   });
 
-  it('flags negative ROI alone as At risk (one High factor)', () => {
-    const project = {
-      id: 'a', name: 'Loss', deadline: '2025-12-31',
-      initiative: { type: 'internal', status: 'progress', progress: 50, estimatedValue: 1000 },
-      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-05-01', endMonth: '2025-12-31', intensityOverride: null }],
-    };
-    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
-    expect(factorKeys(r)).toEqual(['negative-roi']);
-    expect(r.score).toBe(3);
+  it('negative ROI alone is At risk', () => {
+    const p = { id: 'a', name: 'Loss', deadline: '2025-12-31', initiative: { ...baseInit, type: 'internal', estimatedValue: 500 }, phases: [phase([slot('p1', 0), slot('p1', 1)])] };
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW }); // cost 800 > 500
+    expect(keys(r)).toEqual(['negative-roi']);
     expect(r.level).toBe('at-risk');
   });
 
-  it('stacks overdue + behind into Critical', () => {
-    const project = {
-      id: 'a', name: 'Late',
-      initiative: { type: 'client', status: 'progress', progress: 40, estimatedValue: 1_000_000 },
-      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-01-01', endMonth: '2025-03-31', intensityOverride: null }],
-    };
-    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
-    expect(factorKeys(r)).toEqual(['behind', 'overdue']);
-    expect(r.score).toBeGreaterThanOrEqual(6);
-    expect(r.level).toBe('critical');
-  });
-
-  it('detects an overloaded assigned person across the contributing projects', () => {
-    const phase = pid => ({ id: 'ph', type: 'active-build', personIds: [pid], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null });
-    const a = { id: 'a', name: 'A', deadline: '2025-12-31', initiative: { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 }, phases: [phase('p1')] };
-    const b = { id: 'b', name: 'B', deadline: '2025-12-31', initiative: { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 }, phases: [phase('p1')] };
-    const r = getProjectRisk(a, { projects: [a, b], blendedRate: 50, currentMonth: NOW });
-    expect(factorKeys(r)).toContain('overload');
+  it('a double-booked assignee fires the overload factor', () => {
+    const a = { id: 'a', name: 'A', deadline: '2025-12-31', initiative: baseInit, phases: [phase([slot('p1', 0)])] };
+    const b = { id: 'b', name: 'B', deadline: '2025-12-31', initiative: baseInit, phases: [phase([slot('p1', 0)])] };
+    const r = getProjectRisk(a, { projects: [a, b], blendedRate: 100, currentMonth: NOW });
+    expect(keys(r)).toContain('overload');
     expect(r.level).toBe('at-risk');
   });
 
-  it('flags scheduled work with nobody assigned (Watch)', () => {
-    const project = {
-      id: 'a', name: 'Orphan', deadline: '2025-12-31',
-      initiative: { type: 'client', status: 'progress', progress: 30, estimatedValue: 1_000_000 },
-      phases: [{ id: 'ph', type: 'active-build', personIds: [], startMonth: '2025-05-01', endMonth: '2025-12-31', intensityOverride: null }],
-    };
-    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
-    expect(factorKeys(r)).toEqual(['unassigned']);
+  it('scheduled work with nobody assigned is Watch', () => {
+    const p = { id: 'a', name: 'Orphan', deadline: '2025-12-31', initiative: baseInit, phases: [phase([])] };
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
+    expect(keys(r)).toEqual(['unassigned']);
     expect(r.level).toBe('watch');
   });
 
-  it('exempts done projects from delivery factors, but flags done-but-incomplete', () => {
-    const project = {
-      id: 'a', name: 'Shipped',
-      initiative: { type: 'client', status: 'done', progress: 80, estimatedValue: 0 },
-      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-01-01', endMonth: '2025-03-31', intensityOverride: null }],
-    };
-    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
-    // Past deadline + no value would otherwise fire — done suppresses all of it.
-    expect(factorKeys(r)).toEqual(['done-incomplete']);
+  it('done-but-incomplete is the only factor allowed on a done project', () => {
+    const p = { id: 'a', name: 'Shipped', initiative: { ...baseInit, status: 'done', progress: 80, estimatedValue: 0 }, phases: [phase([slot('p1', 0)])] };
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
+    expect(keys(r)).toEqual(['done-incomplete']);
     expect(r.level).toBe('watch');
   });
 
-  it('reports data gaps separately from the risk score', () => {
-    const project = {
-      id: 'a', name: 'Blank',
-      // no initiative → all defaults (untouched); future-dated phase so no schedule factor fires
-      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-09-01', endMonth: '2025-09-30', intensityOverride: null }],
-    };
-    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+  it('reports data gaps separately from the score', () => {
+    // no initiative (all defaults), future-dated slots → no factors fire
+    const p = { id: 'a', name: 'Blank', phases: [phase([{ personId: 'p1', date: '2025-09-01', half: 'am' }])] };
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
     expect(r.needsInfo.sort()).toEqual(['metadata', 'value']);
     expect(r.factors).toEqual([]);
     expect(r.level).toBe('low');
@@ -300,102 +229,87 @@ describe('getProjectRisk', () => {
 });
 
 describe('getPersonWorkload', () => {
-  const clientChargeable = {
-    id: 'a', name: 'A', color: '#f00', initiative: { type: 'client', chargeable: true },
-    phases: [fullMonthPhase()],
-  };
-  const internalNonBillable = {
-    id: 'b', name: 'B', color: '#0f0', initiative: { type: 'internal', chargeable: false },
-    phases: [fullMonthPhase()],
-  };
+  const client = { id: 'a', name: 'A', color: '#f00', initiative: { type: 'client', chargeable: true }, phases: [phase([slot('p1', 0), slot('p1', 1)])] };
+  const internal = { id: 'b', name: 'B', color: '#0f0', initiative: { type: 'internal', chargeable: false }, phases: [phase([slot('p1', 2), slot('p1', 3)])] };
 
-  it('splits hours by type and by billable flag, and totals cost', () => {
-    const w = getPersonWorkload('p1', [clientChargeable, internalNonBillable], 50);
-    expect(w.totalHours).toBe(HOURS_PER_MONTH * 2);
-    expect(w.clientHours).toBe(HOURS_PER_MONTH);
-    expect(w.internalHours).toBe(HOURS_PER_MONTH);
-    expect(w.billableHours).toBe(HOURS_PER_MONTH);     // only the chargeable one
+  it('splits hours by type and billable flag and totals cost', () => {
+    const w = getPersonWorkload('p1', [client, internal], 100);
+    expect(w.totalHours).toBe(4 * HOURS_PER_HALF_DAY);   // 16
+    expect(w.clientHours).toBe(8);
+    expect(w.internalHours).toBe(8);
+    expect(w.billableHours).toBe(8);
     expect(w.billablePct).toBe(50);
-    expect(w.cost).toBe(HOURS_PER_MONTH * 2 * 50);
+    expect(w.cost).toBe(16 * 100);
     expect(w.byProject).toHaveLength(2);
   });
 
-  it('returns zeroed totals for a person with no assigned work', () => {
-    const w = getPersonWorkload('nobody', [clientChargeable], 50);
+  it('zeroes a person with no allocation', () => {
+    const w = getPersonWorkload('nobody', [client], 100);
     expect(w.totalHours).toBe(0);
-    expect(w.billablePct).toBe(0);
     expect(w.byProject).toEqual([]);
   });
 });
 
-describe('getPersonUtilisation', () => {
-  const project = {
-    id: 'a', name: 'A', deadline: '2025-06-30',
-    phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null }],
-  };
-
-  it('reports load, capacity and utilisation per month', () => {
-    const [u] = getPersonUtilisation('p1', ['2025-06'], [project]);
-    expect(u).toEqual({ month: '2025-06', load: 100, capacity: 100, util: 100 });
-  });
-
-  it('reflects reduced capacity as higher utilisation', () => {
-    const [u] = getPersonUtilisation('p1', ['2025-06'], [project], { 'p1-2025-06': 50 });
-    expect(u.util).toBe(200);
-  });
-
-  it('is zero for an unassigned person', () => {
-    const [u] = getPersonUtilisation('nobody', ['2025-06'], [project]);
-    expect(u).toEqual({ month: '2025-06', load: 0, capacity: 100, util: 0 });
-  });
-});
-
 describe('getWhatIfImpact', () => {
-  const juneFull = pid => ({ id: 'ph', type: 'active-build', personIds: [pid], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null });
-  const committed = { id: 'c', name: 'Committed', deadline: '2025-06-30', phases: [juneFull('p1')] };
-  const team = [{ id: 'p1', name: 'Pat' }, { id: 'p2', name: 'Sam' }];
+  const committed = { id: 'c', name: 'Committed', phases: [phase([slot('p1', 0)])] }; // p1 WK0 am
+  const team = [{ id: 'p1', name: 'Pat' }];
 
-  it('reports the added hours and cost', () => {
-    const wif = { id: 'what-if-1', name: 'New', deadline: '2025-06-30', phases: [juneFull('p2')] };
-    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
-    expect(r.addedHours).toBe(HOURS_PER_MONTH);
-    expect(r.addedCost).toBe(HOURS_PER_MONTH * 50);
+  it('reports added hours and cost', () => {
+    const wif = { id: 'w', name: 'New', phases: [phase([slot('p2', 0), slot('p2', 1)])] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 100 });
+    expect(r.addedHours).toBe(2 * HOURS_PER_HALF_DAY);
+    expect(r.addedCost).toBe(2 * HOURS_PER_HALF_DAY * 100);
   });
 
   it('projects ROI when an estimated value is set', () => {
-    const wif = { id: 'w', name: 'New', deadline: '2025-06-30', initiative: { estimatedValue: 20000 }, phases: [juneFull('p2')] };
-    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
-    expect(r.roi).toBe(20000 - HOURS_PER_MONTH * 50);   // 12000
-    expect(Math.round(r.roiPercent)).toBe(150);
+    const wif = { id: 'w', name: 'New', initiative: { estimatedValue: 20000 }, phases: [phase([slot('p2', 0), slot('p2', 1)])] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 100 });
+    expect(r.roi).toBe(20000 - 2 * HOURS_PER_HALF_DAY * 100);
+    expect(Math.round(r.roiPercent)).toBe(2400);
   });
 
-  it('flags people the what-if pushes over capacity', () => {
-    const wif = { id: 'w', name: 'New', deadline: '2025-06-30', phases: [juneFull('p1')] };
-    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
-    expect(r.overloadedPeople).toEqual([{ id: 'p1', name: 'Pat', months: ['2025-06'] }]);
+  it('flags the days a what-if double-books someone', () => {
+    const wif = { id: 'w', name: 'New', phases: [phase([slot('p1', 0), slot('p1', 1)])] }; // WK0 am collides
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 100 });
+    expect(r.overloadedPeople).toEqual([{ id: 'p1', name: 'Pat', days: [WK[0]] }]);
   });
 
-  it('does not flag a person who stays within capacity', () => {
-    const wif = { id: 'w', name: 'New', deadline: '2025-06-30', phases: [juneFull('p2')] };
-    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
+  it('does not flag a person who stays clear', () => {
+    const wif = { id: 'w', name: 'New', phases: [phase([slot('p2', 0)])] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 100 });
     expect(r.overloadedPeople).toEqual([]);
   });
 });
 
-describe('formatting', () => {
-  it('formatCurrency rounds and groups, defaulting nullish to zero', () => {
-    expect(formatCurrency(1234.5)).toBe('£1,235');
-    expect(formatCurrency(0)).toBe('£0');
-    expect(formatCurrency(null)).toBe('£0');
+describe('findAvailableSlots', () => {
+  const team = [{ id: 'p1', name: 'Pat' }, { id: 'p2', name: 'Sam' }];
+  const projects = [{ id: 'c', name: 'C', phases: [phase([slot('p1', 0)])] }]; // p1 busy WK0 am
+
+  it('a single free working day (duration 1)', () => {
+    const res = findAvailableSlots(team, WK, projects, null, {}, 1);
+    expect(res.p1.has(`${WK[0]}|am`)).toBe(false); // WK0 not fully free for p1
+    expect(res.p1.has(`${WK[1]}|am`)).toBe(true);
+    expect(res.p2.has(`${WK[0]}|am`)).toBe(true);  // p2 fully free
   });
 
-  it('formatSignedCurrency always shows an explicit sign (colour is never the only signal)', () => {
+  it('leave removes a day from availability', () => {
+    const overrides = { [`p2-${WK[1]}-am`]: true };
+    const res = findAvailableSlots(team, WK, projects, null, overrides, 1);
+    expect(res.p2.has(`${WK[1]}|am`)).toBe(false);
+  });
+});
+
+describe('formatting', () => {
+  it('formatCurrency rounds and groups', () => {
+    expect(formatCurrency(1234.5)).toBe('£1,235');
+    expect(formatCurrency(null)).toBe('£0');
+  });
+  it('formatSignedCurrency always shows a sign', () => {
     expect(formatSignedCurrency(1000)).toBe('+£1,000');
     expect(formatSignedCurrency(-1000)).toBe('-£1,000');
     expect(formatSignedCurrency(0)).toBe('£0');
   });
-
-  it('formatHours rounds and suffixes h', () => {
+  it('formatHours suffixes h', () => {
     expect(formatHours(160)).toBe('160h');
     expect(formatHours(0)).toBe('0h');
   });

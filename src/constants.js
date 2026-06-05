@@ -42,13 +42,20 @@ export const RISK_LEVELS = {
 
 // App-level settings persisted with each document.
 export const DEFAULT_SETTINGS = {
-  blendedRate: 45,        // GBP / hour
+  blendedRate: 110,       // GBP / hour
 };
 
-// Approximate working hours in a calendar month — a phase running at 100%
-// intensity for a full month is treated as this many person-hours. Kept as a
-// single constant so the labour estimate can be refined in one place later.
-export const HOURS_PER_MONTH = 160;
+// --- Half-day allocation model ---
+// Work is allocated in half-day slots: each working day (Mon–Fri) has an AM and
+// a PM half, and each half is HOURS_PER_HALF_DAY hours. Cost = allocated
+// half-days × HOURS_PER_HALF_DAY × blendedRate.
+export const HOURS_PER_HALF_DAY = 4;
+export const HALVES = ['am', 'pm'];
+export const WORKING_DAYS = [1, 2, 3, 4, 5]; // Date.getDay(): Mon–Fri
+export const VIEW_DAYS = 10;                 // 2 working weeks shown at once
+
+// Each person has 2 half-day slots per working day.
+export const SLOTS_PER_DAY = 2;
 
 // Ordered for stark contrast on consecutive picks: each color is ~opposite or
 // well-separated in hue from its neighbour, so the first N projects look as
@@ -72,54 +79,52 @@ export const PROJECT_COLORS = [
   '#475569', // slate
 ];
 
-export const CAPACITY_THRESHOLDS = {
-  light:  60,   // green
-  moderate: 80, // amber
-  heavy: 100,   // red
-};
-
-export const MONTH_WIDTH = 120;
+// Half-day grid layout (replaces the old month-column layout).
+export const SLOT_WIDTH = 30;            // px per half-day (AM/PM) column
+export const DAY_WIDTH = SLOT_WIDTH * 2; // a working day spans two halves
 export const BAR_HEIGHT = 26;
 export const BAR_GAP = 3;
 export const ROW_PADDING = 8;
 
+// Phase templates measured in working DAYS. QuickPlanModal lays each phase
+// across that many consecutive working days and fills both halves.
 export const PHASE_TEMPLATES = [
   {
     name: 'Standard',
     description: 'Scoping → Build → Final Push → Handover',
     phases: [
-      { type: 'scoping', months: 1 },
-      { type: 'active-build', months: 3 },
-      { type: 'final-push', months: 1 },
-      { type: 'handover', months: 1 },
+      { type: 'scoping', days: 2 },
+      { type: 'active-build', days: 8 },
+      { type: 'final-push', days: 3 },
+      { type: 'handover', days: 2 },
     ],
   },
   {
     name: 'Short Sprint',
     description: 'Scoping → Build → Handover',
     phases: [
-      { type: 'scoping', months: 1 },
-      { type: 'active-build', months: 2 },
-      { type: 'handover', months: 1 },
+      { type: 'scoping', days: 1 },
+      { type: 'active-build', days: 5 },
+      { type: 'handover', days: 2 },
     ],
   },
   {
     name: 'Long Project',
     description: 'Scoping → Build → Waiting → Final Push → Handover',
     phases: [
-      { type: 'scoping', months: 2 },
-      { type: 'active-build', months: 5 },
-      { type: 'waiting', months: 1 },
-      { type: 'final-push', months: 2 },
-      { type: 'handover', months: 1 },
+      { type: 'scoping', days: 3 },
+      { type: 'active-build', days: 12 },
+      { type: 'waiting', days: 3 },
+      { type: 'final-push', days: 4 },
+      { type: 'handover', days: 2 },
     ],
   },
   {
     name: 'Support / Maintenance',
     description: 'Scoping → Handover (light touch)',
     phases: [
-      { type: 'scoping', months: 1 },
-      { type: 'handover', months: 2 },
+      { type: 'scoping', days: 2 },
+      { type: 'handover', days: 3 },
     ],
   },
 ];

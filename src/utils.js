@@ -1,4 +1,4 @@
-import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_MONTH } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -83,54 +83,6 @@ export function lastDayOfMonth(yearMonth) {
   return new Date(year, month, 0).getDate();
 }
 
-/** Fraction of a given month covered by [startDate, endDate]. Returns 0-1. */
-export function monthCoverageFraction(startDate, endDate, month) {
-  // Handle old YYYY-MM format gracefully
-  if (startDate && startDate.length === 7) startDate = startDate + '-01';
-  if (endDate && endDate.length === 7) {
-    endDate = endDate + '-' + String(lastDayOfMonth(endDate)).padStart(2, '0');
-  }
-
-  const days = lastDayOfMonth(month);
-  const mStart = `${month}-01`;
-  const mEnd = `${month}-${String(days).padStart(2, '0')}`;
-
-  const effStart = startDate > mStart ? startDate : mStart;
-  const effEnd = endDate < mEnd ? endDate : mEnd;
-
-  if (effStart > effEnd) return 0;
-
-  const startDay = Number(effStart.slice(8, 10));
-  const endDay = Number(effEnd.slice(8, 10));
-  return (endDay - startDay + 1) / days;
-}
-
-/** Fractional month offset from viewStart (YYYY-MM) to a date (YYYY-MM-DD). */
-export function dateOffset(viewStartMonth, date) {
-  if (!date) return 0;
-  const dm = dateToMonth(date);
-  const mo = monthDiff(viewStartMonth, dm);
-  if (date.length >= 10) {
-    const day = Number(date.slice(8, 10));
-    const days = lastDayOfMonth(dm);
-    return mo + (day - 1) / days;
-  }
-  return mo;
-}
-
-/** Fractional month offset to the END of a date (i.e. includes that day). */
-export function dateOffsetEnd(viewStartMonth, date) {
-  if (!date) return 0;
-  const dm = dateToMonth(date);
-  const mo = monthDiff(viewStartMonth, dm);
-  if (date.length >= 10) {
-    const day = Number(date.slice(8, 10));
-    const days = lastDayOfMonth(dm);
-    return mo + day / days;
-  }
-  return mo + 1; // YYYY-MM format: treat as whole month
-}
-
 export function formatDateShort(d) {
   if (!d) return '';
   const parts = d.split('-');
@@ -148,13 +100,16 @@ export function getPhasePersonIds(phase) {
   return [];
 }
 
-/** Migrate a phase from old format (personId, YYYY-MM) to new (personIds, YYYY-MM-DD). */
+/** Migrate a phase to the current shape (personIds[], YYYY-MM-DD dates, slots[]). */
 export function migratePhase(phase) {
   const migrated = { ...phase };
   if (!migrated.personIds) {
     migrated.personIds = migrated.personId ? [migrated.personId] : [];
   }
   delete migrated.personId;
+  // Half-day allocations. Old (month-model) phases have none — default to empty
+  // so they load without crashing (they simply carry no allocation/cost).
+  if (!Array.isArray(migrated.slots)) migrated.slots = [];
   if (migrated.startMonth && migrated.startMonth.length === 7) {
     migrated.startMonth = migrated.startMonth + '-01';
   }
@@ -184,7 +139,7 @@ export function migrateData(data) {
   };
 }
 
-// --- Urgency weighting (deadline proximity) ---
+// --- Project end (deadline) ---
 
 export function getProjectEndMonth(project) {
   if (project.deadline) return project.deadline;
@@ -195,66 +150,115 @@ export function getProjectEndMonth(project) {
   return latest;
 }
 
-export function getUrgencyFactor(month, projectEndMonth) {
-  if (!projectEndMonth) return 1;
-  const remaining = monthDiff(month, dateToMonth(projectEndMonth));
-  if (remaining <= 0) return 1;                          // at or past end — full urgency
-  return Math.max(0.7, 1.0 - (remaining - 1) * 0.06);   // 1.0 → 0.7 over ~6 months
-}
-
-// --- Capacity calculation ---
-
+// Phase intensity is now a label/colour concern only — no longer feeds cost or
+// load. Kept so views can still shade bars by type weight if they want.
 export function getPhaseIntensity(phase) {
   if (phase.intensityOverride != null) return phase.intensityOverride;
   return PHASE_TYPES[phase.type]?.weight ?? 0;
 }
 
-export function getPersonCapacity(personId, month, capacityOverrides = {}) {
-  return capacityOverrides[`${personId}-${month}`] ?? 100;
+// --- Half-day slot model ---
+
+/** Is this YYYY-MM-DD a working day (Mon–Fri)? */
+export function isWorkingDay(date) {
+  // Parse at noon to dodge timezone/DST edge cases (same trick as addDays).
+  return WORKING_DAYS.includes(new Date(date + 'T12:00:00').getDay());
 }
 
-export function getProjectHoldFactor(project, month) {
-  if (!project.hold) return 1;
-  const { startMonth, endMonth, reduction } = project.hold;
-  if (month >= startMonth && (endMonth === null || month <= endMonth)) {
-    return 1 - (reduction / 100);
+/** Working days (YYYY-MM-DD, Mon–Fri) from start to end inclusive. */
+export function getWorkingDayRange(startDate, endDate) {
+  const days = [];
+  let d = startDate;
+  while (d <= endDate) {
+    if (isWorkingDay(d)) days.push(d);
+    d = addDays(d, 1);
   }
-  return 1;
+  return days;
 }
 
-export function calculateLoad(personId, month, projects, whatIfProject = null) {
-  let total = 0;
-  const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
-  for (const project of allProjects) {
-    const holdFactor = getProjectHoldFactor(project, month);
-    const urgency = getUrgencyFactor(month, getProjectEndMonth(project));
-    for (const phase of project.phases) {
-      if (getPhasePersonIds(phase).includes(personId)) {
-        const fraction = monthCoverageFraction(phase.startMonth, phase.endMonth, month);
-        if (fraction > 0) {
-          total += Math.round(getPhaseIntensity(phase) * fraction * holdFactor * urgency);
-        }
+/** Every half-day slot {date, half} across the working days in [start,end]. */
+export function enumerateSlots(startDate, endDate) {
+  const slots = [];
+  for (const date of getWorkingDayRange(startDate, endDate)) {
+    for (const half of HALVES) slots.push({ date, half });
+  }
+  return slots;
+}
+
+/** Canonical key for a person's half-day slot (leave overrides + lookups). */
+export function slotKey(personId, date, half) {
+  return `${personId}-${date}-${half}`;
+}
+
+/** A slot is available unless leave has marked it unavailable. */
+export function isSlotAvailable(personId, date, half, capacityOverrides = {}) {
+  return !capacityOverrides[slotKey(personId, date, half)];
+}
+
+/**
+ * Map of a person's allocations keyed 'date|half' → array of claims
+ * ({ projectId, projectName, projectColor, phaseId }). Per slot: length 0 free,
+ * 1 committed, ≥2 double-booked (over-committed). The core over-commitment
+ * primitive — build once per render and look up per cell.
+ */
+export function getPersonSlotMap(personId, projects, whatIfProject = null) {
+  const map = new Map();
+  const all = whatIfProject ? [...projects, whatIfProject] : projects;
+  for (const project of all) {
+    for (const phase of project.phases || []) {
+      for (const slot of phase.slots || []) {
+        if (slot.personId !== personId) continue;
+        const key = `${slot.date}|${slot.half}`;
+        const arr = map.get(key) || [];
+        arr.push({ projectId: project.id, projectName: project.name, projectColor: project.color, phaseId: phase.id });
+        map.set(key, arr);
       }
     }
   }
-  return total;
+  return map;
 }
 
+/** A person's allocation counts for one day, with double-book detection. */
+export function getPersonDayLoad(personId, date, projects, whatIfProject = null, slotMap = null) {
+  const map = slotMap || getPersonSlotMap(personId, projects, whatIfProject);
+  const am = (map.get(`${date}|am`) || []).length;
+  const pm = (map.get(`${date}|pm`) || []).length;
+  return { am, pm, halvesFilled: (am > 0 ? 1 : 0) + (pm > 0 ? 1 : 0), doubleBooked: am > 1 || pm > 1 };
+}
+
+/** Every (person, date, half) booked more than once, across all projects. */
+export function getOverCommitment(team, projects, whatIfProject = null) {
+  const result = [];
+  for (const person of team) {
+    const map = getPersonSlotMap(person.id, projects, whatIfProject);
+    const slots = [];
+    for (const [key, claims] of map) {
+      if (claims.length > 1) {
+        const [date, half] = key.split('|');
+        slots.push({ date, half, claims });
+      }
+    }
+    if (slots.length) result.push({ id: person.id, name: person.name, slots });
+  }
+  return result;
+}
+
+// load/capacity as a percentage (capacity in halves; e.g. 1 of 2 halves = 50%).
 export function getEffectiveUtilisation(load, capacity) {
   if (capacity <= 0) return load > 0 ? 999 : 0;
   return Math.round(load / capacity * 100);
 }
 
-export function getLoadColor(load) {
-  if (load === 0)   return 'var(--surface-2)';
-  if (load <= 60)   return '#16a34a';
-  if (load <= 80)   return '#ca8a04';
-  if (load <= 100)  return '#ea580c';
+// Colour by utilisation %: empty / part day (green) / full day (amber) / over (red).
+export function getLoadColor(util) {
+  if (util <= 0)   return 'var(--surface-2)';
+  if (util <= 50)  return '#16a34a';
+  if (util <= 100) return '#ca8a04';
   return '#dc2626';
 }
 
-export function getLoadTextColor(load) {
-  if (load === 0) return 'var(--text-3)';
+export function getLoadTextColor(util) {
+  if (util <= 0) return 'var(--text-3)';
   return '#fff';
 }
 
@@ -265,36 +269,33 @@ export function genId() {
   return String(++_id);
 }
 
-// --- Active phases for a person in a given month ---
+// --- Active phases for a person on a given day ---
 
-export function getActivePhases(personId, month, projects, whatIfProject = null) {
+// A phase is "active" for a person on a date if they hold a slot that day.
+export function getActivePhases(personId, date, projects, whatIfProject = null) {
   const result = [];
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
-    const holdFactor = getProjectHoldFactor(project, month);
-    const urgencyFactor = getUrgencyFactor(month, getProjectEndMonth(project));
-    for (const phase of project.phases) {
-      if (getPhasePersonIds(phase).includes(personId)) {
-        const fraction = monthCoverageFraction(phase.startMonth, phase.endMonth, month);
-        if (fraction > 0) {
-          const baseIntensity = getPhaseIntensity(phase);
-          const effectiveIntensity = Math.round(baseIntensity * fraction * holdFactor * urgencyFactor);
-          result.push({ ...phase, projectId: project.id, projectName: project.name, projectColor: project.color, initiative: getInitiative(project), isWhatIf: project.isWhatIf || false, holdFactor, urgencyFactor, effectiveIntensity });
-        }
+    for (const phase of project.phases || []) {
+      const halves = (phase.slots || []).filter(s => s.personId === personId && s.date === date).map(s => s.half);
+      if (halves.length) {
+        result.push({
+          ...phase, projectId: project.id, projectName: project.name, projectColor: project.color,
+          initiative: getInitiative(project), isWhatIf: project.isWhatIf || false, halves,
+        });
       }
     }
   }
   return result;
 }
 
-// --- Phases for a person across a month range (for timeline bars) ---
+// --- Phases for a person across the timeline (for bars) ---
 
 export function getPersonPhases(personId, projects, whatIfProject = null) {
   const result = [];
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
   for (const project of allProjects) {
-    const isHeld = !!project.hold;
-    for (const phase of project.phases) {
+    for (const phase of project.phases || []) {
       if (getPhasePersonIds(phase).includes(personId)) {
         result.push({
           ...phase,
@@ -303,8 +304,6 @@ export function getPersonPhases(personId, projects, whatIfProject = null) {
           projectColor: project.color,
           initiative: getInitiative(project),
           isWhatIf: project.isWhatIf || false,
-          isHeld,
-          hold: project.hold,
         });
       }
     }
@@ -382,29 +381,19 @@ export function getInitiative(project) {
 }
 
 /**
- * Estimate labour hours, cost and per-person breakdown for a project.
- *
- * Reuses Headroom's month-intensity model: a phase at intensity I% covering
- * fraction F of a month contributes (I/100) × F × hoursPerMonth person-hours
- * for each assigned person. Urgency and hold weighting are deliberately
- * excluded — those are scheduling/visual amplifiers, not real effort.
+ * Labour hours, cost and per-person breakdown for a project, from its half-day
+ * slot allocations: each allocated slot = HOURS_PER_HALF_DAY hours for that
+ * person. Cost = total hours × blendedRate. Client/internal split keys off the
+ * initiative type. (Phase-type intensity no longer affects cost.)
  */
-export function getProjectLabourSummary(project, blendedRate, hoursPerMonth = HOURS_PER_MONTH) {
+export function getProjectLabourSummary(project, blendedRate) {
   const assignedHoursByPerson = {};
   let totalHours = 0;
 
   for (const phase of project.phases || []) {
-    const intensity = getPhaseIntensity(phase);
-    if (intensity <= 0) continue;
-    const months = getMonthRange(dateToMonth(phase.startMonth), dateToMonth(phase.endMonth));
-    let phaseHoursPerPerson = 0;
-    for (const m of months) {
-      const fraction = monthCoverageFraction(phase.startMonth, phase.endMonth, m);
-      phaseHoursPerPerson += (intensity / 100) * fraction * hoursPerMonth;
-    }
-    for (const pid of getPhasePersonIds(phase)) {
-      assignedHoursByPerson[pid] = (assignedHoursByPerson[pid] || 0) + phaseHoursPerPerson;
-      totalHours += phaseHoursPerPerson;
+    for (const slot of phase.slots || []) {
+      assignedHoursByPerson[slot.personId] = (assignedHoursByPerson[slot.personId] || 0) + HOURS_PER_HALF_DAY;
+      totalHours += HOURS_PER_HALF_DAY;
     }
   }
 
@@ -455,32 +444,19 @@ function isDefaultInitiative(init) {
   return Object.keys(DEFAULT_INITIATIVE).every(k => init[k] === DEFAULT_INITIATIVE[k]);
 }
 
-/** Distinct months (YYYY-MM) that any of the project's phases span. */
-function projectActiveMonths(project) {
-  const months = new Set();
-  for (const phase of project.phases || []) {
-    for (const m of getMonthRange(dateToMonth(phase.startMonth), dateToMonth(phase.endMonth))) {
-      months.add(m);
-    }
-  }
-  return [...months];
-}
-
 /**
  * Score a project's delivery/commercial risk.
  *
  * @param project  the project to score
- * @param opts.projects          all projects (needed to sum per-person load)
- * @param opts.blendedRate       £/hour, for the ROI factor
- * @param opts.capacityOverrides per-person/month capacity map
- * @param opts.currentMonth      YYYY-MM "now" (injectable for tests)
+ * @param opts.projects     all projects (needed to detect cross-project double-booking)
+ * @param opts.blendedRate  £/hour, for the ROI factor
+ * @param opts.currentMonth YYYY-MM "now" (injectable for tests)
  * @returns { level, score, factors:[{key,label,severity,points}], needsInfo:[] }
  */
 export function getProjectRisk(project, opts = {}) {
   const {
     projects = [],
-    blendedRate = 45,
-    capacityOverrides = {},
+    blendedRate = 110,
     currentMonth = getCurrentMonth(),
   } = opts;
 
@@ -513,18 +489,16 @@ export function getProjectRisk(project, opts = {}) {
       if (roi < 0) add('negative-roi', 'Negative ROI', 'high');
     }
 
-    // Overloaded people — an assigned person over 100% in a month THIS project runs.
-    const activeMonths = projectActiveMonths(project);
+    // Overloaded people — an assigned person double-booked on a slot this project claims.
     let overloaded = false;
     for (const pid of assignedIds) {
-      for (const m of activeMonths) {
-        const load = calculateLoad(pid, m, projects);
-        const cap = getPersonCapacity(pid, m, capacityOverrides);
-        if (getEffectiveUtilisation(load, cap) > 100) { overloaded = true; break; }
+      const map = getPersonSlotMap(pid, projects);
+      for (const claims of map.values()) {
+        if (claims.length > 1 && claims.some(c => c.projectId === project.id)) { overloaded = true; break; }
       }
       if (overloaded) break;
     }
-    if (overloaded) add('overload', 'Assigned person over capacity', 'high');
+    if (overloaded) add('overload', 'Assigned person double-booked', 'high');
 
     // Behind schedule — progress lagging the share of the timeline elapsed.
     const startMonths = phases.map(p => dateToMonth(p.startMonth)).filter(Boolean);
@@ -570,9 +544,9 @@ export function getProjectRisk(project, opts = {}) {
  * billable), cost, and a per-project breakdown sorted by contribution.
  *
  * This is the EFFORT/COST lens — hours come from getProjectLabourSummary
- * (intensity × coverage), unweighted by urgency/hold. "Billable" keys off the
- * initiative `chargeable` flag, which is a different axis from client/internal
- * type. Compare with getPersonUtilisation (the scheduling lens).
+ * (allocated half-days × 4h). "Billable" keys off the initiative `chargeable`
+ * flag, a different axis from client/internal type. Compare with
+ * getPersonUtilisation (the scheduling lens).
  */
 export function getPersonWorkload(personId, projects, blendedRate) {
   let totalHours = 0, clientHours = 0, internalHours = 0, billableHours = 0;
@@ -596,17 +570,15 @@ export function getPersonWorkload(personId, projects, blendedRate) {
 }
 
 /**
- * A person's month-by-month utilisation over the given months.
- *
- * This is the SCHEDULING lens — load is urgency/hold-weighted (calculateLoad),
- * measured against capacity (with leave/part-time overrides). util is a
- * percentage; >100 means over capacity. Mirrors what the Heatmap shows.
+ * A person's working-day utilisation over the given days. SCHEDULING lens:
+ * how many half-day slots are filled each day, and whether any half is
+ * double-booked. util = filled halves / halves-per-day × 100.
  */
-export function getPersonUtilisation(personId, months, projects, capacityOverrides = {}) {
-  return months.map(month => {
-    const load = calculateLoad(personId, month, projects);
-    const capacity = getPersonCapacity(personId, month, capacityOverrides);
-    return { month, load, capacity, util: getEffectiveUtilisation(load, capacity) };
+export function getPersonUtilisation(personId, days, projects) {
+  const map = getPersonSlotMap(personId, projects);
+  return days.map(date => {
+    const { am, pm, halvesFilled, doubleBooked } = getPersonDayLoad(personId, date, projects, null, map);
+    return { date, am, pm, halvesFilled, doubleBooked, util: Math.round((halvesFilled / HALVES.length) * 100) };
   });
 }
 
@@ -615,31 +587,29 @@ export function getPersonUtilisation(personId, months, projects, capacityOverrid
  * the committed plan: added labour hours/cost, projected ROI (if a value is
  * set), and which assigned people it pushes over capacity (and when).
  *
- * "Pushed over" means: in a month the what-if contributes load, that person
- * ends up over 100% AND the what-if is what tipped them past committed work.
+ * "Pushed over" means: the what-if allocates a person to a half-day slot they
+ * already have a committed claim on — i.e. it creates a double-booking.
  */
 export function getWhatIfImpact(whatIfProject, opts = {}) {
-  const { projects = [], team = [], blendedRate = 45, capacityOverrides = {} } = opts;
+  const { projects = [], team = [], blendedRate = 110 } = opts;
   const summary = getProjectLabourSummary(whatIfProject, blendedRate);
   const init = getInitiative(whatIfProject);
   const { roi, roiPercent } = getRoi(init.estimatedValue, summary.cost);
 
   // Compare against the committed plan with the what-if excluded.
   const baseProjects = projects.filter(p => p.id !== whatIfProject.id);
-  const months = projectActiveMonths(whatIfProject);
   const overloadedPeople = [];
   for (const pid of Object.keys(summary.assignedHoursByPerson)) {
-    const hitMonths = [];
-    for (const m of months) {
-      const cap = getPersonCapacity(pid, m, capacityOverrides);
-      const withWhatIf = calculateLoad(pid, m, baseProjects, whatIfProject);
-      const without = calculateLoad(pid, m, baseProjects);
-      if (withWhatIf > without && getEffectiveUtilisation(withWhatIf, cap) > 100) {
-        hitMonths.push(m);
+    const baseMap = getPersonSlotMap(pid, baseProjects);
+    const days = new Set();
+    for (const phase of whatIfProject.phases || []) {
+      for (const slot of phase.slots || []) {
+        if (slot.personId !== pid) continue;
+        if ((baseMap.get(`${slot.date}|${slot.half}`) || []).length >= 1) days.add(slot.date);
       }
     }
-    if (hitMonths.length) {
-      overloadedPeople.push({ id: pid, name: team.find(t => t.id === pid)?.name || pid, months: hitMonths });
+    if (days.size) {
+      overloadedPeople.push({ id: pid, name: team.find(t => t.id === pid)?.name || pid, days: [...days] });
     }
   }
 
@@ -671,25 +641,24 @@ export function formatHours(n) {
 
 // --- Availability finder ---
 
-export function findAvailableSlots(team, months, projects, whatIfProject, capacityOverrides, phaseType, duration) {
-  const weight = PHASE_TYPES[phaseType]?.weight ?? 100;
-  const result = {}; // { personId: Set<month> }
-
+/**
+ * People with at least one run of `duration` consecutive working days that are
+ * completely free — every half-day unallocated (incl. any what-if) and not on
+ * leave. Returns { personId: Set<'date|half'> } of free slots to highlight.
+ */
+export function findAvailableSlots(team, days, projects, whatIfProject, capacityOverrides = {}, duration = 1) {
+  const result = {};
   for (const person of team) {
-    const validMonths = new Set();
-    for (let i = 0; i <= months.length - duration; i++) {
+    const map = getPersonSlotMap(person.id, projects, whatIfProject);
+    const dayFree = date => HALVES.every(h =>
+      (map.get(`${date}|${h}`) || []).length === 0 && isSlotAvailable(person.id, date, h, capacityOverrides));
+    const slots = new Set();
+    for (let i = 0; i <= days.length - duration; i++) {
       let ok = true;
-      for (let j = 0; j < duration; j++) {
-        const m = months[i + j];
-        const load = calculateLoad(person.id, m, projects, whatIfProject);
-        const cap = getPersonCapacity(person.id, m, capacityOverrides);
-        if (load + weight > cap) { ok = false; break; }
-      }
-      if (ok) {
-        for (let j = 0; j < duration; j++) validMonths.add(months[i + j]);
-      }
+      for (let j = 0; j < duration; j++) { if (!dayFree(days[i + j])) { ok = false; break; } }
+      if (ok) for (let j = 0; j < duration; j++) for (const h of HALVES) slots.add(`${days[i + j]}|${h}`);
     }
-    if (validMonths.size > 0) result[person.id] = validMonths;
+    if (slots.size > 0) result[person.id] = slots;
   }
   return result;
 }

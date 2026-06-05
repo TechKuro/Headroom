@@ -2,39 +2,40 @@ import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import {
   getPersonWorkload, getPersonUtilisation,
-  getCurrentMonth, addMonths, getMonthRange, monthLabelShort,
+  getCurrentDate, addDays, getWorkingDayRange,
   getLoadColor, formatCurrency, formatHours,
 } from '../utils';
 
-// Rolling forecast window for the utilisation strip.
-const HORIZON_MONTHS = 12;
+// Rolling forecast window (working days) for the utilisation strip.
+const HORIZON_CAL_DAYS = 20; // ~4 working weeks
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
 
 export default function PeopleCostView() {
-  const { team, projects, settings, capacityOverrides } = useStore();
-  const blendedRate = settings?.blendedRate ?? 45;
+  const { team, projects, settings } = useStore();
+  const blendedRate = settings?.blendedRate ?? 110;
 
-  const months = useMemo(() => {
-    const now = getCurrentMonth();
-    return getMonthRange(now, addMonths(now, HORIZON_MONTHS - 1));
+  const days = useMemo(() => {
+    const start = getCurrentDate();
+    return getWorkingDayRange(start, addDays(start, HORIZON_CAL_DAYS));
   }, []);
-  const nowMonth = months[0];
+  const firstDay = days[0];
 
   const people = useMemo(() => {
     return team.map(m => {
       const workload = getPersonWorkload(m.id, projects, blendedRate);
-      const util = getPersonUtilisation(m.id, months, projects, capacityOverrides);
-      const utils = util.map(u => u.util);
-      const avgUtil = utils.length ? Math.round(utils.reduce((s, u) => s + u, 0) / utils.length) : 0;
-      const peakUtil = utils.length ? Math.max(...utils) : 0;
-      const overloadMonths = util.filter(u => u.util > 100).map(u => u.month);
+      const util = getPersonUtilisation(m.id, days, projects);
+      const fills = util.map(u => u.util);
+      const avgFill = fills.length ? Math.round(fills.reduce((s, u) => s + u, 0) / fills.length) : 0;
+      const doubleDays = util.filter(u => u.doubleBooked).map(u => u.date);
       const firstFree = util.find(u => u.util < 100);
       return {
         id: m.id, name: m.name, role: m.role, workload, util,
-        avgUtil, peakUtil, overloadMonths,
-        availableNext: firstFree ? firstFree.month : null,
+        avgFill, doubleDays, availableNext: firstFree ? firstFree.date : null,
       };
     }).sort((a, b) => b.workload.totalHours - a.workload.totalHours);
-  }, [team, projects, blendedRate, capacityOverrides, months]);
+  }, [team, projects, blendedRate, days]);
 
   const maxHours = Math.max(1, ...people.map(p => p.workload.totalHours));
 
@@ -49,23 +50,21 @@ export default function PeopleCostView() {
         <span><span className="pc-swatch internal" /> Internal</span>
         <span className="pc-legend-sep" />
         <span className="pc-legend-util">
-          Utilisation, next {HORIZON_MONTHS} months:
-          <span className="pc-util-key" style={{ background: getLoadColor(50) }} /> light
-          <span className="pc-util-key" style={{ background: getLoadColor(75) }} /> moderate
-          <span className="pc-util-key" style={{ background: getLoadColor(95) }} /> heavy
-          <span className="pc-util-key" style={{ background: getLoadColor(120) }} /> over
+          Utilisation, next {days.length} working days:
+          <span className="pc-util-key" style={{ background: getLoadColor(50) }} /> half
+          <span className="pc-util-key" style={{ background: getLoadColor(100) }} /> full
+          <span className="pc-util-key" style={{ background: '#dc2626' }} /> double-booked
         </span>
       </div>
 
       <div className="pc-list">
         {people.map(p => {
           const w = p.workload;
-          const barPct = (w.totalHours / maxHours) * 100;
           const clientShare = w.totalHours > 0 ? (w.clientHours / w.totalHours) * 100 : 0;
           const internalShare = w.totalHours > 0 ? (w.internalHours / w.totalHours) * 100 : 0;
           const availableLabel = p.availableNext === null
             ? 'Fully booked'
-            : p.availableNext === nowMonth ? 'Now' : monthLabelShort(p.availableNext);
+            : p.availableNext === firstDay ? 'Now' : dayLabel(p.availableNext);
 
           return (
             <div key={p.id} className="pc-card">
@@ -78,26 +77,26 @@ export default function PeopleCostView() {
                   <Stat label="Hours" value={formatHours(w.totalHours)} />
                   <Stat label="Cost" value={formatCurrency(w.cost)} />
                   <Stat label="Billable" value={`${Math.round(w.billablePct)}%`} />
-                  <Stat label="Avg util" value={`${p.avgUtil}%`} tone={utilTone(p.avgUtil)} />
-                  <Stat label="Peak util" value={`${p.peakUtil}%`} tone={utilTone(p.peakUtil)} />
+                  <Stat label="Avg fill" value={`${p.avgFill}%`} />
+                  <Stat label="Double-booked" value={`${p.doubleDays.length}d`} tone={p.doubleDays.length ? 'neg' : undefined} />
                 </div>
               </div>
 
-              {/* 12-month utilisation forecast */}
+              {/* Utilisation forecast (working days) */}
               <div className="pc-util">
                 <div className="pc-util-strip">
                   {p.util.map(u => (
                     <div
-                      key={u.month}
-                      className={`pc-util-cell ${u.util > 100 ? 'over' : ''}`}
-                      style={{ background: getLoadColor(u.util) }}
-                      title={`${monthLabelShort(u.month)} · ${u.util}%`}
+                      key={u.date}
+                      className={`pc-util-cell ${u.doubleBooked ? 'over' : ''}`}
+                      style={{ background: u.doubleBooked ? '#dc2626' : getLoadColor(u.util) }}
+                      title={`${dayLabel(u.date)} · ${u.util}%${u.doubleBooked ? ' · double-booked' : ''}`}
                     />
                   ))}
                 </div>
                 <div className="pc-util-axis">
-                  <span>{monthLabelShort(months[0])}</span>
-                  <span>{monthLabelShort(months[months.length - 1])}</span>
+                  <span>{dayLabel(days[0])}</span>
+                  <span>{dayLabel(days[days.length - 1])}</span>
                 </div>
               </div>
 
@@ -105,7 +104,7 @@ export default function PeopleCostView() {
               <div className="pc-card-foot">
                 <div className="pc-bar-area">
                   <div className="pc-bar-track">
-                    <div className="pc-bar" style={{ width: `${barPct}%` }}>
+                    <div className="pc-bar" style={{ width: `${(w.totalHours / maxHours) * 100}%` }}>
                       {clientShare > 0 && <div className="pc-seg client" style={{ width: `${clientShare}%` }} title={`Client: ${formatHours(w.clientHours)}`} />}
                       {internalShare > 0 && <div className="pc-seg internal" style={{ width: `${internalShare}%` }} title={`Internal: ${formatHours(w.internalHours)}`} />}
                     </div>
@@ -123,9 +122,9 @@ export default function PeopleCostView() {
                 </div>
                 <div className="pc-signals">
                   <span className="pc-avail">Available: <strong>{availableLabel}</strong></span>
-                  {p.overloadMonths.length > 0 && (
-                    <span className="pc-warn" title={p.overloadMonths.map(monthLabelShort).join('\n')}>
-                      Over capacity · {p.overloadMonths.length} mo
+                  {p.doubleDays.length > 0 && (
+                    <span className="pc-warn" title={p.doubleDays.map(dayLabel).join('\n')}>
+                      Double-booked · {p.doubleDays.length}d
                     </span>
                   )}
                 </div>
@@ -136,13 +135,6 @@ export default function PeopleCostView() {
       </div>
     </div>
   );
-}
-
-// Amber once heavy, red once over capacity — matches the load palette.
-function utilTone(util) {
-  if (util > 100) return 'neg';
-  if (util > 80) return 'warn';
-  return undefined;
 }
 
 function Stat({ label, value, tone }) {

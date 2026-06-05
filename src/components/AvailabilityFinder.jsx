@@ -1,23 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
-import { getMonthRange, getCurrentMonth, findAvailableSlots } from '../utils';
-import { PHASE_TYPES } from '../constants';
+import { getWorkingDayRange, findAvailableSlots } from '../utils';
 
 export default function AvailabilityFinder({ viewStart, viewEnd, whatIfProject, onResult, onClose }) {
   const { team, projects, capacityOverrides } = useStore();
-  const [phaseType, setPhaseType] = useState('active-build');
   const [duration, setDuration] = useState(2);
 
-  const months = useMemo(() => getMonthRange(viewStart, viewEnd), [viewStart, viewEnd]);
+  const days = useMemo(() => getWorkingDayRange(viewStart, viewEnd), [viewStart, viewEnd]);
 
   const matches = useMemo(() => {
-    return findAvailableSlots(team, months, projects, whatIfProject, capacityOverrides, phaseType, duration);
-  }, [team, months, projects, whatIfProject, capacityOverrides, phaseType, duration]);
+    return findAvailableSlots(team, days, projects, whatIfProject, capacityOverrides, duration);
+  }, [team, days, projects, whatIfProject, capacityOverrides, duration]);
 
   useEffect(() => { onResult(matches); }, [matches, onResult]);
 
   const matchCount = Object.keys(matches).length;
-  const weight = PHASE_TYPES[phaseType]?.weight ?? 0;
 
   return (
     <div className="finder-bar">
@@ -27,29 +24,21 @@ export default function AvailabilityFinder({ viewStart, viewEnd, whatIfProject, 
       </div>
       <div className="finder-fields">
         <div className="finder-field">
-          <label>Phase type</label>
-          <select value={phaseType} onChange={e => setPhaseType(e.target.value)} className="finder-select">
-            {Object.entries(PHASE_TYPES).map(([key, val]) => (
-              <option key={key} value={key}>{val.label} ({val.weight}%)</option>
-            ))}
-          </select>
-        </div>
-        <div className="finder-field">
-          <label>Duration</label>
+          <label>Free days needed</label>
           <div className="finder-duration">
             <button className="icon-btn-sm" onClick={() => setDuration(d => Math.max(1, d - 1))}>−</button>
-            <span className="finder-dur-value">{duration} mo</span>
-            <button className="icon-btn-sm" onClick={() => setDuration(d => Math.min(12, d + 1))}>+</button>
+            <span className="finder-dur-value">{duration} day{duration !== 1 ? 's' : ''}</span>
+            <button className="icon-btn-sm" onClick={() => setDuration(d => Math.min(10, d + 1))}>+</button>
           </div>
         </div>
       </div>
       <div className="finder-result">
         {matchCount > 0 ? (
           <span className="finder-match-text">
-            {matchCount} of {team.length} available — slots highlighted below
+            {matchCount} of {team.length} have {duration} free day{duration !== 1 ? 's' : ''} — highlighted below
           </span>
         ) : (
-          <span className="finder-no-match">No one has room for {duration}mo at {weight}%</span>
+          <span className="finder-no-match">No one has {duration} consecutive free working day{duration !== 1 ? 's' : ''}</span>
         )}
       </div>
       <button className="icon-btn" onClick={onClose} title="Close finder">
