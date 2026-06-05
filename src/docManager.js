@@ -9,7 +9,7 @@
 // async backend we keep an in-memory cache that `init()` hydrates once at
 // startup (before the store mounts). Mutations update the cache synchronously
 // and persist in the background.
-import { IS_CLOUD } from './auth/authConfig';
+import { IS_CLOUD, getAccountName } from './auth/authConfig';
 import { api } from './api';
 
 const INDEX_KEY = 'headroom-docs-index';
@@ -18,9 +18,42 @@ const DOC_PREFIX = 'headroom-doc-';
 const LEGACY_KEY = 'headroom-capacity-planner';
 
 // --- In-memory cache (source of truth the UI reads synchronously) ---
-let _index = [];                 // [{ id, name, lastModified }]
+let _index = [];                 // [{ id, name, lastModified, updatedBy }]
 let _data = new Map();           // id -> document data
 let _activeId = null;
+
+// Per-doc "base version" we last loaded/saved: { updatedAt, updatedBy }. Used to
+// detect when another user has saved over the version we're editing (cloud only).
+let _meta = new Map();           // id -> { updatedAt, updatedBy }
+
+// --- Conflict signalling (cloud, shared workspace) ---
+// A conflict is raised when our save is rejected as stale ('save'), or when a
+// focus-check finds the server copy is newer than ours ('remote'). The UI
+// subscribes and offers reload / overwrite. While a conflict is active for the
+// current doc, autosave pauses so we don't clobber the other user.
+let _conflict = null;            // { id, updatedBy, kind: 'save' | 'remote' } | null
+const _conflictListeners = new Set();
+
+function emitConflict() {
+  for (const fn of _conflictListeners) fn(_conflict);
+}
+
+export function getConflict() {
+  return _conflict;
+}
+
+export function clearConflict() {
+  if (_conflict) { _conflict = null; emitConflict(); }
+}
+
+export function subscribeConflict(fn) {
+  _conflictListeners.add(fn);
+  return () => _conflictListeners.delete(fn);
+}
+
+function currentUserLabel() {
+  return getAccountName() || 'you';
+}
 
 // ---------------------------------------------------------------------------
 // Synchronous reads (served from cache)
@@ -43,7 +76,14 @@ export function getActiveDocData() {
   return _activeId ? _data.get(_activeId) || null : null;
 }
 
+/** Who last saved the active doc and when ({ updatedAt, updatedBy }) — cloud only. */
+export function getActiveDocMeta() {
+  return _activeId ? _meta.get(_activeId) || null : null;
+}
+
 export function setActiveDocId(id) {
+  // Switching documents clears any conflict raised against the previous one.
+  if (_conflict && _conflict.id !== id) { _conflict = null; emitConflict(); }
   _activeId = id;
   try { localStorage.setItem(ACTIVE_KEY, id); } catch { /* ignore */ }
 }
@@ -64,7 +104,8 @@ export async function init({ makeSeed } = {}) {
 
 async function initCloud(makeSeed) {
   const { documents } = await api.listDocs();
-  _index = documents.map(d => ({ id: d.id, name: d.name, lastModified: d.updated_at }));
+  _index = documents.map(d => ({ id: d.id, name: d.name, lastModified: d.updated_at, updatedBy: d.updated_by }));
+  for (const d of documents) _meta.set(d.id, { updatedAt: d.updated_at, updatedBy: d.updated_by });
 
   let activeId = readLocalActive();
   if (!activeId || !_index.some(d => d.id === activeId)) {
@@ -75,7 +116,9 @@ async function initCloud(makeSeed) {
     // Empty shared workspace — seed the first document on the server.
     const seed = makeSeed ? makeSeed() : createEmptyState();
     const created = await api.createDoc('Headroom Plan', seed);
-    _index = [{ id: created.id, name: created.name, lastModified: created.updated_at }];
+    const me = currentUserLabel();
+    _index = [{ id: created.id, name: created.name, lastModified: created.updated_at, updatedBy: me }];
+    _meta.set(created.id, { updatedAt: created.updated_at, updatedBy: me });
     _data.set(created.id, seed);
     setActiveDocId(created.id);
     return;
@@ -83,6 +126,7 @@ async function initCloud(makeSeed) {
 
   const doc = await api.getDoc(activeId);
   _data.set(activeId, doc.data);
+  _meta.set(activeId, { updatedAt: doc.updated_at, updatedBy: doc.updated_by });
   setActiveDocId(activeId);
 }
 
@@ -104,11 +148,57 @@ function initLocal() {
 export async function refreshIndex() {
   if (IS_CLOUD) {
     const { documents } = await api.listDocs();
-    _index = documents.map(d => ({ id: d.id, name: d.name, lastModified: d.updated_at }));
+    // Updates the menu listing only — `_meta` (our edit base) is intentionally
+    // left alone so a remote save still trips the stale-write guard.
+    _index = documents.map(d => ({ id: d.id, name: d.name, lastModified: d.updated_at, updatedBy: d.updated_by }));
   } else {
     _index = readLocalIndex();
   }
   return _index;
+}
+
+/**
+ * Cheap "has someone else saved this?" check, run on window focus (cloud only).
+ * Compares the server's updated_at for the active doc against our edit base and,
+ * if newer, raises a 'remote' conflict so the UI can offer a reload.
+ */
+export async function checkActiveFreshness() {
+  if (!IS_CLOUD || !_activeId || _conflict) return;
+  const base = _meta.get(_activeId);
+  if (!base) return;
+  try {
+    const { documents } = await api.listDocs();
+    const entry = documents.find(d => d.id === _activeId);
+    if (entry && new Date(entry.updated_at) > new Date(base.updatedAt)) {
+      _conflict = { id: _activeId, updatedBy: entry.updated_by, kind: 'remote' };
+      emitConflict();
+    }
+  } catch { /* offline / transient — ignore */ }
+}
+
+/** Reload the active doc from the server, discarding local unsaved edits. */
+export async function reloadActive() {
+  const id = _activeId;
+  const doc = await api.getDoc(id);
+  _data.set(id, doc.data);
+  _meta.set(id, { updatedAt: doc.updated_at, updatedBy: doc.updated_by });
+  const entry = _index.find(d => d.id === id);
+  if (entry) { entry.lastModified = doc.updated_at; entry.updatedBy = doc.updated_by; }
+  clearConflict();
+  return doc.data;
+}
+
+/** Force-save local data over whatever is on the server (last-write-wins). */
+export async function overwriteActive(data) {
+  const id = _activeId;
+  _data.set(id, data);
+  const fresh = await api.getDoc(id);                 // adopt current server version
+  const res = await api.saveDoc(id, data, undefined, fresh.updated_at);
+  const me = currentUserLabel();
+  _meta.set(id, { updatedAt: res.updated_at, updatedBy: me });
+  const entry = _index.find(d => d.id === id);
+  if (entry) { entry.lastModified = res.updated_at; entry.updatedBy = me; }
+  clearConflict();
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +213,7 @@ export async function loadDoc(id) {
   if (IS_CLOUD) {
     const doc = await api.getDoc(id);
     _data.set(id, doc.data);
+    _meta.set(id, { updatedAt: doc.updated_at, updatedBy: doc.updated_by });
     return doc.data;
   }
   const data = readLocalDoc(id);
@@ -137,19 +228,37 @@ export async function saveDoc(id, data, name) {
   if (entry) entry.lastModified = now;
 
   if (IS_CLOUD) {
-    const res = await api.saveDoc(id, data, name);
-    if (entry && res?.updated_at) entry.lastModified = res.updated_at;
-    return;
+    const base = _meta.get(id);
+    try {
+      const res = await api.saveDoc(id, data, name, base?.updatedAt);
+      const me = currentUserLabel();
+      _meta.set(id, { updatedAt: res.updated_at, updatedBy: me });
+      if (entry && res?.updated_at) { entry.lastModified = res.updated_at; entry.updatedBy = me; }
+      return { ok: true };
+    } catch (err) {
+      // Server rejected our save: someone else has written since we loaded.
+      // Don't clobber — raise a conflict and let the user choose (reload/overwrite).
+      if (err.status === 409 && err.body?.current) {
+        const cur = err.body.current;
+        _conflict = { id, updatedBy: cur.updated_by, kind: 'save' };
+        emitConflict();
+        return { ok: false, conflict: true };
+      }
+      throw err;
+    }
   }
   writeLocalDoc(id, data);
   touchLocalIndex(id, now);
+  return { ok: true };
 }
 
 export async function createDoc(name, data) {
   const seed = data ?? createEmptyState();
   if (IS_CLOUD) {
     const created = await api.createDoc(name, seed);
-    _index = [{ id: created.id, name: created.name, lastModified: created.updated_at }, ..._index];
+    const me = currentUserLabel();
+    _index = [{ id: created.id, name: created.name, lastModified: created.updated_at, updatedBy: me }, ..._index];
+    _meta.set(created.id, { updatedAt: created.updated_at, updatedBy: me });
     _data.set(created.id, seed);
     return created.id;
   }

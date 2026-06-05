@@ -26,7 +26,8 @@ export const api = {
   listDocs: () => apiFetch('/docs'),
   getDoc: (id) => apiFetch(`/docs/${encodeURIComponent(id)}`),
   createDoc: (name, data) => apiFetch('/docs', { method: 'POST', body: JSON.stringify({ name, data }) }),
-  saveDoc: (id, data, name) => apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ data, name }) }),
+  saveDoc: (id, data, name, lastKnownUpdatedAt) =>
+    apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ data, name, lastKnownUpdatedAt }) }),
   renameDoc: (id, name) => apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   deleteDoc: (id) => apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
