@@ -261,6 +261,18 @@ body {
 }
 .rate-input:focus { outline: none; border-color: var(--accent); }
 
+/* ---- Account control (cloud mode) ---- */
+
+.account-control { display: flex; align-items: center; gap: 6px; }
+.account-name {
+  font-size: 12px;
+  color: var(--text-2);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- View Tabs ---- */
 
 .view-tabs {

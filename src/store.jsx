@@ -17,7 +17,7 @@ function toDate(monthStr, isEnd = false) {
   return `${monthStr}-01`;
 }
 
-function createSampleData() {
+export function createSampleData() {
   const now = getCurrentMonth();
   const team = [
     { id: genId(), name: 'Alice', role: 'Full-stack' },
@@ -88,16 +88,12 @@ function migrateData(data) {
   };
 }
 
+// Reads the active document from docManager's cache (hydrated by
+// docManager.init() before this provider mounts). Falls back to sample data.
 function getInitialState() {
-  docManager.migrateIfNeeded();
-  const activeId = docManager.getActiveDocId();
-  if (activeId) {
-    const data = docManager.loadDoc(activeId);
-    if (data?.team && data?.projects) {
-      return migrateData(data);
-    }
-  }
-  return createSampleData();
+  const data = docManager.getActiveDocData();
+  if (data?.team && data?.projects) return migrateData(data);
+  return migrateData(createSampleData());
 }
 
 // --- Core reducer ---
@@ -260,16 +256,17 @@ export function StoreProvider({ children }) {
     future: [],
   }));
 
-  // Persist present state to active document
+  // Persist present state to the active document (debounced; async-safe for the
+  // cloud backend, harmless for localStorage).
   useEffect(() => {
-    try {
-      const activeId = docManager.getActiveDocId();
-      if (activeId) {
-        docManager.saveDoc(activeId, history.present);
-      }
-    } catch {
-      addToast('Failed to save — localStorage may be full. Export your data as a backup.', 'error');
-    }
+    const activeId = docManager.getActiveDocId();
+    if (!activeId) return;
+    const t = setTimeout(() => {
+      docManager.saveDoc(activeId, history.present).catch(() => {
+        addToast('Failed to save — your latest changes may not be persisted.', 'error');
+      });
+    }, 600);
+    return () => clearTimeout(t);
   }, [history.present]);
 
   return (
