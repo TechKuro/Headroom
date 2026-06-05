@@ -1,135 +1,194 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
-import { getWorkingDayRange, getCurrentDate, getPersonSlotMap, isSlotAvailable, genId } from '../utils';
-import { SLOT_WIDTH, DAY_WIDTH, HALVES } from '../constants';
-import { addToast } from '../toast';
+import {
+  getMonthRange, getCurrentMonth, getCurrentDate, addMonths, monthDiff, monthLabelShort,
+  dateOffset, dateOffsetEnd, getPersonPhases, stackBars, getProjectLabourSummary, getPhasePersonIds,
+} from '../utils';
+import { MONTH_WIDTH, BAR_HEIGHT, BAR_GAP, ROW_PADDING } from '../constants';
 
-const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-function dayLabel(date) {
-  const dt = new Date(date + 'T12:00:00');
-  return `${DOW[dt.getDay()]} ${dt.getDate()}`;
+const SPAN_MONTHS = 6;
+
+// Union of a project's explicit run-window (start → deadline) and the extent of
+// its actual allocation, so the bar always covers what's planned.
+function projectSpan(project) {
+  const dates = [];
+  if (project.start) dates.push(project.start);
+  if (project.deadline) dates.push(project.deadline);
+  for (const ph of project.phases || []) {
+    if (ph.startMonth) dates.push(ph.startMonth);
+    if (ph.endMonth) dates.push(ph.endMonth);
+    for (const s of ph.slots || []) dates.push(s.date);
+  }
+  if (!dates.length) return null;
+  dates.sort();
+  return { start: dates[0], end: dates[dates.length - 1] };
 }
 
-// The Timeline is the half-day allocation grid: people × (working day × AM/PM).
-// Pick the project you're allocating, then click a person's slot to add/remove
-// them. A slot already claimed by another project shows that colour; clicking
-// adds the selected project on top (a double-booking, flagged red).
-export default function TimelineView({ viewStart, viewEnd, whatIfProject, finderMatches }) {
-  const { team, projects } = useStore();
-  const dispatch = useDispatch();
-  const days = useMemo(() => getWorkingDayRange(viewStart, viewEnd), [viewStart, viewEnd]);
+function weeksBetween(a, b) {
+  const days = (new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000;
+  return Math.max(1, Math.round(days / 7));
+}
+
+// The Timeline is the long-range roadmap (months). Each project is a run-window
+// bar you can drag to set its start/end; toggle to a per-person view to see who
+// is on what across the months.
+export default function TimelineView({ whatIfProject }) {
+  const { team, projects, settings } = useStore();
+  const blendedRate = settings?.blendedRate ?? 110;
+  const [mode, setMode] = useState('projects'); // 'projects' | 'people'
+  const [viewStart, setViewStart] = useState(() => getCurrentMonth());
+
+  const months = useMemo(() => getMonthRange(viewStart, addMonths(viewStart, SPAN_MONTHS - 1)), [viewStart]);
+  const now = getCurrentMonth();
   const today = getCurrentDate();
+  const gridWidth = months.length * MONTH_WIDTH;
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
-  const gridWidth = days.length * DAY_WIDTH;
-
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? null);
-  const selected = projects.find(p => p.id === selectedProjectId) || projects[0] || null;
-
-  function toggleSlot(person, date, half) {
-    if (!selected) { addToast('Add a project first to allocate work.', 'warn'); return; }
-    const phase = (selected.phases || []).find(ph =>
-      (ph.slots || []).some(s => s.personId === person.id && s.date === date && s.half === half));
-    if (phase) {
-      dispatch({ type: 'DEALLOCATE_SLOT', payload: { projectId: selected.id, phaseId: phase.id, personId: person.id, date, half } });
-    } else if (selected.phases?.length) {
-      dispatch({ type: 'ALLOCATE_SLOT', payload: { projectId: selected.id, phaseId: selected.phases[0].id, personId: person.id, date, half } });
-    } else {
-      dispatch({ type: 'ADD_PHASE', payload: { projectId: selected.id, phase: {
-        id: genId(), type: 'active-build', slots: [{ personId: person.id, date, half }],
-        personIds: [person.id], startMonth: date, endMonth: date,
-      } } });
-    }
-  }
-
-  const todayIdx = days.indexOf(today);
 
   return (
     <div className="timeline-view">
       <div className="alloc-toolbar">
-        <span className="alloc-toolbar-label">Allocating to</span>
-        <select className="alloc-project-select" value={selected?.id || ''} onChange={e => setSelectedProjectId(e.target.value)}>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        {selected && <span className="project-dot" style={{ background: selected.color }} />}
-        <span className="alloc-hint">Click a half-day cell to add / remove this person.</span>
+        <div className="standup-scope">
+          <button className={`ov-filter-btn ${mode === 'projects' ? 'active' : ''}`} onClick={() => setMode('projects')}>Projects</button>
+          <button className={`ov-filter-btn ${mode === 'people' ? 'active' : ''}`} onClick={() => setMode('people')}>People</button>
+        </div>
+        <div className="timeline-nav">
+          <button className="icon-btn" onClick={() => setViewStart(m => addMonths(m, -3))} title="Earlier">‹</button>
+          <button className="text-btn" onClick={() => setViewStart(getCurrentMonth())}>This month</button>
+          <button className="icon-btn" onClick={() => setViewStart(m => addMonths(m, 3))} title="Later">›</button>
+        </div>
+        <span className="alloc-hint">{mode === 'projects' ? 'Drag a bar to set when a project runs.' : 'Each person’s phases across the months.'}</span>
       </div>
 
       <div className="timeline-scroll">
-        <div className="alloc-header" style={{ width: gridWidth }}>
-          <div className="timeline-label-col">Team Member</div>
-          <div className="alloc-days">
-            {days.map(d => (
-              <div key={d} className={`alloc-day ${d === today ? 'current' : ''}`} style={{ width: DAY_WIDTH }}>
-                <div className="alloc-day-label">{dayLabel(d)}</div>
-                <div className="alloc-halves">
-                  <span style={{ width: SLOT_WIDTH }}>AM</span>
-                  <span style={{ width: SLOT_WIDTH }}>PM</span>
-                </div>
+        <div className="timeline-header" style={{ width: gridWidth }}>
+          <div className="timeline-label-col">{mode === 'projects' ? 'Project' : 'Team Member'}</div>
+          <div className="timeline-months">
+            {months.map(m => (
+              <div key={m} className={`timeline-month-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}>
+                {monthLabelShort(m)}
               </div>
             ))}
           </div>
         </div>
 
-        {todayIdx >= 0 && (
-          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${todayIdx * DAY_WIDTH}px)` }} />
+        {now >= viewStart && now <= months[months.length - 1] && (
+          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${dateOffset(viewStart, today) * MONTH_WIDTH}px)` }} />
         )}
 
-        {team.length === 0 ? (
-          <div className="empty-state"><p>Add team members to allocate work.</p></div>
-        ) : team.map(person => (
-          <PersonRow
-            key={person.id}
-            person={person}
-            allProjects={allProjects}
-            days={days}
-            gridWidth={gridWidth}
-            today={today}
-            finderSlots={finderMatches?.[person.id]}
-            onToggle={toggleSlot}
-          />
-        ))}
+        {mode === 'projects'
+          ? projects.map(p => (
+              <ProjectRow key={p.id} project={p} viewStart={viewStart} months={months} gridWidth={gridWidth} blendedRate={blendedRate} />
+            ))
+          : team.map(person => (
+              <PeopleRow key={person.id} person={person} allProjects={allProjects} viewStart={viewStart} months={months} gridWidth={gridWidth} />
+            ))}
+
+        {mode === 'projects' && projects.length === 0 && <div className="empty-state"><p>Add a project to see the roadmap.</p></div>}
       </div>
     </div>
   );
 }
 
-const PersonRow = React.memo(function PersonRow({ person, allProjects, days, gridWidth, today, finderSlots, onToggle }) {
-  const slotMap = useMemo(() => getPersonSlotMap(person.id, allProjects), [person.id, allProjects]);
+function ProjectRow({ project, viewStart, months, gridWidth, blendedRate }) {
+  const dispatch = useDispatch();
+  const span = projectSpan(project);
+  const [drag, setDrag] = useState(null);
+  const totalMonths = months.length;
 
-  let filled = 0, doubleBooked = 0;
-  for (const date of days) for (const half of HALVES) {
-    const n = (slotMap.get(`${date}|${half}`) || []).length;
-    if (n > 0) filled++;
-    if (n > 1) doubleBooked++;
+  useEffect(() => {
+    if (!drag) return;
+    function onMove(e) {
+      const dm = Math.round((e.clientX - drag.startX) / MONTH_WIDTH);
+      let ns = drag.origStart, ne = drag.origEnd;
+      if (drag.mode === 'left') { ns = addMonths(drag.origStart, dm); if (ns > ne) ns = ne; }
+      else if (drag.mode === 'right') { ne = addMonths(drag.origEnd, dm); if (ne < ns) ne = ns; }
+      else { ns = addMonths(drag.origStart, dm); ne = addMonths(drag.origEnd, dm); }
+      setDrag(prev => ({ ...prev, previewStart: ns, previewEnd: ne }));
+    }
+    function onUp() {
+      if (drag.previewStart && (drag.previewStart !== drag.origStart || drag.previewEnd !== drag.origEnd)) {
+        dispatch({ type: 'UPDATE_PROJECT', payload: { id: project.id, start: drag.previewStart, deadline: drag.previewEnd } });
+      }
+      setDrag(null);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+  }, [drag, dispatch, project.id]);
+
+  function startDrag(e, mode) {
+    if (!span) return;
+    e.stopPropagation(); e.preventDefault();
+    setDrag({ mode, startX: e.clientX, origStart: span.start, origEnd: span.end });
+  }
+
+  const start = drag?.previewStart || span?.start;
+  const end = drag?.previewEnd || span?.end;
+  const hours = getProjectLabourSummary(project, blendedRate).totalHours;
+
+  let bar = null;
+  if (span) {
+    const startOff = dateOffset(viewStart, start);
+    const endOff = dateOffsetEnd(viewStart, end);
+    if (endOff > 0 && startOff < totalMonths) {
+      const left = Math.max(0, startOff) * MONTH_WIDTH;
+      const width = Math.max((Math.min(totalMonths, endOff) - Math.max(0, startOff)) * MONTH_WIDTH - 2, 24);
+      bar = (
+        <div className={`phase-bar ${drag ? 'dragging' : ''}`}
+          style={{ left, top: ROW_PADDING, width, height: BAR_HEIGHT, background: project.color }}
+          title={`${project.name}: ${start} → ${end} (${weeksBetween(start, end)} wks)`}>
+          <div className="drag-handle drag-handle-left" onMouseDown={e => startDrag(e, 'left')} />
+          <span className="bar-label" onMouseDown={e => startDrag(e, 'move')} style={{ cursor: 'grab' }}>
+            {project.name}<span className="bar-phase">{weeksBetween(start, end)}w</span>
+          </span>
+          <div className="drag-handle drag-handle-right" onMouseDown={e => startDrag(e, 'right')} />
+        </div>
+      );
+    }
   }
 
   return (
-    <div className="alloc-row">
+    <div className="timeline-row" style={{ minHeight: BAR_HEIGHT + ROW_PADDING * 2 }}>
       <div className="timeline-label-col person-label">
-        <span className="person-name">{person.name}</span>
-        <span className="alloc-fill">{filled}/{days.length * HALVES.length}</span>
-        {doubleBooked > 0 && <span className="load-badge over">⚠ {doubleBooked}</span>}
+        <span className="project-dot" style={{ background: project.color }} />
+        <span className="person-name">{project.name}</span>
+        {hours > 0 && <span className="alloc-fill">{hours}h</span>}
       </div>
-      <div className="alloc-cells" style={{ width: gridWidth }}>
-        {days.map(date => HALVES.map(half => {
-          const key = `${date}|${half}`;
-          const claims = slotMap.get(key) || [];
-          const over = claims.length > 1;
-          const avail = isSlotAvailable(person.id, date, half);
-          const title = claims.length
-            ? `${claims.map(c => c.projectName).join(' + ')} — ${dayLabel(date)} ${half.toUpperCase()}${over ? ' (double-booked)' : ''}`
-            : `${avail ? 'Free' : 'On leave'} — ${dayLabel(date)} ${half.toUpperCase()}`;
-          return (
-            <button
-              key={key}
-              className={`alloc-cell ${half === 'pm' ? 'day-end' : ''} ${over ? 'over' : ''} ${!avail ? 'leave' : ''} ${date === today ? 'current' : ''} ${finderSlots?.has(key) ? 'finder-match' : ''}`}
-              style={{ width: SLOT_WIDTH, background: claims.length && !over ? claims[0].projectColor : undefined }}
-              title={title}
-              onClick={() => onToggle(person, date, half)}
-            />
-          );
-        }))}
+      <div className="timeline-cells" style={{ width: gridWidth }}>
+        {!span && <span className="phase-empty-hint">No dates yet — set a deadline or allocate work</span>}
+        {bar}
       </div>
     </div>
   );
-});
+}
+
+function PeopleRow({ person, allProjects, viewStart, months, gridWidth }) {
+  const bars = useMemo(() => getPersonPhases(person.id, allProjects), [person.id, allProjects]);
+  const { bars: stacked, rowCount } = useMemo(() => stackBars(bars), [bars]);
+  const rowHeight = Math.max(1, rowCount) * (BAR_HEIGHT + BAR_GAP) + ROW_PADDING * 2;
+  const totalMonths = months.length;
+
+  return (
+    <div className="timeline-row" style={{ minHeight: rowHeight }}>
+      <div className="timeline-label-col person-label"><span className="person-name">{person.name}</span></div>
+      <div className="timeline-cells" style={{ width: gridWidth }}>
+        {stacked.map(bar => {
+          const startOff = dateOffset(viewStart, bar.startMonth);
+          const endOff = dateOffsetEnd(viewStart, bar.endMonth);
+          if (endOff < 0 || startOff > totalMonths) return null;
+          const left = Math.max(0, startOff) * MONTH_WIDTH;
+          const width = Math.max((Math.min(totalMonths, endOff) - Math.max(0, startOff)) * MONTH_WIDTH - 2, 20);
+          const top = ROW_PADDING + bar._row * (BAR_HEIGHT + BAR_GAP);
+          const halves = (bar.slots || []).filter(s => s.personId === person.id).length;
+          return (
+            <div key={bar.id} className={`phase-bar ${bar.isWhatIf ? 'what-if' : ''}`}
+              style={{ left, top, width, height: BAR_HEIGHT, background: bar.projectColor }}
+              title={`${bar.projectName} — ${halves} half-day${halves !== 1 ? 's' : ''}`}>
+              <span className="bar-label">{bar.projectName}<span className="bar-phase">{halves}</span></span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

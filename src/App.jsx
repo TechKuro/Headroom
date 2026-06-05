@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import OverviewView from './components/OverviewView';
 import StandupView from './components/StandupView';
 import PeopleCostView from './components/PeopleCostView';
+import PlanningView from './components/PlanningView';
 import TimelineView from './components/TimelineView';
 import HeatmapView from './components/HeatmapView';
 import ProjectView from './components/ProjectView';
@@ -32,7 +33,7 @@ export default function App() {
   const dispatch = useDispatch();
   const { canUndo, canRedo } = useHistory();
   const blendedRate = store.settings?.blendedRate ?? 110;
-  const [view, setView] = useState('timeline');
+  const [view, setView] = useState('planning');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [phaseModal, setPhaseModal] = useState(null);
   const [whatIfProject, setWhatIfProject] = useState(null);
@@ -42,7 +43,7 @@ export default function App() {
   const [activeDocId, setActiveDocId] = useState(() => docManager.getActiveDocId());
 
   const [viewStart, setViewStart] = useState(() => mondayOf(getCurrentDate()));
-  const viewEnd = addDays(viewStart, 13); // two working weeks
+  const viewEnd = addDays(viewStart, 27); // four working weeks
 
   function scrollTimeline(dir) {
     setViewStart(prev => mondayOf(addDays(prev, dir * 7)));
@@ -100,6 +101,7 @@ export default function App() {
 
         <nav className="view-tabs">
           <button className={`tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
+          <button className={`tab ${view === 'planning' ? 'active' : ''}`} onClick={() => setView('planning')}>Planning</button>
           <button className={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => setView('timeline')}>Timeline</button>
           <button className={`tab ${view === 'heatmap' ? 'active' : ''}`} onClick={() => setView('heatmap')}>Heatmap</button>
           <button className={`tab ${view === 'project' ? 'active' : ''}`} onClick={() => setView('project')}>Project</button>
@@ -211,17 +213,15 @@ export default function App() {
           {view === 'overview' && <OverviewView />}
           {view === 'standup' && <StandupView />}
           {view === 'people' && <PeopleCostView />}
-          {view === 'timeline' && (
-            <TimelineView
+          {view === 'planning' && (
+            <PlanningView
               viewStart={viewStart}
               viewEnd={viewEnd}
               whatIfProject={whatIfProject}
-              onAddPhase={(projectId, presets) => setPhaseModal({ projectId, phase: null, presets })}
-              onEditPhase={(projectId, phase) => setPhaseModal({ projectId, phase })}
-              onDragUpdate={handleDragUpdate}
               finderMatches={finderMatches}
             />
           )}
+          {view === 'timeline' && <TimelineView whatIfProject={whatIfProject} />}
           {view === 'heatmap' && (
             <HeatmapView
               viewStart={viewStart}

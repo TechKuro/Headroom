@@ -118,8 +118,14 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
               {selectedProjectId === p.id && (
                 <div className="project-detail">
                   <div className="detail-row">
+                    <label>Start</label>
+                    <input type="date" value={p.start || ''}
+                      onChange={e => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, start: e.target.value } })}
+                      className="month-input" />
+                  </div>
+                  <div className="detail-row">
                     <label>Deadline</label>
-                    <input type="date" value={p.deadline}
+                    <input type="date" value={p.deadline || ''}
                       onChange={e => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, deadline: e.target.value } })}
                       className="month-input" />
                   </div>
