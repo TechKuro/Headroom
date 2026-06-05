@@ -12,6 +12,8 @@ import WhatIfBar from './components/WhatIfBar';
 import ExportImport from './components/ExportImport';
 import AvailabilityFinder from './components/AvailabilityFinder';
 import DocumentBar from './components/DocumentBar';
+import DocMeta from './components/DocMeta';
+import ConflictBanner from './components/ConflictBanner';
 import Toasts from './components/Toasts';
 import { getCurrentMonth, addMonths } from './utils';
 import { addToast } from './toast';
@@ -88,6 +90,7 @@ export default function App() {
         </div>
 
         <DocumentBar activeDocId={activeDocId} setActiveDocId={setActiveDocId} />
+        <DocMeta />
 
         <nav className="view-tabs">
           <button className={`tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
@@ -170,6 +173,8 @@ export default function App() {
           )}
         </div>
       </header>
+
+      <ConflictBanner />
 
       {whatIfProject && <WhatIfBar whatIfProject={whatIfProject} setWhatIfProject={setWhatIfProject} />}
 

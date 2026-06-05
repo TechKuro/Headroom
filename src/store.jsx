@@ -262,12 +262,29 @@ export function StoreProvider({ children }) {
     const activeId = docManager.getActiveDocId();
     if (!activeId) return;
     const t = setTimeout(() => {
+      // While a conflict is unresolved, hold off — saving would clobber the
+      // other user's work. The ConflictBanner drives the reload/overwrite choice.
+      const conflict = docManager.getConflict();
+      if (conflict && conflict.id === activeId) return;
       docManager.saveDoc(activeId, history.present).catch(() => {
         addToast('Failed to save — your latest changes may not be persisted.', 'error');
       });
     }, 600);
     return () => clearTimeout(t);
   }, [history.present]);
+
+  // Cloud only: when the tab regains focus, check whether someone else has
+  // saved over the plan we're editing (no-op in local mode).
+  useEffect(() => {
+    function onFocus() { docManager.checkActiveFreshness(); }
+    function onVisible() { if (!document.hidden) docManager.checkActiveFreshness(); }
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   return (
     <StoreContext.Provider value={history.present}>
