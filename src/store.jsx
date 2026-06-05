@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { genId, getCurrentMonth, getCurrentDate, addMonths, addDays, migratePhase } from './utils';
+import { genId, getCurrentMonth, getCurrentDate, addMonths, addDays, migrateData } from './utils';
 import { PROJECT_COLORS, DEFAULT_INITIATIVE, DEFAULT_SETTINGS } from './constants';
 import { addToast } from './toast';
 import * as docManager from './docManager';
@@ -74,20 +74,6 @@ export function createSampleData() {
 }
 
 // --- State shape ---
-
-function migrateData(data) {
-  return {
-    ...data,
-    capacityOverrides: data.capacityOverrides || {},
-    settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
-    projects: data.projects.map(p => ({
-      ...p,
-      initiative: { ...DEFAULT_INITIATIVE, ...(p.initiative || {}) },
-      checkIns: Array.isArray(p.checkIns) ? p.checkIns : [],
-      phases: p.phases.map(ph => migratePhase(ph)),
-    })),
-  };
-}
 
 // Reads the active document from docManager's cache (hydrated by
 // docManager.init() before this provider mounts). Falls back to sample data.
