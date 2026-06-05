@@ -2261,6 +2261,48 @@ body {
 .pc-hours { font-size: 14px; font-weight: 700; color: var(--text-1); font-family: 'JetBrains Mono', monospace; }
 .pc-cost { font-size: 12px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
 
+/* --- People & cost: utilisation report cards --- */
+.pc-legend-sep { width: 1px; align-self: stretch; background: var(--border); }
+.pc-legend-util { display: flex; align-items: center; gap: 6px; color: var(--text-3); flex-wrap: wrap; }
+.pc-util-key { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-left: 4px; }
+
+.pc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  margin-bottom: 8px;
+}
+.pc-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.pc-stats { display: flex; gap: 18px; flex-wrap: wrap; }
+.pc-stat { text-align: right; min-width: 52px; }
+.pc-stat-value { font-size: 14px; font-weight: 700; color: var(--text-1); font-family: 'JetBrains Mono', monospace; }
+.pc-stat-value.tone-warn { color: #fbbf24; }
+.pc-stat-value.tone-neg { color: var(--danger); }
+.pc-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+.pc-util { display: flex; flex-direction: column; gap: 3px; }
+.pc-util-strip { display: flex; gap: 2px; }
+.pc-util-cell { flex: 1; height: 18px; border-radius: 2px; }
+.pc-util-cell.over { outline: 1px solid var(--danger); outline-offset: -1px; }
+.pc-util-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); }
+
+.pc-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.pc-card-foot .pc-bar-area { flex: 1; }
+.pc-top-projects { color: var(--text-3); cursor: default; }
+.pc-signals { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.pc-avail { font-size: 12px; color: var(--text-2); }
+.pc-avail strong { color: var(--text-1); }
+.pc-warn {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px;
+  background: rgba(220, 38, 38, 0.15); color: #f87171;
+}
+
 /* --- Shared-workspace: "edited by" meta + conflict banner --- */
 .doc-meta {
   font-size: 11px;

@@ -563,6 +563,53 @@ export function getProjectRisk(project, opts = {}) {
   return { level: riskLevelFromScore(score), score, factors, needsInfo };
 }
 
+// --- Per-person aggregates ---
+
+/**
+ * A person's labour across all projects: hours (total / client / internal /
+ * billable), cost, and a per-project breakdown sorted by contribution.
+ *
+ * This is the EFFORT/COST lens — hours come from getProjectLabourSummary
+ * (intensity × coverage), unweighted by urgency/hold. "Billable" keys off the
+ * initiative `chargeable` flag, which is a different axis from client/internal
+ * type. Compare with getPersonUtilisation (the scheduling lens).
+ */
+export function getPersonWorkload(personId, projects, blendedRate) {
+  let totalHours = 0, clientHours = 0, internalHours = 0, billableHours = 0;
+  const byProject = [];
+  for (const p of projects) {
+    const hours = getProjectLabourSummary(p, blendedRate).assignedHoursByPerson[personId] || 0;
+    if (hours <= 0) continue;
+    const init = getInitiative(p);
+    totalHours += hours;
+    if (init.type === 'client') clientHours += hours; else internalHours += hours;
+    if (init.chargeable) billableHours += hours;
+    byProject.push({ id: p.id, name: p.name, color: p.color, hours });
+  }
+  byProject.sort((a, b) => b.hours - a.hours);
+  return {
+    totalHours, clientHours, internalHours, billableHours,
+    cost: totalHours * blendedRate,
+    billablePct: totalHours > 0 ? (billableHours / totalHours) * 100 : 0,
+    byProject,
+  };
+}
+
+/**
+ * A person's month-by-month utilisation over the given months.
+ *
+ * This is the SCHEDULING lens — load is urgency/hold-weighted (calculateLoad),
+ * measured against capacity (with leave/part-time overrides). util is a
+ * percentage; >100 means over capacity. Mirrors what the Heatmap shows.
+ */
+export function getPersonUtilisation(personId, months, projects, capacityOverrides = {}) {
+  return months.map(month => {
+    const load = calculateLoad(personId, month, projects);
+    const capacity = getPersonCapacity(personId, month, capacityOverrides);
+    return { month, load, capacity, util: getEffectiveUtilisation(load, capacity) };
+  });
+}
+
 // --- Formatting ---
 
 export function formatCurrency(n) {
