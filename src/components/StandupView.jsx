@@ -2,15 +2,15 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import {
   getInitiative, getProjectLabourSummary, getRoi,
-  getActivePhases, getPersonUtilisation, getProjectEndMonth,
-  getCurrentMonth, addMonths, getMonthRange, monthDiff, dateToMonth, monthLabelShort,
+  getPersonSlotMap, getPersonUtilisation, getProjectEndMonth,
+  getCurrentMonth, getCurrentDate, addDays, getWorkingDayRange, monthDiff, dateToMonth,
   formatCurrency, formatSignedCurrency, formatHours, genId,
 } from '../utils';
-import { INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
+import { INITIATIVE_TYPES, INITIATIVE_STATUSES, HALVES } from '../constants';
 import { addToast } from '../toast';
 
-// Months ahead to scan when warning about the selected engineer's overload.
-const OVERLOAD_HORIZON = 3;
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
 
 function formatNoteTime(ts) {
   try {
@@ -31,20 +31,28 @@ const STANDUP_QUESTIONS = [
 ];
 
 export default function StandupView() {
-  const { team, projects, settings, capacityOverrides } = useStore();
+  const { team, projects, settings } = useStore();
   const dispatch = useDispatch();
-  const blendedRate = settings?.blendedRate ?? 45;
+  const blendedRate = settings?.blendedRate ?? 110;
 
   const [personId, setPersonId] = useState(() => team[0]?.id ?? null);
   const [openProjectId, setOpenProjectId] = useState(null);
   const [noteText, setNoteText] = useState('');
-  const [scope, setScope] = useState('active'); // 'active' (this month) | 'all'
+  const [scope, setScope] = useState('active'); // 'active' (next 2 weeks) | 'all'
+
+  // The two-week look-ahead window (working days).
+  const days = useMemo(() => { const s = getCurrentDate(); return getWorkingDayRange(s, addDays(s, 13)); }, []);
+  const now = getCurrentMonth();
 
   // Projects this person is assigned to, with their personal hours/cost.
   const assigned = useMemo(() => {
     if (!personId) return [];
-    const now = getCurrentMonth();
-    const activeIds = new Set(getActivePhases(personId, now, projects).map(ph => ph.projectId));
+    // Projects this person has a half-day on within the look-ahead window.
+    const slotMap = getPersonSlotMap(personId, projects);
+    const activeIds = new Set();
+    for (const date of days) for (const half of HALVES) {
+      for (const c of (slotMap.get(`${date}|${half}`) || [])) activeIds.add(c.projectId);
+    }
     return projects.map(p => {
       const init = getInitiative(p);
       const summary = getProjectLabourSummary(p, blendedRate);
@@ -54,28 +62,24 @@ export default function StandupView() {
       const toDeadline = endMonth ? monthDiff(now, dateToMonth(endMonth)) : null;
       return {
         id: p.id, name: p.name, color: p.color, init, hours, cost: hours * blendedRate, roi,
-        onHold: !!p.hold,
         activeNow: activeIds.has(p.id),
         overdue: init.status !== 'done' && toDeadline !== null && toDeadline < 0,
         deadlineSoon: init.status !== 'done' && toDeadline !== null && toDeadline >= 0 && toDeadline <= 2,
       };
     }).filter(x => x.hours > 0);
-  }, [projects, personId, blendedRate]);
+  }, [projects, personId, blendedRate, days, now]);
 
-  // Default scope shows only what's active this month; "All" reveals the rest.
+  // Default scope shows only what's active in the window; "All" reveals the rest.
   const visible = useMemo(
     () => (scope === 'active' ? assigned.filter(x => x.activeNow) : assigned),
     [assigned, scope]
   );
 
-  // Months in the look-ahead window where this engineer is over capacity.
-  const overloadMonths = useMemo(() => {
-    if (!personId) return [];
-    const now = getCurrentMonth();
-    const months = getMonthRange(now, addMonths(now, OVERLOAD_HORIZON - 1));
-    return getPersonUtilisation(personId, months, projects, capacityOverrides)
-      .filter(u => u.util > 100);
-  }, [personId, projects, capacityOverrides]);
+  // Days in the window where this engineer is double-booked.
+  const overloadDays = useMemo(
+    () => (personId ? getPersonUtilisation(personId, days, projects).filter(u => u.doubleBooked) : []),
+    [personId, projects, days],
+  );
 
   const summary = useMemo(() => {
     const totalHours = assigned.reduce((s, x) => s + x.hours, 0);
@@ -89,14 +93,14 @@ export default function StandupView() {
   function copySummary() {
     if (!person) return;
     const lines = [`Stand-up — ${person.name}${person.role ? ` (${person.role})` : ''}`, ''];
-    if (overloadMonths.length) {
-      lines.push(`⚠ Over capacity: ${overloadMonths.map(o => `${monthLabelShort(o.month)} (${o.util}%)`).join(', ')}`, '');
+    if (overloadDays.length) {
+      lines.push(`⚠ Double-booked: ${overloadDays.map(o => dayLabel(o.date)).join(', ')}`, '');
     }
     if (visible.length === 0) {
       lines.push('No active work this period.');
     } else {
       for (const x of visible) {
-        const flags = [x.onHold && 'on hold', x.overdue && 'overdue', x.deadlineSoon && 'deadline soon'].filter(Boolean);
+        const flags = [x.overdue && 'overdue', x.deadlineSoon && 'deadline soon'].filter(Boolean);
         lines.push(`• ${x.name} — ${formatHours(x.hours)}, ${x.init.progress}% done${flags.length ? ` [${flags.join(', ')}]` : ''}`);
       }
     }
@@ -164,9 +168,9 @@ export default function StandupView() {
               <Stat label="Labour cost" value={formatCurrency(summary.cost)} />
               <Stat label="Client hours" value={formatHours(summary.clientHours)} />
             </div>
-            {overloadMonths.length > 0 && (
-              <div className="standup-overload" title={overloadMonths.map(o => `${monthLabelShort(o.month)} · ${o.util}%`).join('\n')}>
-                ⚠ Over capacity in {overloadMonths.map(o => monthLabelShort(o.month)).join(', ')}
+            {overloadDays.length > 0 && (
+              <div className="standup-overload" title={overloadDays.map(o => dayLabel(o.date)).join('\n')}>
+                ⚠ Double-booked on {overloadDays.map(o => dayLabel(o.date)).join(', ')}
               </div>
             )}
           </div>
@@ -174,7 +178,7 @@ export default function StandupView() {
           {/* Toolbar: scope + copy */}
           <div className="standup-toolbar">
             <div className="standup-scope">
-              <button className={`ov-filter-btn ${scope === 'active' ? 'active' : ''}`} onClick={() => setScope('active')}>Active now</button>
+              <button className={`ov-filter-btn ${scope === 'active' ? 'active' : ''}`} onClick={() => setScope('active')}>Next 2 weeks</button>
               <button className={`ov-filter-btn ${scope === 'all' ? 'active' : ''}`} onClick={() => setScope('all')}>All assigned</button>
             </div>
             <button className="standup-copy-btn" onClick={copySummary} disabled={!person}>Copy summary</button>
@@ -184,7 +188,7 @@ export default function StandupView() {
             <div className="empty-state">
               <p>{assigned.length === 0
                 ? `${person.name} has no assigned work right now.`
-                : `${person.name} has no active work this month — switch to "All assigned" to see everything.`}</p>
+                : `${person.name} has no work in the next 2 weeks — switch to "All assigned" to see everything.`}</p>
             </div>
           ) : (
             <div className="standup-body">
@@ -200,7 +204,6 @@ export default function StandupView() {
                       <span className={`badge badge-type-${x.init.type}`}>{INITIATIVE_TYPES[x.init.type]?.label}</span>
                       <span className={`badge badge-status-${x.init.status}`}>{INITIATIVE_STATUSES[x.init.status]?.label}</span>
                       {x.init.chargeable && <span className="badge badge-chargeable">Chargeable</span>}
-                      {x.onHold && <span className="badge badge-hold">On hold</span>}
                       {x.overdue && <span className="badge badge-risk-critical">Overdue</span>}
                       {x.deadlineSoon && <span className="badge badge-risk-watch">Deadline soon</span>}
                     </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getPersonCapacity, getCurrentMonth, addMonths, getMonthRange, getPhasePersonIds, formatDateShort, getInitiative } from '../utils';
+import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, getPhasePersonIds, formatDateShort, getInitiative } from '../utils';
+import { HALVES } from '../constants';
 import { PROJECT_COLORS, PHASE_TYPES, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
@@ -12,7 +13,6 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
   const [newProject, setNewProject] = useState('');
   const [editingMember, setEditingMember] = useState(null);
   const [editingProject, setEditingProject] = useState(null);
-  const [holdMenu, setHoldMenu] = useState(null); // projectId
   const [leaveModal, setLeaveModal] = useState(null); // person object
   const [quickPlanModal, setQuickPlanModal] = useState(null); // projectId
 
@@ -40,29 +40,12 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
     });
   }
 
-  const now = getCurrentMonth();
+  const today = getCurrentDate();
 
-  function holdProject(projectId, duration) {
-    let hold;
-    if (duration === '1-week') {
-      hold = { startMonth: now, endMonth: now, reduction: 25 };
-    } else if (duration === '2-weeks') {
-      hold = { startMonth: now, endMonth: now, reduction: 50 };
-    } else if (duration === '1-month') {
-      hold = { startMonth: now, endMonth: now, reduction: 100 };
-    } else if (duration === '2-months') {
-      hold = { startMonth: now, endMonth: addMonths(now, 1), reduction: 100 };
-    } else if (duration === 'indefinite') {
-      hold = { startMonth: now, endMonth: null, reduction: 100 };
-    }
-    dispatch({ type: 'HOLD_PROJECT', payload: { projectId, hold } });
-    setHoldMenu(null);
-  }
-
-  // Check if a person has any leave set
+  // Does this person have any leave set over the next few weeks?
   function hasLeave(personId) {
-    const months = getMonthRange(now, addMonths(now, 11));
-    return months.some(m => getPersonCapacity(personId, m, capacityOverrides) < 100);
+    return getWorkingDayRange(today, addDays(today, 27))
+      .some(date => HALVES.some(h => !isSlotAvailable(personId, date, h, capacityOverrides)));
   }
 
   return (
@@ -112,9 +95,9 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
         <h3 className="sidebar-heading">Projects</h3>
         <ul className="sidebar-list">
           {projects.map(p => (
-            <li key={p.id} className={`sidebar-item project-item ${selectedProjectId === p.id ? 'selected' : ''} ${p.hold ? 'project-held' : ''}`}>
+            <li key={p.id} className={`sidebar-item project-item ${selectedProjectId === p.id ? 'selected' : ''}`}>
               <div className="project-row" onClick={() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id)}>
-                <span className="project-dot" style={{ background: p.hold ? 'var(--text-3)' : p.color }} />
+                <span className="project-dot" style={{ background: p.color }} />
                 {editingProject === p.id ? (
                   <form onSubmit={e => { e.preventDefault(); setEditingProject(null); }} className="inline-edit" onClick={e => e.stopPropagation()}>
                     <input autoFocus value={p.name}
@@ -124,30 +107,6 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 ) : (
                   <span className="project-name" onDoubleClick={e => { e.stopPropagation(); setEditingProject(p.id); }}>{p.name}</span>
                 )}
-                {p.hold && <span className="hold-badge">HELD</span>}
-                {/* Hold / Resume button */}
-                <div className="hold-controls" onClick={e => e.stopPropagation()}>
-                  {p.hold ? (
-                    <button className="icon-btn-sm" onClick={() => dispatch({ type: 'RESUME_PROJECT', payload: p.id })} title="Resume project">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    </button>
-                  ) : (
-                    <button className="icon-btn-sm" onClick={() => setHoldMenu(holdMenu === p.id ? null : p.id)} title="Hold project">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                    </button>
-                  )}
-                  {holdMenu === p.id && (
-                    <div className="hold-menu">
-                      <div className="hold-menu-title">Hold for…</div>
-                      <button className="hold-menu-item" onClick={() => holdProject(p.id, '1-week')}>1 week <span className="hold-hint">−25% this month</span></button>
-                      <button className="hold-menu-item" onClick={() => holdProject(p.id, '2-weeks')}>2 weeks <span className="hold-hint">−50% this month</span></button>
-                      <button className="hold-menu-item" onClick={() => holdProject(p.id, '1-month')}>1 month <span className="hold-hint">−100% this month</span></button>
-                      <button className="hold-menu-item" onClick={() => holdProject(p.id, '2-months')}>2 months <span className="hold-hint">−100% for 2 months</span></button>
-                      <div className="hold-menu-divider" />
-                      <button className="hold-menu-item" onClick={() => holdProject(p.id, 'indefinite')}>Until resumed</button>
-                    </div>
-                  )}
-                </div>
                 <button className="icon-btn-sm danger" onClick={e => {
                   e.stopPropagation();
                   if (confirm(`Remove "${p.name}" and all its ${p.phases.length} phase${p.phases.length !== 1 ? 's' : ''}?`)) {
@@ -160,7 +119,7 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 <div className="project-detail">
                   <div className="detail-row">
                     <label>Deadline</label>
-                    <input type="month" value={p.deadline}
+                    <input type="date" value={p.deadline}
                       onChange={e => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, deadline: e.target.value } })}
                       className="month-input" />
                   </div>
@@ -187,15 +146,15 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                     {p.phases.map(ph => {
                       const pids = getPhasePersonIds(ph);
                       const names = pids.map(id => team.find(m => m.id === id)?.name).filter(Boolean).join(', ');
-                      const phaseType = PHASE_TYPES[ph.type];
+                      const halves = (ph.slots || []).length;
                       return (
                         <div key={ph.id} className="phase-item" onClick={() => onEditPhase(p.id, ph)}>
                           <span className="phase-type-badge" style={{ background: p.color + '33', color: p.color }}>
-                            {phaseType?.short || ph.type}
+                            {ph.type}
                           </span>
                           <span className="phase-person">{names || '??'}</span>
                           <span className="phase-dates">{formatDateShort(ph.startMonth)} → {formatDateShort(ph.endMonth)}</span>
-                          {ph.intensityOverride != null && <span className="phase-override">{ph.intensityOverride}%</span>}
+                          <span className="phase-override">{halves} half{halves !== 1 ? 's' : ''}</span>
                         </div>
                       );
                     })}

@@ -1,171 +1,119 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store';
-import { getMonthRange, getCurrentMonth, calculateLoad, getLoadColor, getLoadTextColor, getActivePhases, getPersonCapacity, getEffectiveUtilisation, monthLabelShort } from '../utils';
-import { MONTH_WIDTH, PHASE_TYPES, INITIATIVE_TYPES } from '../constants';
+import { getWorkingDayRange, getCurrentDate, getPersonSlotMap, isSlotAvailable } from '../utils';
+import { SLOT_WIDTH, DAY_WIDTH, HALVES } from '../constants';
 
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function dayLabel(date) {
+  const dt = new Date(date + 'T12:00:00');
+  return `${DOW[dt.getDay()]} ${dt.getDate()}`;
+}
+
+// Over-commitment view: per engineer × half-day, across ALL projects. Green =
+// committed, red = double-booked (claimed by more than one project that half).
 export default function HeatmapView({ viewStart, viewEnd, whatIfProject, finderMatches }) {
   const { team, projects, capacityOverrides } = useStore();
-  const months = useMemo(() => getMonthRange(viewStart, viewEnd), [viewStart, viewEnd]);
-  const now = getCurrentMonth();
-  const gridWidth = months.length * MONTH_WIDTH;
+  const days = useMemo(() => getWorkingDayRange(viewStart, viewEnd), [viewStart, viewEnd]);
+  const today = getCurrentDate();
+  const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
+  const gridWidth = days.length * DAY_WIDTH;
 
-  const loadMap = useMemo(() => {
-    const map = {};
-    for (const person of team) {
-      map[person.id] = {};
-      for (const m of months) {
-        const base = calculateLoad(person.id, m, projects, null);
-        const total = whatIfProject ? calculateLoad(person.id, m, projects, whatIfProject) : base;
-        const capacity = getPersonCapacity(person.id, m, capacityOverrides);
-        const effective = getEffectiveUtilisation(total, capacity);
-        map[person.id][m] = { base, total, whatIfDelta: total - base, capacity, effective };
-      }
+  // One slot map per person (single pass), reused for cells + summary.
+  const maps = useMemo(() => {
+    const m = {};
+    for (const person of team) m[person.id] = getPersonSlotMap(person.id, allProjects);
+    return m;
+  }, [team, allProjects]);
+
+  const summary = useMemo(() => team.map(person => {
+    const map = maps[person.id];
+    let committed = 0, doubleBooked = 0;
+    for (const date of days) for (const half of HALVES) {
+      const n = (map.get(`${date}|${half}`) || []).length;
+      if (n > 0) committed++;
+      if (n > 1) doubleBooked++;
     }
-    return map;
-  }, [team, months, projects, whatIfProject, capacityOverrides]);
+    const total = days.length * HALVES.length;
+    return { person, committed, doubleBooked, free: total - committed, total };
+  }), [team, days, maps]);
 
-  // Utilisation summary data
-  const utilSummary = useMemo(() => {
-    return team.map(person => {
-      const loads = months.map(m => loadMap[person.id]?.[m]?.total ?? 0);
-      const avg = loads.length > 0 ? loads.reduce((a, b) => a + b, 0) / loads.length : 0;
-      const peak = loads.length > 0 ? Math.max(...loads) : 0;
-      const freeMonths = loads.filter(l => l <= 60).length;
-      return { person, avg: Math.round(avg), peak, freeMonths };
-    });
-  }, [team, months, loadMap]);
+  const todayIdx = days.indexOf(today);
 
   return (
     <div className="heatmap-view">
+      <div className="oc-legend">
+        <span><span className="oc-key" style={{ background: '#16a34a' }} /> Committed</span>
+        <span><span className="oc-key" style={{ background: '#dc2626' }} /> Double-booked</span>
+        <span><span className="oc-key oc-key-leave" /> On leave</span>
+      </div>
+
       <div className="timeline-scroll">
-        <div className="timeline-header" style={{ width: gridWidth }}>
+        <div className="alloc-header" style={{ width: gridWidth }}>
           <div className="timeline-label-col">Team Member</div>
-          <div className="timeline-months">
-            {months.map(m => (
-              <div key={m} className={`timeline-month-cell ${m === now ? 'current' : ''}`} style={{ width: MONTH_WIDTH }}>
-                {monthLabelShort(m)}
+          <div className="alloc-days">
+            {days.map(d => (
+              <div key={d} className={`alloc-day ${d === today ? 'current' : ''}`} style={{ width: DAY_WIDTH }}>
+                <div className="alloc-day-label">{dayLabel(d)}</div>
+                <div className="alloc-halves"><span style={{ width: SLOT_WIDTH }}>AM</span><span style={{ width: SLOT_WIDTH }}>PM</span></div>
               </div>
             ))}
           </div>
         </div>
 
-        {team.map(person => (
-          <HeatmapRow
-            key={person.id}
-            person={person}
-            months={months}
-            now={now}
-            projects={projects}
-            whatIfProject={whatIfProject}
-            gridWidth={gridWidth}
-            loads={loadMap[person.id]}
-            finderMatches={finderMatches}
-          />
-        ))}
+        {todayIdx >= 0 && (
+          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${todayIdx * DAY_WIDTH}px)` }} />
+        )}
 
-        {/* Summary row */}
-        <div className="heatmap-summary-row">
-          <div className="timeline-label-col person-label">
-            <span className="person-name summary-label">Team Avg</span>
-          </div>
-          <div className="timeline-cells" style={{ width: gridWidth }}>
-            {months.map(m => {
-              const totalLoad = team.reduce((sum, p) => sum + (loadMap[p.id]?.[m]?.total ?? 0), 0);
-              const avg = team.length ? Math.round(totalLoad / team.length) : 0;
-              return (
-                <div key={m} className={`heatmap-cell ${m === now ? 'current' : ''}`}
-                  style={{ width: MONTH_WIDTH, background: getLoadColor(avg), color: getLoadTextColor(avg) }}>
-                  {avg > 0 ? `${avg}%` : '—'}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Print legend — hidden on screen, visible in PDF */}
-        <div className="print-legend">
-          <span className="print-legend-title">Legend</span>
-          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#16a34a' }} />0–60% Light</span>
-          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#ca8a04' }} />61–80% Moderate</span>
-          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#ea580c' }} />81–100% At capacity</span>
-          <span className="print-legend-item"><span className="print-swatch" style={{ background: '#dc2626' }} />Over 100% Overcommitted</span>
-        </div>
-
-        {/* Utilisation summary */}
-        <div className="util-summary">
-          <div className="util-header">Utilisation Summary — {months.length} months shown</div>
-          {utilSummary.map(({ person, avg, peak, freeMonths }) => (
-            <div key={person.id} className="util-row">
-              <span className="util-name">{person.name}</span>
-              <div className="util-bar-track">
-                <div className="util-bar-fill" style={{ width: `${Math.min(avg, 150) / 1.5}%`, background: getLoadColor(avg) }} />
-                {peak > avg && (
-                  <div className="util-bar-peak" style={{ left: `${Math.min(peak, 150) / 1.5}%` }} title={`Peak: ${peak}%`} />
-                )}
-              </div>
-              <span className="util-avg">{avg}% avg</span>
-              <span className={`util-peak ${peak > 100 ? 'over' : ''}`}>{peak}% peak</span>
-              <span className="util-free">{freeMonths} light</span>
+        {team.length === 0 ? (
+          <div className="empty-state"><p>Add team members to see over-commitment.</p></div>
+        ) : team.map(person => (
+          <div key={person.id} className="alloc-row">
+            <div className="timeline-label-col person-label">
+              <span className="person-name">{person.name}</span>
             </div>
-          ))}
-        </div>
+            <div className="alloc-cells" style={{ width: gridWidth }}>
+              {days.map(date => HALVES.map(half => {
+                const claims = maps[person.id].get(`${date}|${half}`) || [];
+                const over = claims.length > 1;
+                const avail = isSlotAvailable(person.id, date, half, capacityOverrides);
+                const bg = !avail && claims.length === 0 ? undefined
+                  : over ? '#dc2626'
+                  : claims.length === 1 ? '#16a34a'
+                  : undefined;
+                const title = claims.length
+                  ? `${claims.map(c => c.projectName).join(' + ')} — ${dayLabel(date)} ${half.toUpperCase()}${over ? ' · DOUBLE-BOOKED' : ''}${!avail ? ' · on leave' : ''}`
+                  : `${avail ? 'Free' : 'On leave'} — ${dayLabel(date)} ${half.toUpperCase()}`;
+                return (
+                  <div
+                    key={`${date}|${half}`}
+                    className={`oc-cell ${half === 'pm' ? 'day-end' : ''} ${!avail ? 'leave' : ''} ${date === today ? 'current' : ''} ${finderMatches?.[person.id]?.has(`${date}|${half}`) ? 'finder-match' : ''}`}
+                    style={{ width: SLOT_WIDTH, background: bg }}
+                    title={title}
+                  >
+                    {over ? claims.length : ''}
+                  </div>
+                );
+              }))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-person summary over the visible fortnight */}
+      <div className="util-summary">
+        <div className="util-header">Commitment — {days.length} working days shown</div>
+        {summary.map(({ person, committed, doubleBooked, free, total }) => (
+          <div key={person.id} className="util-row">
+            <span className="util-name">{person.name}</span>
+            <div className="util-bar-track">
+              <div className="util-bar-fill" style={{ width: `${(committed / total) * 100}%`, background: doubleBooked ? '#dc2626' : '#16a34a' }} />
+            </div>
+            <span className="util-avg">{committed}/{total} halves</span>
+            <span className={`util-peak ${doubleBooked ? 'over' : ''}`}>{doubleBooked} double-booked</span>
+            <span className="util-free">{free} free</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
-
-const HeatmapRow = React.memo(function HeatmapRow({ person, months, now, projects, whatIfProject, gridWidth, loads, finderMatches }) {
-  const personFinderMonths = finderMatches?.[person.id];
-
-  return (
-    <div className="heatmap-row">
-      <div className="timeline-label-col person-label">
-        <span className="person-name">{person.name}</span>
-      </div>
-      <div className="timeline-cells" style={{ width: gridWidth }}>
-        {months.map(m => {
-          const { total, whatIfDelta, capacity, effective } = loads[m] || { total: 0, whatIfDelta: 0, capacity: 100, effective: 0 };
-          const phases = getActivePhases(person.id, m, projects, whatIfProject);
-          const hasWhatIf = whatIfDelta > 0;
-          const hasCapOverride = capacity < 100;
-          const colorLoad = hasCapOverride ? effective : total;
-          const isFinderMatch = personFinderMonths?.has(m);
-
-          return (
-            <div
-              key={m}
-              className={`heatmap-cell ${m === now ? 'current' : ''} ${colorLoad > 100 ? 'overcommit' : ''} ${hasWhatIf ? 'has-whatif' : ''} ${isFinderMatch ? 'finder-match' : ''}`}
-              style={{ width: MONTH_WIDTH, background: getLoadColor(colorLoad), color: getLoadTextColor(colorLoad) }}
-              title={[
-                ...phases.map(p => {
-                  const base = p.intensityOverride ?? PHASE_TYPES[p.type]?.weight;
-                  const urg = p.urgencyFactor < 1 ? ` × ${Math.round(p.urgencyFactor * 100)}% urgency → ${p.effectiveIntensity}%` : '';
-                  const initTag = p.initiative ? ` [${INITIATIVE_TYPES[p.initiative.type]?.label || p.initiative.type}]` : '';
-                  return `${p.projectName}${initTag}: ${PHASE_TYPES[p.type]?.label} (${base}%${urg})${p.isWhatIf ? ' [what-if]' : ''}`;
-                }),
-                hasCapOverride ? `Capacity: ${capacity}%` : '',
-              ].filter(Boolean).join('\n')}
-            >
-              <span className="heatmap-value">
-                {total > 0 ? `${total}%` : '—'}
-              </span>
-              {hasCapOverride && total > 0 && (
-                <span className="heatmap-cap-indicator" title={`${capacity}% capacity`}>
-                  /{capacity}
-                </span>
-              )}
-              {hasWhatIf && <span className="heatmap-whatif-delta">+{whatIfDelta}%</span>}
-              {phases.length > 0 && (
-                <div className="heatmap-projects">
-                  {phases.map(p => (
-                    <span key={p.id} className={`heatmap-dot ${p.isWhatIf ? 'whatif-dot' : ''}`} style={{ background: p.projectColor }} title={p.projectName} />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-});

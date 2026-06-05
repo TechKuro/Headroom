@@ -1,73 +1,79 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { genId, getCurrentMonth, getCurrentDate, addMonths, addDays, migrateData } from './utils';
+import { genId, getCurrentDate, addDays, getWorkingDayRange, migrateData } from './utils';
 import { PROJECT_COLORS, DEFAULT_INITIATIVE, DEFAULT_SETTINGS } from './constants';
 import { addToast } from './toast';
 import * as docManager from './docManager';
 
 const MAX_HISTORY = 50;
 
-// --- Sample data ---
+// --- Sample data (half-day allocation) ---
 
-function toDate(monthStr, isEnd = false) {
-  if (isEnd) {
-    const [y, m] = monthStr.split('-').map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    return `${monthStr}-${String(lastDay).padStart(2, '0')}`;
-  }
-  return `${monthStr}-01`;
+function mondayOfCurrentWeek() {
+  let d = getCurrentDate();
+  while (new Date(d + 'T12:00:00').getDay() !== 1) d = addDays(d, -1);
+  return d;
 }
 
 export function createSampleData() {
-  const now = getCurrentMonth();
+  const monday = mondayOfCurrentWeek();
+  const days = getWorkingDayRange(monday, addDays(monday, 13)); // 10 working days (2 weeks)
   const team = [
     { id: genId(), name: 'Alice', role: 'Full-stack' },
     { id: genId(), name: 'Bob', role: 'Backend' },
     { id: genId(), name: 'Charlie', role: 'Frontend' },
     { id: genId(), name: 'Dana', role: 'DevOps' },
   ];
+  const [alice, bob, charlie, dana] = team.map(t => t.id);
+
+  const slot = (personId, di, half) => ({ date: days[di], half, personId });
+  const mkPhase = (type, slots) => {
+    const dates = slots.map(s => s.date).sort();
+    return {
+      id: genId(), type, slots,
+      personIds: [...new Set(slots.map(s => s.personId))],
+      startMonth: dates[0], endMonth: dates[dates.length - 1],
+    };
+  };
 
   const projects = [
     {
-      id: genId(), name: 'Portal Redesign', color: PROJECT_COLORS[0], deadline: addMonths(now, 5),
+      id: genId(), name: 'Portal Redesign', color: PROJECT_COLORS[0], deadline: addDays(monday, 25),
       initiative: { type: 'client', status: 'progress', progress: 60, estimatedValue: 80000, chargeable: true, valueNote: 'Fixed-price engagement', description: 'Customer portal UX overhaul' },
       phases: [
-        { id: genId(), personIds: [team[0].id],           type: 'scoping',       startMonth: toDate(addMonths(now, -1)),      endMonth: toDate(now, true),               intensityOverride: null },
-        { id: genId(), personIds: [team[0].id, team[2].id], type: 'active-build', startMonth: toDate(addMonths(now, 1)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
-        { id: genId(), personIds: [team[0].id],           type: 'final-push',    startMonth: toDate(addMonths(now, 4)),       endMonth: toDate(addMonths(now, 5), true),  intensityOverride: null },
+        mkPhase('active-build', [
+          slot(alice, 0, 'am'), slot(alice, 0, 'pm'), slot(alice, 1, 'am'), slot(alice, 1, 'pm'),
+          slot(alice, 2, 'am'), slot(charlie, 5, 'am'), slot(charlie, 5, 'pm'),
+        ]),
       ],
     },
     {
-      id: genId(), name: 'API Migration', color: PROJECT_COLORS[1], deadline: addMonths(now, 3),
+      id: genId(), name: 'API Migration', color: PROJECT_COLORS[1], deadline: addDays(monday, 18),
       initiative: { type: 'internal', status: 'progress', progress: 40, estimatedValue: 30000, chargeable: false, valueNote: 'Reduced infra spend', description: 'Migrate legacy API to v2' },
       phases: [
-        { id: genId(), personIds: [team[1].id],           type: 'active-build',  startMonth: toDate(addMonths(now, -2)),      endMonth: toDate(addMonths(now, 1), true),  intensityOverride: null },
-        { id: genId(), personIds: [team[3].id],           type: 'active-build',  startMonth: toDate(addMonths(now, 0)),       endMonth: toDate(addMonths(now, 2), true),  intensityOverride: 60 },
-        { id: genId(), personIds: [team[1].id],           type: 'final-push',    startMonth: toDate(addMonths(now, 2)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
+        mkPhase('active-build', [slot(bob, 0, 'am'), slot(bob, 0, 'pm'), slot(bob, 1, 'am')]),
       ],
     },
     {
-      id: genId(), name: 'Mobile App', color: PROJECT_COLORS[2], deadline: addMonths(now, 8),
+      id: genId(), name: 'Mobile App', color: PROJECT_COLORS[2], deadline: addDays(monday, 60),
       initiative: { type: 'client', status: 'backlog', progress: 10, estimatedValue: 120000, chargeable: true, valueNote: 'New client contract', description: 'Native mobile companion app' },
       phases: [
-        { id: genId(), personIds: [team[2].id],           type: 'scoping',       startMonth: toDate(now),                     endMonth: toDate(addMonths(now, 1), true),  intensityOverride: null },
-        { id: genId(), personIds: [team[2].id],           type: 'waiting',       startMonth: toDate(addMonths(now, 2)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
-        { id: genId(), personIds: [team[2].id],           type: 'active-build',  startMonth: toDate(addMonths(now, 5)),       endMonth: toDate(addMonths(now, 7), true),  intensityOverride: null },
-        { id: genId(), personIds: [team[2].id],           type: 'handover',      startMonth: toDate(addMonths(now, 8)),       endMonth: toDate(addMonths(now, 8), true),  intensityOverride: null },
+        mkPhase('scoping', [slot(charlie, 2, 'am'), slot(charlie, 2, 'pm'), slot(charlie, 3, 'am'), slot(charlie, 3, 'pm')]),
       ],
     },
     {
-      id: genId(), name: 'Data Pipeline', color: PROJECT_COLORS[3], deadline: addMonths(now, 4),
+      id: genId(), name: 'Data Pipeline', color: PROJECT_COLORS[3], deadline: addDays(monday, 30),
       initiative: { type: 'internal', status: 'progress', progress: 50, estimatedValue: 45000, chargeable: false, valueNote: 'Analytics enablement', description: 'Realtime data pipeline' },
       phases: [
-        { id: genId(), personIds: [team[3].id],           type: 'scoping',       startMonth: toDate(addMonths(now, -1)),      endMonth: toDate(now, true),                intensityOverride: null },
-        { id: genId(), personIds: [team[1].id, team[3].id], type: 'active-build', startMonth: toDate(addMonths(now, 1)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
-        { id: genId(), personIds: [team[3].id],           type: 'final-push',    startMonth: toDate(addMonths(now, 4)),       endMonth: toDate(addMonths(now, 4), true),  intensityOverride: null },
+        // Bob day-1 AM here collides with API Migration day-1 AM → a deliberate double-booking demo.
+        mkPhase('active-build', [slot(dana, 0, 'am'), slot(dana, 1, 'pm'), slot(bob, 1, 'am'), slot(bob, 2, 'am'), slot(bob, 2, 'pm')]),
       ],
     },
   ];
 
+  // Charlie on leave day-4 (both halves) — availability/leave demo.
   const capacityOverrides = {
-    [`${team[2].id}-${addMonths(now, 3)}`]: 50, // Charlie half-time demo
+    [`${charlie}-${days[4]}-am`]: true,
+    [`${charlie}-${days[4]}-pm`]: true,
   };
 
   return { team, projects, capacityOverrides, settings: { ...DEFAULT_SETTINGS } };
@@ -84,6 +90,28 @@ function getInitialState() {
 }
 
 // --- Core reducer ---
+
+// Apply a new slot set to a phase: rebuild personIds from slots and widen the
+// phase's planning window to cover them.
+function applySlots(phase, slots) {
+  const dates = slots.map(s => s.date).sort();
+  const next = { ...phase, slots, personIds: [...new Set(slots.map(s => s.personId))] };
+  if (dates.length) {
+    if (!next.startMonth || dates[0] < next.startMonth) next.startMonth = dates[0];
+    if (!next.endMonth || dates[dates.length - 1] > next.endMonth) next.endMonth = dates[dates.length - 1];
+  }
+  return next;
+}
+
+// Replace one phase via a mapper, leaving everything else untouched.
+function mapPhase(state, projectId, phaseId, fn) {
+  return {
+    ...state,
+    projects: state.projects.map(p =>
+      p.id !== projectId ? p : { ...p, phases: p.phases.map(ph => ph.id !== phaseId ? ph : fn(ph)) }
+    ),
+  };
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -105,7 +133,10 @@ function reducer(state, action) {
         projects: state.projects.map(p => ({
           ...p,
           phases: p.phases
-            .map(ph => ({ ...ph, personIds: (ph.personIds || []).filter(pid => pid !== id) }))
+            .map(ph => {
+              const slots = (ph.slots || []).filter(s => s.personId !== id);
+              return { ...ph, slots, personIds: (ph.personIds || []).filter(pid => pid !== id) };
+            })
             .filter(ph => ph.personIds.length > 0),
         })),
         capacityOverrides: newOverrides,
@@ -160,7 +191,13 @@ function reducer(state, action) {
         ...state,
         projects: state.projects.map(p =>
           p.id === projectId
-            ? { ...p, phases: p.phases.map(ph => ph.id === phase.id ? { ...ph, ...phase } : ph) }
+            ? { ...p, phases: p.phases.map(ph => {
+                if (ph.id !== phase.id) return ph;
+                const merged = { ...ph, ...phase };
+                // Keep personIds in step with slots whenever slots are part of the patch.
+                if ('slots' in phase) merged.personIds = [...new Set((merged.slots || []).map(s => s.personId))];
+                return merged;
+              }) }
             : p
         ),
       };
@@ -170,32 +207,44 @@ function reducer(state, action) {
       return { ...state, projects: state.projects.map(p => p.id === projectId ? { ...p, phases: p.phases.filter(ph => ph.id !== phaseId) } : p) };
     }
 
-    // Capacity overrides (leave / reduced hours)
-    case 'SET_CAPACITY_OVERRIDE':
-      return { ...state, capacityOverrides: { ...state.capacityOverrides, [action.payload.key]: action.payload.value } };
-    case 'SET_CAPACITY_OVERRIDES_BATCH': {
-      const newOverrides = { ...state.capacityOverrides };
-      for (const { key, value } of action.payload) {
-        if (value === 100 || value === null) {
-          delete newOverrides[key];
-        } else {
-          newOverrides[key] = value;
-        }
-      }
-      return { ...state, capacityOverrides: newOverrides };
+    // Half-day slot allocation
+    case 'ALLOCATE_SLOT': {
+      const { projectId, phaseId, personId, date, half } = action.payload;
+      return mapPhase(state, projectId, phaseId, ph => {
+        if ((ph.slots || []).some(s => s.personId === personId && s.date === date && s.half === half)) return ph;
+        return applySlots(ph, [...(ph.slots || []), { personId, date, half }]);
+      });
     }
-    case 'REMOVE_CAPACITY_OVERRIDE': {
-      const { [action.payload]: _, ...rest } = state.capacityOverrides;
-      return { ...state, capacityOverrides: rest };
+    case 'DEALLOCATE_SLOT': {
+      const { projectId, phaseId, personId, date, half } = action.payload;
+      return mapPhase(state, projectId, phaseId, ph =>
+        applySlots(ph, (ph.slots || []).filter(s => !(s.personId === personId && s.date === date && s.half === half))));
+    }
+    case 'ALLOCATE_SLOTS_BATCH': {
+      const { projectId, phaseId, add = [], remove = [] } = action.payload;
+      const same = (a, b) => a.personId === b.personId && a.date === b.date && a.half === b.half;
+      return mapPhase(state, projectId, phaseId, ph => {
+        let slots = (ph.slots || []).filter(s => !remove.some(r => same(r, s)));
+        for (const s of add) if (!slots.some(x => same(x, s))) slots = [...slots, s];
+        return applySlots(ph, slots);
+      });
     }
 
-    // Project hold
-    case 'HOLD_PROJECT': {
-      const { projectId, hold } = action.payload;
-      return { ...state, projects: state.projects.map(p => p.id === projectId ? { ...p, hold } : p) };
+    // Leave (per half-day slot availability)
+    case 'SET_SLOT_LEAVE': {
+      const { personId, date, half, off } = action.payload;
+      const key = `${personId}-${date}-${half}`;
+      const next = { ...state.capacityOverrides };
+      if (off) next[key] = true; else delete next[key];
+      return { ...state, capacityOverrides: next };
     }
-    case 'RESUME_PROJECT': {
-      return { ...state, projects: state.projects.map(p => p.id === action.payload ? { ...p, hold: null } : p) };
+    case 'SET_SLOT_LEAVE_BATCH': {
+      const next = { ...state.capacityOverrides };
+      for (const { personId, date, half, off } of action.payload) {
+        const key = `${personId}-${date}-${half}`;
+        if (off) next[key] = true; else delete next[key];
+      }
+      return { ...state, capacityOverrides: next };
     }
 
     // Settings

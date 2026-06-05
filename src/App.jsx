@@ -15,16 +15,23 @@ import DocumentBar from './components/DocumentBar';
 import DocMeta from './components/DocMeta';
 import ConflictBanner from './components/ConflictBanner';
 import Toasts from './components/Toasts';
-import { getCurrentMonth, addMonths } from './utils';
+import { getCurrentDate, addDays } from './utils';
 import { addToast } from './toast';
 import * as docManager from './docManager';
 import { IS_CLOUD, getAccountName, signOut } from './auth/authConfig';
+
+// Snap a date back to the Monday of its week.
+function mondayOf(date) {
+  let d = date;
+  while (new Date(d + 'T12:00:00').getDay() !== 1) d = addDays(d, -1);
+  return d;
+}
 
 export default function App() {
   const store = useStore();
   const dispatch = useDispatch();
   const { canUndo, canRedo } = useHistory();
-  const blendedRate = store.settings?.blendedRate ?? 45;
+  const blendedRate = store.settings?.blendedRate ?? 110;
   const [view, setView] = useState('timeline');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [phaseModal, setPhaseModal] = useState(null);
@@ -34,12 +41,11 @@ export default function App() {
   const [finderMatches, setFinderMatches] = useState(null);
   const [activeDocId, setActiveDocId] = useState(() => docManager.getActiveDocId());
 
-  const now = getCurrentMonth();
-  const [viewStart, setViewStart] = useState(addMonths(now, -2));
-  const viewEnd = addMonths(viewStart, 17);
+  const [viewStart, setViewStart] = useState(() => mondayOf(getCurrentDate()));
+  const viewEnd = addDays(viewStart, 13); // two working weeks
 
   function scrollTimeline(dir) {
-    setViewStart(prev => addMonths(prev, dir * 3));
+    setViewStart(prev => mondayOf(addDays(prev, dir * 7)));
   }
 
   // Drag-update callback for phase bars (works for both normal and what-if)
@@ -152,7 +158,7 @@ export default function App() {
             <button className="icon-btn" onClick={() => scrollTimeline(-1)} title="Earlier">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <button className="text-btn" onClick={() => setViewStart(addMonths(now, -2))} title="Jump to today">Today</button>
+            <button className="text-btn" onClick={() => setViewStart(mondayOf(getCurrentDate()))} title="Jump to this week">This week</button>
             <button className="icon-btn" onClick={() => scrollTimeline(1)} title="Later">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
