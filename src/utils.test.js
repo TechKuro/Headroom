@@ -4,6 +4,7 @@ import {
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
+  getPersonWorkload, getPersonUtilisation,
   calculateLoad, getEffectiveUtilisation,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
@@ -295,6 +296,57 @@ describe('getProjectRisk', () => {
     expect(r.needsInfo.sort()).toEqual(['metadata', 'value']);
     expect(r.factors).toEqual([]);
     expect(r.level).toBe('low');
+  });
+});
+
+describe('getPersonWorkload', () => {
+  const clientChargeable = {
+    id: 'a', name: 'A', color: '#f00', initiative: { type: 'client', chargeable: true },
+    phases: [fullMonthPhase()],
+  };
+  const internalNonBillable = {
+    id: 'b', name: 'B', color: '#0f0', initiative: { type: 'internal', chargeable: false },
+    phases: [fullMonthPhase()],
+  };
+
+  it('splits hours by type and by billable flag, and totals cost', () => {
+    const w = getPersonWorkload('p1', [clientChargeable, internalNonBillable], 50);
+    expect(w.totalHours).toBe(HOURS_PER_MONTH * 2);
+    expect(w.clientHours).toBe(HOURS_PER_MONTH);
+    expect(w.internalHours).toBe(HOURS_PER_MONTH);
+    expect(w.billableHours).toBe(HOURS_PER_MONTH);     // only the chargeable one
+    expect(w.billablePct).toBe(50);
+    expect(w.cost).toBe(HOURS_PER_MONTH * 2 * 50);
+    expect(w.byProject).toHaveLength(2);
+  });
+
+  it('returns zeroed totals for a person with no assigned work', () => {
+    const w = getPersonWorkload('nobody', [clientChargeable], 50);
+    expect(w.totalHours).toBe(0);
+    expect(w.billablePct).toBe(0);
+    expect(w.byProject).toEqual([]);
+  });
+});
+
+describe('getPersonUtilisation', () => {
+  const project = {
+    id: 'a', name: 'A', deadline: '2025-06-30',
+    phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null }],
+  };
+
+  it('reports load, capacity and utilisation per month', () => {
+    const [u] = getPersonUtilisation('p1', ['2025-06'], [project]);
+    expect(u).toEqual({ month: '2025-06', load: 100, capacity: 100, util: 100 });
+  });
+
+  it('reflects reduced capacity as higher utilisation', () => {
+    const [u] = getPersonUtilisation('p1', ['2025-06'], [project], { 'p1-2025-06': 50 });
+    expect(u.util).toBe(200);
+  });
+
+  it('is zero for an unassigned person', () => {
+    const [u] = getPersonUtilisation('nobody', ['2025-06'], [project]);
+    expect(u).toEqual({ month: '2025-06', load: 0, capacity: 100, util: 0 });
   });
 });
 
