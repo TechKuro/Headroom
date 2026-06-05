@@ -2163,6 +2163,52 @@ body {
 .standup-questions { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
 .standup-questions li { color: var(--text-2); font-size: 13px; line-height: 1.4; }
 
+/* Check-in notes */
+.standup-notes { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.standup-notes-title { font-weight: 600; color: var(--text-1); margin-bottom: 8px; font-size: 13px; }
+.standup-note-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.standup-note {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.standup-note-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.standup-note-meta { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.standup-note-del {
+  border: none; background: none; color: var(--text-3); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0 4px; border-radius: 4px;
+}
+.standup-note-del:hover { color: var(--danger); background: var(--bg-3); }
+.standup-note-text { color: var(--text-1); font-size: 13px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.standup-note-empty { color: var(--text-3); font-size: 12px; font-style: italic; margin: 0 0 10px; }
+.standup-note-input {
+  width: 100%;
+  resize: vertical;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text-1);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.standup-note-input:focus { outline: none; border-color: var(--accent); }
+.standup-note-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.standup-note-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.standup-note-btn:hover:not(:disabled) { background: var(--accent-dim); }
+.standup-note-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* ============================================
    People & cost view
    ============================================ */

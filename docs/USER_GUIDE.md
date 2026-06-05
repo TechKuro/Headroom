@@ -161,6 +161,7 @@ A person-by-person check-in view, useful for running a stand-up or a one-to-one.
 - **Summary panel**: their active project count, estimated hours, labour cost at the current rate, and how many of those hours are **client** work
 - **Project rows**: each assigned project with its type/status/chargeable badges, this engineer's hours and cost on it, the project's progress, and its ROI signal
 - **Check-in prompts**: selecting a project shows four fixed stand-up questions (no AI involved) — what changed, the next deliverable, whether the estimate still holds, and any blockers/scope/client-expectation risks
+- **Check-in notes**: below the questions, type a free-text note and click **Add note** (or press Ctrl+Enter). Each note is stamped with the engineer's name and the date/time, and kept per engineer-per-project so prior check-ins are there for reference next time. Notes save with the plan and can be removed with the **×**.
 
 If the selected person has no assigned work, a friendly empty state is shown instead of a blank panel.
 

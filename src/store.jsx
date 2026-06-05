@@ -83,6 +83,7 @@ function migrateData(data) {
     projects: data.projects.map(p => ({
       ...p,
       initiative: { ...DEFAULT_INITIATIVE, ...(p.initiative || {}) },
+      checkIns: Array.isArray(p.checkIns) ? p.checkIns : [],
       phases: p.phases.map(ph => migratePhase(ph)),
     })),
   };
@@ -138,6 +139,24 @@ function reducer(state, action) {
           p.id === projectId
             ? { ...p, initiative: { ...DEFAULT_INITIATIVE, ...p.initiative, ...initiative } }
             : p
+        ),
+      };
+    }
+    case 'ADD_CHECKIN_NOTE': {
+      const { projectId, note } = action.payload;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === projectId ? { ...p, checkIns: [...(p.checkIns || []), note] } : p
+        ),
+      };
+    }
+    case 'DELETE_CHECKIN_NOTE': {
+      const { projectId, noteId } = action.payload;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === projectId ? { ...p, checkIns: (p.checkIns || []).filter(n => n.id !== noteId) } : p
         ),
       };
     }
