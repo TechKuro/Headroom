@@ -1,4 +1,4 @@
-import { PHASE_TYPES, DEFAULT_INITIATIVE, HOURS_PER_MONTH } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_MONTH } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -162,6 +162,26 @@ export function migratePhase(phase) {
     migrated.endMonth = migrated.endMonth + '-' + String(lastDayOfMonth(migrated.endMonth)).padStart(2, '0');
   }
   return migrated;
+}
+
+/**
+ * Migrate a whole document to the current shape, filling safe defaults so
+ * plans saved before the initiative/settings/check-in layers still load.
+ * Pure and side-effect free — used by the store on load/import and covered by
+ * tests, since a silent change here can corrupt saved plans.
+ */
+export function migrateData(data) {
+  return {
+    ...data,
+    capacityOverrides: data.capacityOverrides || {},
+    settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
+    projects: data.projects.map(p => ({
+      ...p,
+      initiative: { ...DEFAULT_INITIATIVE, ...(p.initiative || {}) },
+      checkIns: Array.isArray(p.checkIns) ? p.checkIns : [],
+      phases: p.phases.map(ph => migratePhase(ph)),
+    })),
+  };
 }
 
 // --- Urgency weighting (deadline proximity) ---
