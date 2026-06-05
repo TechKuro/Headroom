@@ -4,7 +4,7 @@ import {
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
-  getPersonWorkload, getPersonUtilisation,
+  getPersonWorkload, getPersonUtilisation, getWhatIfImpact,
   calculateLoad, getEffectiveUtilisation,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
@@ -347,6 +347,38 @@ describe('getPersonUtilisation', () => {
   it('is zero for an unassigned person', () => {
     const [u] = getPersonUtilisation('nobody', ['2025-06'], [project]);
     expect(u).toEqual({ month: '2025-06', load: 0, capacity: 100, util: 0 });
+  });
+});
+
+describe('getWhatIfImpact', () => {
+  const juneFull = pid => ({ id: 'ph', type: 'active-build', personIds: [pid], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null });
+  const committed = { id: 'c', name: 'Committed', deadline: '2025-06-30', phases: [juneFull('p1')] };
+  const team = [{ id: 'p1', name: 'Pat' }, { id: 'p2', name: 'Sam' }];
+
+  it('reports the added hours and cost', () => {
+    const wif = { id: 'what-if-1', name: 'New', deadline: '2025-06-30', phases: [juneFull('p2')] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
+    expect(r.addedHours).toBe(HOURS_PER_MONTH);
+    expect(r.addedCost).toBe(HOURS_PER_MONTH * 50);
+  });
+
+  it('projects ROI when an estimated value is set', () => {
+    const wif = { id: 'w', name: 'New', deadline: '2025-06-30', initiative: { estimatedValue: 20000 }, phases: [juneFull('p2')] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
+    expect(r.roi).toBe(20000 - HOURS_PER_MONTH * 50);   // 12000
+    expect(Math.round(r.roiPercent)).toBe(150);
+  });
+
+  it('flags people the what-if pushes over capacity', () => {
+    const wif = { id: 'w', name: 'New', deadline: '2025-06-30', phases: [juneFull('p1')] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
+    expect(r.overloadedPeople).toEqual([{ id: 'p1', name: 'Pat', months: ['2025-06'] }]);
+  });
+
+  it('does not flag a person who stays within capacity', () => {
+    const wif = { id: 'w', name: 'New', deadline: '2025-06-30', phases: [juneFull('p2')] };
+    const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 50 });
+    expect(r.overloadedPeople).toEqual([]);
   });
 });
 

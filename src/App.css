@@ -1085,6 +1085,33 @@ body {
   font-size: 11px;
   color: var(--text-3);
 }
+.value-input { width: 96px; }
+
+.what-if-impact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.wii-stat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-family: 'JetBrains Mono', monospace;
+  cursor: default;
+}
+.wii-stat.pos { color: var(--success); }
+.wii-stat.neg { color: var(--danger); }
+.wii-warn {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(220, 38, 38, 0.15);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: default;
+}
 
 .what-if-actions {
   display: flex;
@@ -2144,6 +2171,32 @@ body {
 .standup-stats { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 10px; }
 .standup-stat-value { font-size: 18px; font-weight: 700; color: var(--text-1); }
 .standup-stat-label { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.standup-overload {
+  margin-top: 12px;
+  font-size: 12px; font-weight: 600;
+  color: #f87171;
+  background: rgba(220, 38, 38, 0.12);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: default;
+}
+
+.standup-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.standup-scope { display: flex; gap: 6px; }
+.standup-copy-btn {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-2);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.standup-copy-btn:hover { border-color: var(--border-light); color: var(--text-1); }
+.standup-copy-btn:disabled { opacity: 0.5; cursor: default; }
+
+.badge-hold { background: rgba(99, 107, 130, 0.22); color: var(--text-2); }
 
 .standup-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; }
 .standup-projects { display: flex; flex-direction: column; gap: 8px; }
