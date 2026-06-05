@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import {
-  getInitiative, getProjectLabourSummary, getRoi,
+  getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
   getPhasePersonIds, formatCurrency, formatSignedCurrency, formatHours,
 } from '../utils';
-import { INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
+import { INITIATIVE_TYPES, INITIATIVE_STATUSES, RISK_LEVELS } from '../constants';
 
 const SORT_OPTIONS = [
+  { key: 'risk',     label: 'Risk' },
   { key: 'roi',      label: 'ROI' },
   { key: 'cost',     label: 'Labour cost' },
   { key: 'progress', label: 'Progress' },
@@ -14,14 +15,22 @@ const SORT_OPTIONS = [
   { key: 'name',     label: 'Name' },
 ];
 
+// What each "needs info" gap means, for the chip tooltip.
+const NEEDS_INFO_LABELS = {
+  value: 'No estimated value',
+  metadata: 'No initiative details set',
+};
+
 export default function OverviewView() {
-  const { team, projects, settings } = useStore();
+  const { team, projects, settings, capacityOverrides } = useStore();
   const blendedRate = settings?.blendedRate ?? 45;
 
   const [statusFilter, setStatusFilter] = useState('all');   // all | done | progress | backlog
   const [typeFilter, setTypeFilter] = useState('all');       // all | internal | client
   const [chargeableOnly, setChargeableOnly] = useState(false);
-  const [sortKey, setSortKey] = useState('roi');
+  const [riskFilter, setRiskFilter] = useState('all');       // all | critical | at-risk | watch | low
+  const [needsInfoOnly, setNeedsInfoOnly] = useState(false);
+  const [sortKey, setSortKey] = useState('risk');
   const [sortDir, setSortDir] = useState('desc');            // asc | desc
 
   // Derive a commercial row per project.
@@ -29,6 +38,7 @@ export default function OverviewView() {
     const init = getInitiative(p);
     const summary = getProjectLabourSummary(p, blendedRate);
     const { roi, roiPercent } = getRoi(init.estimatedValue, summary.cost);
+    const risk = getProjectRisk(p, { projects, blendedRate, capacityOverrides });
 
     const peopleIds = new Set();
     for (const ph of p.phases) for (const id of getPhasePersonIds(ph)) peopleIds.add(id);
@@ -37,25 +47,30 @@ export default function OverviewView() {
     return {
       id: p.id, name: p.name, color: p.color, init,
       hours: summary.totalHours, cost: summary.cost,
-      value: init.estimatedValue, roi, roiPercent, people,
+      value: init.estimatedValue, roi, roiPercent, people, risk,
     };
-  }), [projects, team, blendedRate]);
+  }), [projects, team, blendedRate, capacityOverrides]);
 
   const filtered = useMemo(() => rows.filter(r => {
     if (statusFilter !== 'all' && r.init.status !== statusFilter) return false;
     if (typeFilter !== 'all' && r.init.type !== typeFilter) return false;
     if (chargeableOnly && !r.init.chargeable) return false;
+    if (riskFilter !== 'all' && r.risk.level !== riskFilter) return false;
+    if (needsInfoOnly && r.risk.needsInfo.length === 0) return false;
     return true;
-  }), [rows, statusFilter, typeFilter, chargeableOnly]);
+  }), [rows, statusFilter, typeFilter, chargeableOnly, riskFilter, needsInfoOnly]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
     const val = r => ({
-      roi: r.roi, cost: r.cost, progress: r.init.progress, hours: r.hours, name: r.name,
+      risk: RISK_LEVELS[r.risk.level].order, roi: r.roi, cost: r.cost,
+      progress: r.init.progress, hours: r.hours, name: r.name,
     }[sortKey]);
     return [...filtered].sort((a, b) => {
       const va = val(a), vb = val(b);
       if (typeof va === 'string') return va.localeCompare(vb) * dir;
+      // Tie-break risk on score so a 2-factor "At risk" outranks a 1-factor one.
+      if (sortKey === 'risk' && va === vb) return (a.risk.score - b.risk.score) * dir;
       return (va - vb) * dir;
     });
   }, [filtered, sortKey, sortDir]);
@@ -68,9 +83,10 @@ export default function OverviewView() {
     const avgProgress = filtered.length
       ? Math.round(filtered.reduce((s, r) => s + r.init.progress, 0) / filtered.length)
       : 0;
+    const atRisk = filtered.filter(r => r.risk.level === 'at-risk' || r.risk.level === 'critical').length;
     return {
       count: filtered.length, totalHours, totalCost, totalValue,
-      netRoi: totalValue - totalCost, avgProgress,
+      netRoi: totalValue - totalCost, avgProgress, atRisk,
     };
   }, [filtered]);
 
@@ -93,6 +109,7 @@ export default function OverviewView() {
         <Metric label="Est. value" value={formatCurrency(metrics.totalValue)} />
         <Metric label="Net ROI" value={formatSignedCurrency(metrics.netRoi)} tone={metrics.netRoi >= 0 ? 'pos' : 'neg'} />
         <Metric label="Avg progress" value={`${metrics.avgProgress}%`} />
+        <Metric label="At risk" value={metrics.atRisk} tone={metrics.atRisk > 0 ? 'neg' : undefined} />
       </div>
 
       {/* Filters + sort */}
@@ -112,7 +129,15 @@ export default function OverviewView() {
           ))}
         </div>
         <div className="ov-filter-group">
+          <span className="ov-filter-label">Risk</span>
+          <FilterBtn active={riskFilter === 'all'} onClick={() => setRiskFilter('all')}>All</FilterBtn>
+          {Object.entries(RISK_LEVELS).slice().reverse().map(([k, v]) => (
+            <FilterBtn key={k} active={riskFilter === k} onClick={() => setRiskFilter(k)}>{v.label}</FilterBtn>
+          ))}
+        </div>
+        <div className="ov-filter-group">
           <FilterBtn active={chargeableOnly} onClick={() => setChargeableOnly(c => !c)}>Chargeable only</FilterBtn>
+          <FilterBtn active={needsInfoOnly} onClick={() => setNeedsInfoOnly(n => !n)}>Needs info</FilterBtn>
         </div>
         <div className="ov-filter-group ov-sort">
           <span className="ov-filter-label">Sort</span>
@@ -134,6 +159,7 @@ export default function OverviewView() {
               <tr>
                 <th>Initiative</th>
                 <th>Status</th>
+                <th>Risk</th>
                 <th className="num">Progress</th>
                 <th className="num">Est. hours</th>
                 <th className="num">Labour cost</th>
@@ -159,6 +185,7 @@ export default function OverviewView() {
                       {r.init.chargeable && <span className="badge badge-chargeable">Chargeable</span>}
                     </div>
                   </td>
+                  <td><RiskCell risk={r.risk} /></td>
                   <td className="num">
                     <div className="ov-progress">
                       <div className="ov-progress-track"><div className="ov-progress-fill" style={{ width: `${r.init.progress}%` }} /></div>
@@ -180,6 +207,25 @@ export default function OverviewView() {
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+
+function RiskCell({ risk }) {
+  // The fired factors ARE the explanation — surface them on hover so the
+  // label is never a black box.
+  const factorTitle = risk.factors.length
+    ? risk.factors.map(f => f.label).join('\n')
+    : 'No risk signals';
+  const needsInfoTitle = risk.needsInfo.map(k => NEEDS_INFO_LABELS[k] || k).join('\n');
+  return (
+    <div className="ov-risk">
+      <span className={`badge badge-risk-${risk.level}`} title={factorTitle}>
+        {RISK_LEVELS[risk.level].label}
+      </span>
+      {risk.needsInfo.length > 0 && (
+        <span className="badge badge-needs-info" title={needsInfoTitle}>Needs info</span>
       )}
     </div>
   );
