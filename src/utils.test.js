@@ -3,7 +3,7 @@ import {
   addMonths, monthDiff, getMonthRange, monthToString, monthCoverageFraction,
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
-  getInitiative, getProjectLabourSummary, getRoi,
+  getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
   calculateLoad, getEffectiveUtilisation,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
@@ -209,6 +209,92 @@ describe('calculateLoad / getEffectiveUtilisation', () => {
     expect(getEffectiveUtilisation(50, 200)).toBe(25);
     expect(getEffectiveUtilisation(10, 0)).toBe(999);
     expect(getEffectiveUtilisation(0, 0)).toBe(0);
+  });
+});
+
+describe('getProjectRisk', () => {
+  const NOW = '2025-06';
+  const factorKeys = r => r.factors.map(f => f.key).sort();
+
+  it('scores a healthy project as Low with no factors', () => {
+    const project = {
+      id: 'a', name: 'Healthy', deadline: '2025-12-31',
+      initiative: { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 },
+      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-05-01', endMonth: '2025-12-31', intensityOverride: null }],
+    };
+    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+    expect(r.level).toBe('low');
+    expect(r.score).toBe(0);
+    expect(r.factors).toEqual([]);
+    expect(r.needsInfo).toEqual([]);
+  });
+
+  it('flags negative ROI alone as At risk (one High factor)', () => {
+    const project = {
+      id: 'a', name: 'Loss', deadline: '2025-12-31',
+      initiative: { type: 'internal', status: 'progress', progress: 50, estimatedValue: 1000 },
+      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-05-01', endMonth: '2025-12-31', intensityOverride: null }],
+    };
+    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+    expect(factorKeys(r)).toEqual(['negative-roi']);
+    expect(r.score).toBe(3);
+    expect(r.level).toBe('at-risk');
+  });
+
+  it('stacks overdue + behind into Critical', () => {
+    const project = {
+      id: 'a', name: 'Late',
+      initiative: { type: 'client', status: 'progress', progress: 40, estimatedValue: 1_000_000 },
+      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-01-01', endMonth: '2025-03-31', intensityOverride: null }],
+    };
+    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+    expect(factorKeys(r)).toEqual(['behind', 'overdue']);
+    expect(r.score).toBeGreaterThanOrEqual(6);
+    expect(r.level).toBe('critical');
+  });
+
+  it('detects an overloaded assigned person across the contributing projects', () => {
+    const phase = pid => ({ id: 'ph', type: 'active-build', personIds: [pid], startMonth: '2025-06-01', endMonth: '2025-06-30', intensityOverride: null });
+    const a = { id: 'a', name: 'A', deadline: '2025-12-31', initiative: { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 }, phases: [phase('p1')] };
+    const b = { id: 'b', name: 'B', deadline: '2025-12-31', initiative: { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 }, phases: [phase('p1')] };
+    const r = getProjectRisk(a, { projects: [a, b], blendedRate: 50, currentMonth: NOW });
+    expect(factorKeys(r)).toContain('overload');
+    expect(r.level).toBe('at-risk');
+  });
+
+  it('flags scheduled work with nobody assigned (Watch)', () => {
+    const project = {
+      id: 'a', name: 'Orphan', deadline: '2025-12-31',
+      initiative: { type: 'client', status: 'progress', progress: 30, estimatedValue: 1_000_000 },
+      phases: [{ id: 'ph', type: 'active-build', personIds: [], startMonth: '2025-05-01', endMonth: '2025-12-31', intensityOverride: null }],
+    };
+    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+    expect(factorKeys(r)).toEqual(['unassigned']);
+    expect(r.level).toBe('watch');
+  });
+
+  it('exempts done projects from delivery factors, but flags done-but-incomplete', () => {
+    const project = {
+      id: 'a', name: 'Shipped',
+      initiative: { type: 'client', status: 'done', progress: 80, estimatedValue: 0 },
+      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-01-01', endMonth: '2025-03-31', intensityOverride: null }],
+    };
+    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+    // Past deadline + no value would otherwise fire — done suppresses all of it.
+    expect(factorKeys(r)).toEqual(['done-incomplete']);
+    expect(r.level).toBe('watch');
+  });
+
+  it('reports data gaps separately from the risk score', () => {
+    const project = {
+      id: 'a', name: 'Blank',
+      // no initiative → all defaults (untouched); future-dated phase so no schedule factor fires
+      phases: [{ id: 'ph', type: 'active-build', personIds: ['p1'], startMonth: '2025-09-01', endMonth: '2025-09-30', intensityOverride: null }],
+    };
+    const r = getProjectRisk(project, { projects: [project], blendedRate: 50, currentMonth: NOW });
+    expect(r.needsInfo.sort()).toEqual(['metadata', 'value']);
+    expect(r.factors).toEqual([]);
+    expect(r.level).toBe('low');
   });
 });
 

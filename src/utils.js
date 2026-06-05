@@ -425,6 +425,144 @@ export function getRoi(estimatedValue, cost) {
   return { roi, roiPercent };
 }
 
+// --- Risk scoring ---
+//
+// Each signal that fires contributes points by severity; the total maps to a
+// band. Tuned so a single strong signal reads "At risk" and it takes two to
+// reach "Critical". Data-completeness gaps are surfaced separately (needsInfo)
+// and never added to the score — a project with no value estimate is unscored,
+// not risky. All thresholds are named here so the model can be retuned in one
+// place. Every fired factor is returned, so the score is always explainable.
+
+const RISK_POINTS = { high: 3, med: 2, low: 1 };
+
+// expected% − actual% progress gap that counts as behind schedule.
+const BEHIND_MED = 20;
+const BEHIND_HIGH = 40;
+
+// A deadline this many months out (or nearer), and not done, is "approaching".
+const NEAR_DEADLINE_MONTHS = 2;
+
+function riskLevelFromScore(score) {
+  if (score >= 6) return 'critical';
+  if (score >= 3) return 'at-risk';
+  if (score >= 1) return 'watch';
+  return 'low';
+}
+
+/** True when the initiative has never been edited away from its defaults. */
+function isDefaultInitiative(init) {
+  return Object.keys(DEFAULT_INITIATIVE).every(k => init[k] === DEFAULT_INITIATIVE[k]);
+}
+
+/** Distinct months (YYYY-MM) that any of the project's phases span. */
+function projectActiveMonths(project) {
+  const months = new Set();
+  for (const phase of project.phases || []) {
+    for (const m of getMonthRange(dateToMonth(phase.startMonth), dateToMonth(phase.endMonth))) {
+      months.add(m);
+    }
+  }
+  return [...months];
+}
+
+/**
+ * Score a project's delivery/commercial risk.
+ *
+ * @param project  the project to score
+ * @param opts.projects          all projects (needed to sum per-person load)
+ * @param opts.blendedRate       £/hour, for the ROI factor
+ * @param opts.capacityOverrides per-person/month capacity map
+ * @param opts.currentMonth      YYYY-MM "now" (injectable for tests)
+ * @returns { level, score, factors:[{key,label,severity,points}], needsInfo:[] }
+ */
+export function getProjectRisk(project, opts = {}) {
+  const {
+    projects = [],
+    blendedRate = 45,
+    capacityOverrides = {},
+    currentMonth = getCurrentMonth(),
+  } = opts;
+
+  const init = getInitiative(project);
+  const phases = project.phases || [];
+  const assignedIds = new Set();
+  for (const ph of phases) for (const id of getPhasePersonIds(ph)) assignedIds.add(id);
+
+  // Data completeness — reported, not scored.
+  const needsInfo = [];
+  if (!(init.estimatedValue > 0)) needsInfo.push('value');
+  if (isDefaultInitiative(init)) needsInfo.push('metadata');
+
+  const factors = [];
+  const add = (key, label, severity) =>
+    factors.push({ key, label, severity, points: RISK_POINTS[severity] });
+
+  const isDone = init.status === 'done';
+
+  // Consistency flag — the only factor that can fire on a 'done' project.
+  if (isDone && init.progress < 100) {
+    add('done-incomplete', 'Marked done but under 100%', 'low');
+  }
+
+  if (!isDone) {
+    // Negative ROI — only meaningful once a value has been estimated.
+    if (init.estimatedValue > 0) {
+      const { cost } = getProjectLabourSummary(project, blendedRate);
+      const { roi } = getRoi(init.estimatedValue, cost);
+      if (roi < 0) add('negative-roi', 'Negative ROI', 'high');
+    }
+
+    // Overloaded people — an assigned person over 100% in a month THIS project runs.
+    const activeMonths = projectActiveMonths(project);
+    let overloaded = false;
+    for (const pid of assignedIds) {
+      for (const m of activeMonths) {
+        const load = calculateLoad(pid, m, projects);
+        const cap = getPersonCapacity(pid, m, capacityOverrides);
+        if (getEffectiveUtilisation(load, cap) > 100) { overloaded = true; break; }
+      }
+      if (overloaded) break;
+    }
+    if (overloaded) add('overload', 'Assigned person over capacity', 'high');
+
+    // Behind schedule — progress lagging the share of the timeline elapsed.
+    const startMonths = phases.map(p => dateToMonth(p.startMonth)).filter(Boolean);
+    const startMonth = startMonths.length ? startMonths.reduce((a, b) => (a < b ? a : b)) : null;
+    const endMonth = dateToMonth(getProjectEndMonth(project));
+    if (startMonth && endMonth) {
+      const total = monthDiff(startMonth, endMonth);
+      const elapsed = monthDiff(startMonth, currentMonth);
+      if (total > 0 && elapsed > 0) {
+        const expected = Math.min(1, elapsed / total) * 100;
+        const gap = expected - init.progress;
+        if (gap >= BEHIND_HIGH) add('behind', 'Behind schedule', 'high');
+        else if (gap >= BEHIND_MED) add('behind', 'Behind schedule', 'med');
+      }
+    }
+
+    // Near / past deadline.
+    if (endMonth) {
+      const toDeadline = monthDiff(currentMonth, endMonth);
+      if (toDeadline < 0) add('overdue', 'Past deadline', 'high');
+      else if (toDeadline <= NEAR_DEADLINE_MONTHS) add('deadline', 'Deadline approaching', 'med');
+    }
+
+    // Scheduled work with nobody on it.
+    if (phases.length > 0 && assignedIds.size === 0) {
+      add('unassigned', 'Scheduled work with no one assigned', 'med');
+    }
+
+    // Backlog on paper, but already scheduled to have started.
+    if (init.status === 'backlog' && startMonth && startMonth <= currentMonth) {
+      add('backlog-started', 'Backlog but already scheduled', 'low');
+    }
+  }
+
+  const score = factors.reduce((s, f) => s + f.points, 0);
+  return { level: riskLevelFromScore(score), score, factors, needsInfo };
+}
+
 // --- Formatting ---
 
 export function formatCurrency(n) {

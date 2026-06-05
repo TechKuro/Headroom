@@ -31,6 +31,15 @@ export const INITIATIVE_STATUSES = {
   backlog:  { label: 'Backlog' },
 };
 
+// --- Risk scoring ---
+// Ordered low → critical. `order` drives sorting; `label` is the badge text.
+export const RISK_LEVELS = {
+  low:       { label: 'Low',      order: 0 },
+  watch:     { label: 'Watch',    order: 1 },
+  'at-risk': { label: 'At risk',  order: 2 },
+  critical:  { label: 'Critical', order: 3 },
+};
+
 // App-level settings persisted with each document.
 export const DEFAULT_SETTINGS = {
   blendedRate: 45,        // GBP / hour
