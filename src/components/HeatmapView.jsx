@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import { getMonthRange, getCurrentMonth, calculateLoad, getLoadColor, getLoadTextColor, getActivePhases, getPersonCapacity, getEffectiveUtilisation, monthLabelShort } from '../utils';
-import { MONTH_WIDTH, PHASE_TYPES } from '../constants';
+import { MONTH_WIDTH, PHASE_TYPES, INITIATIVE_TYPES } from '../constants';
 
 export default function HeatmapView({ viewStart, viewEnd, whatIfProject, finderMatches }) {
   const { team, projects, capacityOverrides } = useStore();
@@ -140,7 +140,8 @@ const HeatmapRow = React.memo(function HeatmapRow({ person, months, now, project
                 ...phases.map(p => {
                   const base = p.intensityOverride ?? PHASE_TYPES[p.type]?.weight;
                   const urg = p.urgencyFactor < 1 ? ` × ${Math.round(p.urgencyFactor * 100)}% urgency → ${p.effectiveIntensity}%` : '';
-                  return `${p.projectName}: ${PHASE_TYPES[p.type]?.label} (${base}%${urg})${p.isWhatIf ? ' [what-if]' : ''}`;
+                  const initTag = p.initiative ? ` [${INITIATIVE_TYPES[p.initiative.type]?.label || p.initiative.type}]` : '';
+                  return `${p.projectName}${initTag}: ${PHASE_TYPES[p.type]?.label} (${base}%${urg})${p.isWhatIf ? ' [what-if]' : ''}`;
                 }),
                 hasCapOverride ? `Capacity: ${capacity}%` : '',
               ].filter(Boolean).join('\n')}

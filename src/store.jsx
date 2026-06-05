@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { genId, getCurrentMonth, getCurrentDate, addMonths, addDays, migratePhase } from './utils';
-import { PROJECT_COLORS } from './constants';
+import { PROJECT_COLORS, DEFAULT_INITIATIVE, DEFAULT_SETTINGS } from './constants';
 import { addToast } from './toast';
 import * as docManager from './docManager';
 
@@ -17,7 +17,7 @@ function toDate(monthStr, isEnd = false) {
   return `${monthStr}-01`;
 }
 
-function createSampleData() {
+export function createSampleData() {
   const now = getCurrentMonth();
   const team = [
     { id: genId(), name: 'Alice', role: 'Full-stack' },
@@ -29,6 +29,7 @@ function createSampleData() {
   const projects = [
     {
       id: genId(), name: 'Portal Redesign', color: PROJECT_COLORS[0], deadline: addMonths(now, 5),
+      initiative: { type: 'client', status: 'progress', progress: 60, estimatedValue: 80000, chargeable: true, valueNote: 'Fixed-price engagement', description: 'Customer portal UX overhaul' },
       phases: [
         { id: genId(), personIds: [team[0].id],           type: 'scoping',       startMonth: toDate(addMonths(now, -1)),      endMonth: toDate(now, true),               intensityOverride: null },
         { id: genId(), personIds: [team[0].id, team[2].id], type: 'active-build', startMonth: toDate(addMonths(now, 1)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
@@ -37,6 +38,7 @@ function createSampleData() {
     },
     {
       id: genId(), name: 'API Migration', color: PROJECT_COLORS[1], deadline: addMonths(now, 3),
+      initiative: { type: 'internal', status: 'progress', progress: 40, estimatedValue: 30000, chargeable: false, valueNote: 'Reduced infra spend', description: 'Migrate legacy API to v2' },
       phases: [
         { id: genId(), personIds: [team[1].id],           type: 'active-build',  startMonth: toDate(addMonths(now, -2)),      endMonth: toDate(addMonths(now, 1), true),  intensityOverride: null },
         { id: genId(), personIds: [team[3].id],           type: 'active-build',  startMonth: toDate(addMonths(now, 0)),       endMonth: toDate(addMonths(now, 2), true),  intensityOverride: 60 },
@@ -45,6 +47,7 @@ function createSampleData() {
     },
     {
       id: genId(), name: 'Mobile App', color: PROJECT_COLORS[2], deadline: addMonths(now, 8),
+      initiative: { type: 'client', status: 'backlog', progress: 10, estimatedValue: 120000, chargeable: true, valueNote: 'New client contract', description: 'Native mobile companion app' },
       phases: [
         { id: genId(), personIds: [team[2].id],           type: 'scoping',       startMonth: toDate(now),                     endMonth: toDate(addMonths(now, 1), true),  intensityOverride: null },
         { id: genId(), personIds: [team[2].id],           type: 'waiting',       startMonth: toDate(addMonths(now, 2)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
@@ -54,6 +57,7 @@ function createSampleData() {
     },
     {
       id: genId(), name: 'Data Pipeline', color: PROJECT_COLORS[3], deadline: addMonths(now, 4),
+      initiative: { type: 'internal', status: 'progress', progress: 50, estimatedValue: 45000, chargeable: false, valueNote: 'Analytics enablement', description: 'Realtime data pipeline' },
       phases: [
         { id: genId(), personIds: [team[3].id],           type: 'scoping',       startMonth: toDate(addMonths(now, -1)),      endMonth: toDate(now, true),                intensityOverride: null },
         { id: genId(), personIds: [team[1].id, team[3].id], type: 'active-build', startMonth: toDate(addMonths(now, 1)),       endMonth: toDate(addMonths(now, 3), true),  intensityOverride: null },
@@ -66,7 +70,7 @@ function createSampleData() {
     [`${team[2].id}-${addMonths(now, 3)}`]: 50, // Charlie half-time demo
   };
 
-  return { team, projects, capacityOverrides };
+  return { team, projects, capacityOverrides, settings: { ...DEFAULT_SETTINGS } };
 }
 
 // --- State shape ---
@@ -75,23 +79,21 @@ function migrateData(data) {
   return {
     ...data,
     capacityOverrides: data.capacityOverrides || {},
+    settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
     projects: data.projects.map(p => ({
       ...p,
+      initiative: { ...DEFAULT_INITIATIVE, ...(p.initiative || {}) },
       phases: p.phases.map(ph => migratePhase(ph)),
     })),
   };
 }
 
+// Reads the active document from docManager's cache (hydrated by
+// docManager.init() before this provider mounts). Falls back to sample data.
 function getInitialState() {
-  docManager.migrateIfNeeded();
-  const activeId = docManager.getActiveDocId();
-  if (activeId) {
-    const data = docManager.loadDoc(activeId);
-    if (data?.team && data?.projects) {
-      return migrateData(data);
-    }
-  }
-  return createSampleData();
+  const data = docManager.getActiveDocData();
+  if (data?.team && data?.projects) return migrateData(data);
+  return migrateData(createSampleData());
 }
 
 // --- Core reducer ---
@@ -128,6 +130,17 @@ function reducer(state, action) {
       return { ...state, projects: [...state.projects, action.payload] };
     case 'UPDATE_PROJECT':
       return { ...state, projects: state.projects.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p) };
+    case 'UPDATE_INITIATIVE': {
+      const { projectId, initiative } = action.payload;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? { ...p, initiative: { ...DEFAULT_INITIATIVE, ...p.initiative, ...initiative } }
+            : p
+        ),
+      };
+    }
     case 'REMOVE_PROJECT':
       return { ...state, projects: state.projects.filter(p => p.id !== action.payload) };
 
@@ -180,9 +193,13 @@ function reducer(state, action) {
       return { ...state, projects: state.projects.map(p => p.id === action.payload ? { ...p, hold: null } : p) };
     }
 
+    // Settings
+    case 'SET_BLENDED_RATE':
+      return { ...state, settings: { ...state.settings, blendedRate: action.payload } };
+
     // Bulk import
     case 'IMPORT_DATA':
-      return migrateData({ team: action.payload.team, projects: action.payload.projects, capacityOverrides: action.payload.capacityOverrides || {} });
+      return migrateData({ team: action.payload.team, projects: action.payload.projects, capacityOverrides: action.payload.capacityOverrides || {}, settings: action.payload.settings });
 
     default:
       return state;
@@ -239,16 +256,17 @@ export function StoreProvider({ children }) {
     future: [],
   }));
 
-  // Persist present state to active document
+  // Persist present state to the active document (debounced; async-safe for the
+  // cloud backend, harmless for localStorage).
   useEffect(() => {
-    try {
-      const activeId = docManager.getActiveDocId();
-      if (activeId) {
-        docManager.saveDoc(activeId, history.present);
-      }
-    } catch {
-      addToast('Failed to save — localStorage may be full. Export your data as a backup.', 'error');
-    }
+    const activeId = docManager.getActiveDocId();
+    if (!activeId) return;
+    const t = setTimeout(() => {
+      docManager.saveDoc(activeId, history.present).catch(() => {
+        addToast('Failed to save — your latest changes may not be persisted.', 'error');
+      });
+    }, 600);
+    return () => clearTimeout(t);
   }, [history.present]);
 
   return (

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore, useDispatch, useHistory } from './store';
 import Sidebar from './components/Sidebar';
+import OverviewView from './components/OverviewView';
+import StandupView from './components/StandupView';
+import PeopleCostView from './components/PeopleCostView';
 import TimelineView from './components/TimelineView';
 import HeatmapView from './components/HeatmapView';
 import ProjectView from './components/ProjectView';
@@ -13,11 +16,13 @@ import Toasts from './components/Toasts';
 import { getCurrentMonth, addMonths } from './utils';
 import { addToast } from './toast';
 import * as docManager from './docManager';
+import { IS_CLOUD, getAccountName, signOut } from './auth/authConfig';
 
 export default function App() {
   const store = useStore();
   const dispatch = useDispatch();
   const { canUndo, canRedo } = useHistory();
+  const blendedRate = store.settings?.blendedRate ?? 45;
   const [view, setView] = useState('timeline');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [phaseModal, setPhaseModal] = useState(null);
@@ -85,12 +90,37 @@ export default function App() {
         <DocumentBar activeDocId={activeDocId} setActiveDocId={setActiveDocId} />
 
         <nav className="view-tabs">
+          <button className={`tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
           <button className={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => setView('timeline')}>Timeline</button>
           <button className={`tab ${view === 'heatmap' ? 'active' : ''}`} onClick={() => setView('heatmap')}>Heatmap</button>
           <button className={`tab ${view === 'project' ? 'active' : ''}`} onClick={() => setView('project')}>Project</button>
+          <button className={`tab ${view === 'standup' ? 'active' : ''}`} onClick={() => setView('standup')}>Standup</button>
+          <button className={`tab ${view === 'people' ? 'active' : ''}`} onClick={() => setView('people')}>People &amp; Cost</button>
         </nav>
 
         <div className="header-right">
+          {/* Blended rate — drives cost & ROI across Overview / Standup / People */}
+          <div className="rate-control" title="Blended hourly rate used for cost & ROI">
+            <label htmlFor="blended-rate">Rate £/h</label>
+            <input
+              id="blended-rate"
+              type="number"
+              min="1"
+              max="999"
+              value={blendedRate}
+              onChange={e => {
+                const raw = e.target.value;
+                if (raw === '') return; // ignore transient empty — rate must stay ≥ 1
+                const v = Math.round(Number(raw));
+                if (Number.isNaN(v)) return;
+                dispatch({ type: 'SET_BLENDED_RATE', payload: Math.max(1, Math.min(999, v)) });
+              }}
+              className="rate-input"
+            />
+          </div>
+
+          <div className="header-divider" />
+
           {/* Undo / Redo */}
           <div className="undo-redo">
             <button className="icon-btn" onClick={() => dispatch({ type: 'UNDO' })} disabled={!canUndo} title="Undo (Ctrl+Z)">
@@ -126,6 +156,18 @@ export default function App() {
           </div>
 
           <ExportImport />
+
+          {IS_CLOUD && (
+            <>
+              <div className="header-divider" />
+              <div className="account-control">
+                <span className="account-name" title={getAccountName() || ''}>{getAccountName()}</span>
+                <button className="icon-btn" onClick={signOut} title="Sign out">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -155,6 +197,9 @@ export default function App() {
         )}
 
         <main className="main-content">
+          {view === 'overview' && <OverviewView />}
+          {view === 'standup' && <StandupView />}
+          {view === 'people' && <PeopleCostView />}
           {view === 'timeline' && (
             <TimelineView
               viewStart={viewStart}

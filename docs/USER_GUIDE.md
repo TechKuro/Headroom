@@ -6,6 +6,8 @@ Headroom is a resource capacity planning tool for small engineering teams (2-5 p
 
 It is **not** a task tracker. It sits above your existing tools (Halo PSA, Jira, etc.) and gives you a high-level view of who is doing what, and where the room is.
 
+On top of the capacity model, Headroom adds a lightweight **initiative / commercial layer**: each project can carry initiative metadata (client vs internal, status, progress, estimated value), and a global blended hourly rate turns assigned phase time into **labour cost and ROI**. This lets Headroom answer commercial questions ("which initiatives pay for themselves?", "how much of each engineer's time is chargeable client work?") alongside the scheduling ones — surfaced in the **Overview**, **Standup**, and **People & Cost** views.
+
 ---
 
 ## Getting Started
@@ -23,7 +25,7 @@ The app opens at `http://localhost:5173` in your browser. Keep the terminal wind
 
 ### First run
 
-The app comes pre-loaded with a "Sample Plan" containing 4 team members and 4 projects so you can explore immediately. All changes are automatically saved to your browser's localStorage.
+The app comes pre-loaded with a "Sample Plan" containing 4 team members and 4 projects so you can explore immediately. The sample projects also include **initiative metadata** (a mix of client and internal work, with estimated values) so the Overview, Standup, and People & Cost views have something to show on first run. All changes are automatically saved to your browser's localStorage.
 
 To start a fresh plan, use the document menu (see below).
 
@@ -79,7 +81,8 @@ From left to right:
 | **Hamburger menu** | Show/hide the sidebar |
 | **Headroom** | App name |
 | **Document menu** | Click the plan name to open: New, Save As Copy, Load, Rename, Delete, Export to PDF |
-| **Timeline / Heatmap / Project** tabs | Switch between the three main views |
+| **Overview / Timeline / Heatmap / Project / Standup / People & Cost** tabs | Switch between views. Timeline stays the default landing view; Overview is first in the tab strip. |
+| **Rate £/h** | The global blended hourly rate (default 45, range 1–999). Drives all cost and ROI figures in Overview, Standup, and People & Cost. Changing it recalculates immediately and is undoable. It does **not** affect Timeline/Heatmap load. |
 | **Undo / Redo** arrows | Undo or redo any change (also Ctrl+Z / Ctrl+Y) |
 | **Search icon** | Toggle the Availability Finder |
 | **Arrow buttons / Today** | Scroll the timeline earlier/later, or jump to the current month |
@@ -104,6 +107,7 @@ Three collapsible sections:
   - **Deadline**: Set the contract end date via the month picker
   - **Colour**: Pick from 10 colour swatches
   - **Phases list**: Shows all phases with their type, person, dates, and any intensity override
+  - **Initiative details**: Set the project's commercial metadata (see below) — type, status, progress, estimated value, value note, description, and chargeable flag
   - **Quick Plan**: Apply a pre-built phase template (see Quick Plan section)
   - **+ Add**: Add a single new phase
   - Click any phase row to open it for editing
@@ -119,6 +123,56 @@ Three collapsible sections:
 
 ## Views
 
+### Overview View
+
+The commercial dashboard — first tab in the strip. It answers "which initiatives are worth it?" by turning assigned phase time into labour cost and comparing it against each project's estimated value.
+
+**Metrics strip** (top) reflects whatever the filters currently show:
+
+- **Initiatives** — count of projects in view
+- **Est. hours** — total estimated labour hours
+- **Labour cost** — hours × the blended rate
+- **Est. value** — sum of the initiatives' estimated values
+- **Net ROI** — estimated value minus labour cost (shown with an explicit + / − sign)
+- **Avg progress** — mean progress across the filtered initiatives
+
+**Filters**: by status (Done / In progress / Backlog), by type (Internal / Client), and a **Chargeable only** toggle.
+
+**Sort**: by ROI, Labour cost, Progress, Est. hours, or Name. Click the active sort again to flip direction (↑ / ↓).
+
+**Initiative table** — one row per project:
+
+- **Initiative**: project name, description, and the people assigned
+- **Status**: type, status, and (if set) a Chargeable badge
+- **Progress**: a bar plus the percentage
+- **Est. hours** and **Labour cost** (at the current rate)
+- **Est. value** and its value note
+- **ROI**: the signed figure and a percentage
+
+Projects without initiative metadata still appear, using safe defaults (Internal / Backlog / £0) rather than breaking the table.
+
+> **How hours are estimated:** Headroom reuses its month-intensity model — a phase running at intensity *I*% covering fraction *F* of a month contributes (*I*/100) × *F* × ~160 person-hours, counted once per assigned person. Urgency and hold weighting (which are scheduling/visual amplifiers) are deliberately excluded from cost. The same calculation feeds Overview, Standup, and People & Cost.
+
+### Standup View
+
+A person-by-person check-in view, useful for running a stand-up or a one-to-one.
+
+- **Engineer chip rail**: one chip per team member — click to switch the active engineer
+- **Summary panel**: their active project count, estimated hours, labour cost at the current rate, and how many of those hours are **client** work
+- **Project rows**: each assigned project with its type/status/chargeable badges, this engineer's hours and cost on it, the project's progress, and its ROI signal
+- **Check-in prompts**: selecting a project shows four fixed stand-up questions (no AI involved) — what changed, the next deliverable, whether the estimate still holds, and any blockers/scope/client-expectation risks
+
+If the selected person has no assigned work, a friendly empty state is shown instead of a blank panel.
+
+### People & Cost View
+
+Ranks the team by workload and shows how each person's time splits between client and internal work.
+
+- Engineers are listed **ranked by total estimated assigned hours** (busiest first)
+- A horizontal bar shows each person's relative load, split into **client** and **internal** segments with raw hour labels
+- **Total hours** and **labour cost** (at the current rate) appear on the right of each row
+- Hours are classified client vs internal from each project's initiative **type**; projects without metadata default to internal
+
 ### Timeline View
 
 The primary view. Team members down the left, months across the top, phase bars showing who is doing what.
@@ -132,6 +186,7 @@ The primary view. Team members down the left, months across the top, phase bars 
 - **Dashed vertical lines** = project deadlines (colour-matched, with project name label)
 - **Solid blue vertical line** = current month
 - **Load badge** next to each person's name shows their total load for the current month (green/amber/red)
+- **Hover a bar** for a tooltip showing the project, phase, and intensity — plus the initiative type/status (and Chargeable, if set) when the project has initiative metadata
 
 **Interacting with the timeline:**
 
@@ -163,7 +218,7 @@ Same layout as the timeline, but each cell shows the **total load percentage** p
 
 - **"/50" after the load value**: This person has reduced capacity that month (e.g. leave). The number shows their available capacity. The cell colour reflects *effective* utilisation — 40% load with 50% capacity is coloured as 80%.
 - **Dashed amber border + "+N%"**: The cell includes load from a what-if project. The "+N%" shows how much the what-if adds.
-- **Coloured dots** below the percentage: Each dot represents a project active for that person that month. Hover to see the project name.
+- **Coloured dots** below the percentage: Each dot represents a project active for that person that month. Hover to see the project name. The cell tooltip also tags each contributing project as `[Client]` or `[Internal]` from its initiative type.
 - **Team Average row**: Bottom row shows the average load across all team members for each month.
 
 **Utilisation Summary** (below the grid):
@@ -208,6 +263,22 @@ The **Phase Modal** lets you set:
 ### Editing a Phase
 
 Click any phase bar on the timeline, or click a phase row in the sidebar project panel. The Edit Phase modal shows the same fields as Add, plus a **Delete** button (with confirmation).
+
+### Editing Initiative Details
+
+Expand a project in the sidebar to find the **Initiative details** panel. This is where you set the commercial metadata that powers the Overview, Standup, and People & Cost views:
+
+| Field | Notes |
+|---|---|
+| **Type** | Internal or Client. Determines how the project's hours are classified in People & Cost and the client-hours figure in Standup. |
+| **Status** | Backlog, In progress, or Done. Used by the Overview status filter. |
+| **Progress** | 0–100%, set with a slider. Shown as a progress bar in Overview and Standup. |
+| **Estimated value** | The expected GBP value of the initiative (clamped to ≥ 0). ROI = estimated value − labour cost. |
+| **Value note** | A short label for where the value comes from, e.g. "Fixed-price engagement". |
+| **Description** | A short description shown under the project name in Overview. |
+| **Chargeable** | A flag, independent of type — a project can be internal but chargeable, or client but not. Drives the Overview "Chargeable only" filter and the Chargeable badge. |
+
+All edits flow through the normal undo/redo history and persist with the active plan. Changes are reflected immediately in the commercial views.
 
 ### Drag to Resize / Move
 
@@ -426,6 +497,20 @@ For best results, print the **Heatmap View** — it's the most useful thing to s
 4. Compare the heatmaps between the two plans to see the impact
 5. Export both to PDF for the business case
 
+### "Which initiatives are actually paying off?"
+
+1. Set the **Rate £/h** in the header to your true blended cost
+2. Expand each project and fill in its **Initiative details** — type, estimated value, status, progress
+3. Open the **Overview** tab and sort by **ROI**
+4. Use the filters to focus, e.g. **Client + Chargeable only**, to see external revenue work; or **Internal** to see what your improvement initiatives are costing
+5. Read **Net ROI** in the metrics strip for the filtered total
+
+### "How much of the team's time is chargeable client work?"
+
+1. Make sure project **types** (client/internal) are set in Initiative details
+2. Open **People & Cost** — each engineer's bar splits into client vs internal hours
+3. Use **Standup** to drill into one person: their client-hours figure and per-project breakdown for a one-to-one or capacity-vs-billability conversation
+
 ---
 
 ## Data Storage
@@ -435,9 +520,12 @@ All data is stored in your **browser's localStorage**. There is no server, no ac
 Each named plan is stored separately. The data includes:
 
 - **Team members**: Name and optional role
-- **Projects**: Name, colour, contract deadline, and a list of phases
+- **Projects**: Name, colour, contract deadline, a list of phases, and optional **initiative** metadata (type, status, progress, estimated value, value note, description, chargeable)
 - **Phases**: Assigned person, type, start/end month, and optional intensity override
 - **Capacity overrides**: Per-person, per-month available capacity (default 100%)
+- **Settings**: The plan's blended hourly rate (`settings.blendedRate`, default 45)
+
+Plans created before the initiative layer existed load safely — missing `initiative` and `settings` fields are filled with defaults on load, and nothing is overwritten destructively.
 
 ### Important notes about storage
 

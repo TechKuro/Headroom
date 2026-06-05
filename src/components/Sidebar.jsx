@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getPersonCapacity, getCurrentMonth, addMonths, getMonthRange, getPhasePersonIds, formatDateShort } from '../utils';
-import { PROJECT_COLORS, PHASE_TYPES } from '../constants';
+import { genId, getPersonCapacity, getCurrentMonth, addMonths, getMonthRange, getPhasePersonIds, formatDateShort, getInitiative } from '../utils';
+import { PROJECT_COLORS, PHASE_TYPES, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
 
@@ -174,6 +174,8 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                     </div>
                   </div>
 
+                  <InitiativeEditor project={p} />
+
                   <div className="phase-list">
                     <div className="phase-list-header">
                       <span>Phases ({p.phases.length})</span>
@@ -229,5 +231,69 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
       {leaveModal && <LeaveModal person={leaveModal} onClose={() => setLeaveModal(null)} />}
       {quickPlanModal && <QuickPlanModal projectId={quickPlanModal} onClose={() => setQuickPlanModal(null)} />}
     </aside>
+  );
+}
+
+function InitiativeEditor({ project }) {
+  const dispatch = useDispatch();
+  const init = getInitiative(project);
+  const update = patch => dispatch({ type: 'UPDATE_INITIATIVE', payload: { projectId: project.id, initiative: patch } });
+
+  return (
+    <div className="initiative-editor">
+      <div className="initiative-heading">Initiative details</div>
+
+      <div className="detail-row">
+        <label>Type</label>
+        <div className="seg-group">
+          {Object.entries(INITIATIVE_TYPES).map(([k, v]) => (
+            <button key={k} className={`seg-btn ${init.type === k ? 'active' : ''}`} onClick={() => update({ type: k })}>{v.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="detail-row">
+        <label>Status</label>
+        <select className="init-select" value={init.status} onChange={e => update({ status: e.target.value })}>
+          {Object.entries(INITIATIVE_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      <div className="detail-row">
+        <label>Progress</label>
+        <div className="init-progress-edit">
+          <input type="range" min="0" max="100" value={init.progress}
+            onChange={e => update({ progress: Math.max(0, Math.min(100, Number(e.target.value))) })} />
+          <span className="init-progress-pct">{init.progress}%</span>
+        </div>
+      </div>
+
+      <div className="detail-row">
+        <label>Est. value £</label>
+        <input type="number" min="0" className="init-num" value={init.estimatedValue}
+          onChange={e => {
+            const raw = e.target.value;
+            const v = raw === '' ? 0 : Math.max(0, Math.round(Number(raw) || 0));
+            update({ estimatedValue: v });
+          }} />
+      </div>
+
+      <div className="detail-row">
+        <label>Value note</label>
+        <input type="text" className="init-text" value={init.valueNote} placeholder="e.g. Fixed-price"
+          onChange={e => update({ valueNote: e.target.value })} />
+      </div>
+
+      <div className="detail-row">
+        <label>Description</label>
+        <input type="text" className="init-text" value={init.description} placeholder="Short description"
+          onChange={e => update({ description: e.target.value })} />
+      </div>
+
+      <label className="init-checkbox">
+        <input type="checkbox" checked={init.chargeable} onChange={e => update({ chargeable: e.target.checked })} />
+        Chargeable
+      </label>
+    </div>
   );
 }

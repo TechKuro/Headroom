@@ -31,46 +31,65 @@ export default function DocumentBar({ activeDocId, setActiveDocId }) {
     if (renaming && inputRef.current) inputRef.current.select();
   }, [renaming]);
 
-  const allDocs = docs.getDocIndex();
+  const [allDocs, setAllDocs] = useState(() => docs.getDocIndex());
   const otherDocs = allDocs.filter(d => d.id !== activeDocId);
 
-  function handleRename() {
+  // Refresh the index whenever the menu opens (picks up other users' docs in cloud mode).
+  useEffect(() => {
+    if (!menuOpen) return;
+    setAllDocs([...docs.getDocIndex()]);
+    docs.refreshIndex().then(idx => setAllDocs([...idx])).catch(() => {});
+  }, [menuOpen]);
+
+  async function handleRename() {
     const trimmed = docName.trim() || 'Untitled';
-    docs.renameDoc(activeDocId, trimmed);
     setDocName(trimmed);
     setRenaming(false);
+    try {
+      await docs.renameDoc(activeDocId, trimmed);
+      setAllDocs([...docs.getDocIndex()]);
+    } catch {
+      addToast('Failed to rename.', 'error');
+    }
   }
 
-  function handleNew() {
+  async function handleNew() {
     const name = prompt('New plan name:');
     if (!name?.trim()) return;
-    const id = docs.createDoc(name.trim());
-    const emptyState = docs.createEmptyState();
-    docs.saveDoc(id, emptyState);
-    docs.setActiveDocId(id);
-    setActiveDocId(id);
-    dispatch({ type: 'LOAD_DOCUMENT', payload: emptyState });
-    setMenuOpen(false);
-    addToast(`Created "${name.trim()}"`, 'success');
+    try {
+      const emptyState = docs.createEmptyState();
+      const id = await docs.createDoc(name.trim(), emptyState);
+      docs.setActiveDocId(id);
+      setActiveDocId(id);
+      dispatch({ type: 'LOAD_DOCUMENT', payload: emptyState });
+      setAllDocs([...docs.getDocIndex()]);
+      setMenuOpen(false);
+      addToast(`Created "${name.trim()}"`, 'success');
+    } catch {
+      addToast('Failed to create document.', 'error');
+    }
   }
 
-  function handleSaveAsCopy() {
+  async function handleSaveAsCopy() {
     const currentName = docs.getDocName(activeDocId);
     const name = prompt('Save copy as:', currentName + ' (copy)');
     if (!name?.trim()) return;
-    const id = docs.createDoc(name.trim());
-    // The current state will be saved by the store's auto-save effect once we switch
-    // But we want to save the CURRENT state to the new doc first
-    const currentData = docs.loadDoc(activeDocId);
-    if (currentData) docs.saveDoc(id, currentData);
-    docs.setActiveDocId(id);
-    setActiveDocId(id);
-    setMenuOpen(false);
-    addToast(`Saved copy as "${name.trim()}"`, 'success');
+    try {
+      const currentData = (await docs.loadDoc(activeDocId)) || docs.createEmptyState();
+      const id = await docs.createDoc(name.trim(), currentData);
+      docs.setActiveDocId(id);
+      setActiveDocId(id);
+      setAllDocs([...docs.getDocIndex()]);
+      setMenuOpen(false);
+      addToast(`Saved copy as "${name.trim()}"`, 'success');
+    } catch {
+      addToast('Failed to save copy.', 'error');
+    }
   }
 
-  function handleLoad(id) {
-    const data = docs.loadDoc(id);
+  async function handleLoad(id) {
+    let data;
+    try { data = await docs.loadDoc(id); } catch { data = null; }
     if (!data) {
       addToast('Failed to load document.', 'error');
       return;
@@ -78,23 +97,30 @@ export default function DocumentBar({ activeDocId, setActiveDocId }) {
     docs.setActiveDocId(id);
     setActiveDocId(id);
     dispatch({ type: 'LOAD_DOCUMENT', payload: data });
+    setAllDocs([...docs.getDocIndex()]);
     setMenuOpen(false);
     addToast(`Loaded "${docs.getDocName(id)}"`, 'success');
   }
 
-  function handleDelete(id, e) {
+  async function handleDelete(id, e) {
     e.stopPropagation();
     const name = docs.getDocName(id);
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    docs.deleteDoc(id);
+    try {
+      await docs.deleteDoc(id);
+    } catch {
+      addToast('Failed to delete.', 'error');
+      return;
+    }
+    setAllDocs([...docs.getDocIndex()]);
 
     // If we deleted the active doc, switch to another or create new
     if (id === activeDocId) {
       const remaining = docs.getDocIndex();
       if (remaining.length > 0) {
-        handleLoad(remaining[0].id);
+        await handleLoad(remaining[0].id);
       } else {
-        handleNew();
+        await handleNew();
       }
     }
     setMenuOpen(false);
