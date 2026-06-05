@@ -83,6 +83,30 @@ export function lastDayOfMonth(yearMonth) {
   return new Date(year, month, 0).getDate();
 }
 
+/** Fractional month offset from viewStart (YYYY-MM) to a date (YYYY-MM-DD). */
+export function dateOffset(viewStartMonth, date) {
+  if (!date) return 0;
+  const dm = dateToMonth(date);
+  const mo = monthDiff(viewStartMonth, dm);
+  if (date.length >= 10) {
+    const day = Number(date.slice(8, 10));
+    return mo + (day - 1) / lastDayOfMonth(dm);
+  }
+  return mo;
+}
+
+/** Fractional month offset to the END of a date (i.e. includes that day). */
+export function dateOffsetEnd(viewStartMonth, date) {
+  if (!date) return 0;
+  const dm = dateToMonth(date);
+  const mo = monthDiff(viewStartMonth, dm);
+  if (date.length >= 10) {
+    const day = Number(date.slice(8, 10));
+    return mo + day / lastDayOfMonth(dm);
+  }
+  return mo + 1;
+}
+
 export function formatDateShort(d) {
   if (!d) return '';
   const parts = d.split('-');

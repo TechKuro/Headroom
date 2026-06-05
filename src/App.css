@@ -2436,6 +2436,8 @@ body {
 .pm-grid-cell.on { background: var(--accent); }
 .pm-grid-cell.clash { background: #dc2626; }
 
+.phase-empty-hint { position: absolute; left: 8px; top: 12px; font-size: 11px; color: var(--text-3); font-style: italic; }
+
 /* --- Shared-workspace: "edited by" meta + conflict banner --- */
 .doc-meta {
   font-size: 11px;

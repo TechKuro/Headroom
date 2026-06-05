@@ -79,9 +79,11 @@ export const PROJECT_COLORS = [
   '#475569', // slate
 ];
 
-// Half-day grid layout (replaces the old month-column layout).
+// Half-day grid layout (Planning / Heatmap / Project screens).
 export const SLOT_WIDTH = 30;            // px per half-day (AM/PM) column
 export const DAY_WIDTH = SLOT_WIDTH * 2; // a working day spans two halves
+// Months layout (Timeline / roadmap screen).
+export const MONTH_WIDTH = 120;          // px per month column
 export const BAR_HEIGHT = 26;
 export const BAR_GAP = 3;
 export const ROW_PADDING = 8;
