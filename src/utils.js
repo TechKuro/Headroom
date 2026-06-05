@@ -610,6 +610,48 @@ export function getPersonUtilisation(personId, months, projects, capacityOverrid
   });
 }
 
+/**
+ * The commercial + capacity impact of taking on a what-if project on top of
+ * the committed plan: added labour hours/cost, projected ROI (if a value is
+ * set), and which assigned people it pushes over capacity (and when).
+ *
+ * "Pushed over" means: in a month the what-if contributes load, that person
+ * ends up over 100% AND the what-if is what tipped them past committed work.
+ */
+export function getWhatIfImpact(whatIfProject, opts = {}) {
+  const { projects = [], team = [], blendedRate = 45, capacityOverrides = {} } = opts;
+  const summary = getProjectLabourSummary(whatIfProject, blendedRate);
+  const init = getInitiative(whatIfProject);
+  const { roi, roiPercent } = getRoi(init.estimatedValue, summary.cost);
+
+  // Compare against the committed plan with the what-if excluded.
+  const baseProjects = projects.filter(p => p.id !== whatIfProject.id);
+  const months = projectActiveMonths(whatIfProject);
+  const overloadedPeople = [];
+  for (const pid of Object.keys(summary.assignedHoursByPerson)) {
+    const hitMonths = [];
+    for (const m of months) {
+      const cap = getPersonCapacity(pid, m, capacityOverrides);
+      const withWhatIf = calculateLoad(pid, m, baseProjects, whatIfProject);
+      const without = calculateLoad(pid, m, baseProjects);
+      if (withWhatIf > without && getEffectiveUtilisation(withWhatIf, cap) > 100) {
+        hitMonths.push(m);
+      }
+    }
+    if (hitMonths.length) {
+      overloadedPeople.push({ id: pid, name: team.find(t => t.id === pid)?.name || pid, months: hitMonths });
+    }
+  }
+
+  return {
+    addedHours: summary.totalHours,
+    addedCost: summary.cost,
+    estimatedValue: init.estimatedValue,
+    roi, roiPercent,
+    overloadedPeople,
+  };
+}
+
 // --- Formatting ---
 
 export function formatCurrency(n) {

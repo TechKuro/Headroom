@@ -2,9 +2,15 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import {
   getInitiative, getProjectLabourSummary, getRoi,
+  getActivePhases, getPersonUtilisation, getProjectEndMonth,
+  getCurrentMonth, addMonths, getMonthRange, monthDiff, dateToMonth, monthLabelShort,
   formatCurrency, formatSignedCurrency, formatHours, genId,
 } from '../utils';
 import { INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
+import { addToast } from '../toast';
+
+// Months ahead to scan when warning about the selected engineer's overload.
+const OVERLOAD_HORIZON = 3;
 
 function formatNoteTime(ts) {
   try {
@@ -25,25 +31,51 @@ const STANDUP_QUESTIONS = [
 ];
 
 export default function StandupView() {
-  const { team, projects, settings } = useStore();
+  const { team, projects, settings, capacityOverrides } = useStore();
   const dispatch = useDispatch();
   const blendedRate = settings?.blendedRate ?? 45;
 
   const [personId, setPersonId] = useState(() => team[0]?.id ?? null);
   const [openProjectId, setOpenProjectId] = useState(null);
   const [noteText, setNoteText] = useState('');
+  const [scope, setScope] = useState('active'); // 'active' (this month) | 'all'
 
   // Projects this person is assigned to, with their personal hours/cost.
   const assigned = useMemo(() => {
     if (!personId) return [];
+    const now = getCurrentMonth();
+    const activeIds = new Set(getActivePhases(personId, now, projects).map(ph => ph.projectId));
     return projects.map(p => {
       const init = getInitiative(p);
       const summary = getProjectLabourSummary(p, blendedRate);
       const hours = summary.assignedHoursByPerson[personId] || 0;
       const { roi } = getRoi(init.estimatedValue, summary.cost);
-      return { id: p.id, name: p.name, color: p.color, init, hours, cost: hours * blendedRate, roi };
+      const endMonth = getProjectEndMonth(p);
+      const toDeadline = endMonth ? monthDiff(now, dateToMonth(endMonth)) : null;
+      return {
+        id: p.id, name: p.name, color: p.color, init, hours, cost: hours * blendedRate, roi,
+        onHold: !!p.hold,
+        activeNow: activeIds.has(p.id),
+        overdue: init.status !== 'done' && toDeadline !== null && toDeadline < 0,
+        deadlineSoon: init.status !== 'done' && toDeadline !== null && toDeadline >= 0 && toDeadline <= 2,
+      };
     }).filter(x => x.hours > 0);
   }, [projects, personId, blendedRate]);
+
+  // Default scope shows only what's active this month; "All" reveals the rest.
+  const visible = useMemo(
+    () => (scope === 'active' ? assigned.filter(x => x.activeNow) : assigned),
+    [assigned, scope]
+  );
+
+  // Months in the look-ahead window where this engineer is over capacity.
+  const overloadMonths = useMemo(() => {
+    if (!personId) return [];
+    const now = getCurrentMonth();
+    const months = getMonthRange(now, addMonths(now, OVERLOAD_HORIZON - 1));
+    return getPersonUtilisation(personId, months, projects, capacityOverrides)
+      .filter(u => u.util > 100);
+  }, [personId, projects, capacityOverrides]);
 
   const summary = useMemo(() => {
     const totalHours = assigned.reduce((s, x) => s + x.hours, 0);
@@ -52,7 +84,29 @@ export default function StandupView() {
   }, [assigned, blendedRate]);
 
   const person = team.find(m => m.id === personId);
-  const openProject = assigned.find(x => x.id === openProjectId) || assigned[0] || null;
+  const openProject = visible.find(x => x.id === openProjectId) || visible[0] || null;
+
+  function copySummary() {
+    if (!person) return;
+    const lines = [`Stand-up — ${person.name}${person.role ? ` (${person.role})` : ''}`, ''];
+    if (overloadMonths.length) {
+      lines.push(`⚠ Over capacity: ${overloadMonths.map(o => `${monthLabelShort(o.month)} (${o.util}%)`).join(', ')}`, '');
+    }
+    if (visible.length === 0) {
+      lines.push('No active work this period.');
+    } else {
+      for (const x of visible) {
+        const flags = [x.onHold && 'on hold', x.overdue && 'overdue', x.deadlineSoon && 'deadline soon'].filter(Boolean);
+        lines.push(`• ${x.name} — ${formatHours(x.hours)}, ${x.init.progress}% done${flags.length ? ` [${flags.join(', ')}]` : ''}`);
+      }
+    }
+    lines.push('', 'Check-in questions:', ...STANDUP_QUESTIONS.map(q => `  - ${q}`));
+    const text = lines.join('\n');
+    navigator.clipboard?.writeText(text).then(
+      () => addToast('Stand-up summary copied', 'success'),
+      () => addToast('Could not copy to clipboard', 'error'),
+    );
+  }
 
   // Check-in notes for the selected (person, project) pair, newest first.
   const openProjectRaw = openProject ? projects.find(p => p.id === openProject.id) : null;
@@ -110,14 +164,32 @@ export default function StandupView() {
               <Stat label="Labour cost" value={formatCurrency(summary.cost)} />
               <Stat label="Client hours" value={formatHours(summary.clientHours)} />
             </div>
+            {overloadMonths.length > 0 && (
+              <div className="standup-overload" title={overloadMonths.map(o => `${monthLabelShort(o.month)} · ${o.util}%`).join('\n')}>
+                ⚠ Over capacity in {overloadMonths.map(o => monthLabelShort(o.month)).join(', ')}
+              </div>
+            )}
           </div>
 
-          {assigned.length === 0 ? (
-            <div className="empty-state"><p>{person.name} has no assigned work right now.</p></div>
+          {/* Toolbar: scope + copy */}
+          <div className="standup-toolbar">
+            <div className="standup-scope">
+              <button className={`ov-filter-btn ${scope === 'active' ? 'active' : ''}`} onClick={() => setScope('active')}>Active now</button>
+              <button className={`ov-filter-btn ${scope === 'all' ? 'active' : ''}`} onClick={() => setScope('all')}>All assigned</button>
+            </div>
+            <button className="standup-copy-btn" onClick={copySummary} disabled={!person}>Copy summary</button>
+          </div>
+
+          {visible.length === 0 ? (
+            <div className="empty-state">
+              <p>{assigned.length === 0
+                ? `${person.name} has no assigned work right now.`
+                : `${person.name} has no active work this month — switch to "All assigned" to see everything.`}</p>
+            </div>
           ) : (
             <div className="standup-body">
               <div className="standup-projects">
-                {assigned.map(x => (
+                {visible.map(x => (
                   <button key={x.id} className={`standup-project ${openProject?.id === x.id ? 'active' : ''}`}
                     onClick={() => setOpenProjectId(x.id)}>
                     <div className="standup-project-top">
@@ -128,6 +200,9 @@ export default function StandupView() {
                       <span className={`badge badge-type-${x.init.type}`}>{INITIATIVE_TYPES[x.init.type]?.label}</span>
                       <span className={`badge badge-status-${x.init.status}`}>{INITIATIVE_STATUSES[x.init.status]?.label}</span>
                       {x.init.chargeable && <span className="badge badge-chargeable">Chargeable</span>}
+                      {x.onHold && <span className="badge badge-hold">On hold</span>}
+                      {x.overdue && <span className="badge badge-risk-critical">Overdue</span>}
+                      {x.deadlineSoon && <span className="badge badge-risk-watch">Deadline soon</span>}
                     </div>
                     <div className="standup-project-meta">
                       <span className="mono">{formatHours(x.hours)}</span>

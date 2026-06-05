@@ -1,12 +1,26 @@
-import React from 'react';
-import { useDispatch } from '../store';
+import React, { useMemo } from 'react';
+import { useStore, useDispatch } from '../store';
 import { PROJECT_COLORS } from '../constants';
+import { getWhatIfImpact, formatHours, formatCurrency, formatSignedCurrency, monthLabelShort } from '../utils';
 
 export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
   const dispatch = useDispatch();
+  const { projects, team, settings, capacityOverrides } = useStore();
+  const blendedRate = settings?.blendedRate ?? 45;
+
+  const estimatedValue = whatIfProject.initiative?.estimatedValue ?? 0;
+
+  const impact = useMemo(
+    () => getWhatIfImpact(whatIfProject, { projects, team, blendedRate, capacityOverrides }),
+    [whatIfProject, projects, team, blendedRate, capacityOverrides],
+  );
 
   function updateField(field, value) {
     setWhatIfProject(prev => ({ ...prev, [field]: value }));
+  }
+
+  function updateValue(value) {
+    setWhatIfProject(prev => ({ ...prev, initiative: { ...(prev.initiative || {}), estimatedValue: value } }));
   }
 
   function commit() {
@@ -47,6 +61,15 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
           className="what-if-input month-input"
           placeholder="Deadline"
         />
+        <input
+          type="number"
+          min="0"
+          value={estimatedValue || ''}
+          onChange={e => updateValue(e.target.value === '' ? 0 : Math.max(0, Math.round(Number(e.target.value)) || 0))}
+          className="what-if-input value-input"
+          placeholder="Est. value £"
+          title="Estimated value — drives projected ROI"
+        />
         <div className="color-picker-inline">
           {PROJECT_COLORS.slice(0, 6).map(c => (
             <button
@@ -60,6 +83,25 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
       </div>
       <div className="what-if-meta">
         <span className="phase-count">{whatIfProject.phases.length} phase{whatIfProject.phases.length !== 1 ? 's' : ''}</span>
+        {whatIfProject.phases.length > 0 && (
+          <div className="what-if-impact">
+            <span className="wii-stat" title="Added labour hours">+{formatHours(impact.addedHours)}</span>
+            <span className="wii-stat" title="Added labour cost">+{formatCurrency(impact.addedCost)}</span>
+            {estimatedValue > 0 && (
+              <span className={`wii-stat ${impact.roi >= 0 ? 'pos' : 'neg'}`} title="Projected ROI (value − labour cost)">
+                {formatSignedCurrency(impact.roi)} ROI
+              </span>
+            )}
+            {impact.overloadedPeople.length > 0 && (
+              <span
+                className="wii-warn"
+                title={impact.overloadedPeople.map(p => `${p.name}: ${p.months.map(monthLabelShort).join(', ')}`).join('\n')}
+              >
+                ⚠ Overloads {impact.overloadedPeople.map(p => p.name).join(', ')}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="what-if-actions">
         <button className="btn btn-sm btn-success" onClick={commit} disabled={!whatIfProject.name.trim()}>
