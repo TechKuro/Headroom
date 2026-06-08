@@ -1,12 +1,18 @@
-// Thin client for the serverless document API. Attaches the Entra bearer token.
-import { getAccessToken } from './auth/authConfig';
+// Thin client for the serverless document API. Attaches the Entra bearer token
+// when signed in, or a display-name header in shared no-login mode.
+import { getAccessToken, getDisplayName } from './auth/authConfig';
 
 const BASE = '/api';
 
 async function apiFetch(path, options = {}) {
   const token = await getAccessToken();
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    const name = getDisplayName();
+    if (name) headers['X-Display-Name'] = name;
+  }
 
   const res = await fetch(BASE + path, { ...options, headers });
   if (res.status === 204) return null;

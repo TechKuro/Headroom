@@ -18,6 +18,14 @@ function httpError(status, message) {
 }
 
 export async function requireUser(req) {
+  // Temporary shared-workspace mode: skip token verification and treat everyone
+  // as one anonymous user. Pair with Vercel deployment protection, since the
+  // API is then open. Use a per-request display name if the client sent one.
+  if (process.env.ALLOW_ANONYMOUS === '1' || process.env.ALLOW_ANONYMOUS === 'true') {
+    const name = req.headers['x-display-name'] || null;
+    return { id: 'shared', email: name ? `${name} (shared)` : 'shared@headroom.local', name: name || 'Shared workspace' };
+  }
+
   if (!tenantId || !clientId) {
     throw httpError(500, 'Server auth not configured (AZURE_TENANT_ID / AZURE_CLIENT_ID)');
   }
