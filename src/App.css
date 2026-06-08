@@ -2701,3 +2701,38 @@ body {
 .conflict-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .conflict-btn.primary:hover:not(:disabled) { background: var(--accent-dim); }
 .conflict-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ============================================
+   Layout polish — centred content + refined cards
+   ============================================ */
+/* Form / list views read better as a centred, max-width column than edge to
+   edge. The timeline GRIDS (Planning / Timeline / Heatmap / Project) are left
+   full-width on purpose — they scroll horizontally. */
+.overview-view,
+.people-cost-view,
+.standup-view,
+.timesheet-view,
+.authorise-view,
+.rnd-view {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 28px 56px;
+}
+
+/* A little lift so cards read as cards, not raw panels. */
+.pc-card,
+.ts-day,
+.av-person,
+.rnd-card,
+.rnd-classify,
+.pack-salaries,
+.standup-summary,
+.ov-table-wrap,
+.pm-grid {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+/* The timesheet/authorise/R&D toolbars sit on the page, not in a card — give
+   them a touch more breathing room above the cards. */
+.ts-toolbar,
+.rnd-subnav { margin-bottom: 18px; }
