@@ -5,6 +5,7 @@ import { getCurrentDate, addDays, getWorkingDayRange, getPlannedByDayProject, fo
 import { MAX_HOURS_PER_DAY } from '../constants';
 import { getAccountName } from '../auth/authConfig';
 import { addToast } from '../toast';
+import { refreshProjectHours } from '../timeSummary';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -120,6 +121,8 @@ export default function TimesheetView() {
       const n = toCreate.length + toUpdate.length;
       addToast(`Confirmed ${dayLabel(date)} — ${n} entr${n === 1 ? 'y' : 'ies'}`, 'success');
       await load();
+      refreshProjectHours(); // keep Overview/Standup progress in step
+
     } catch (e) {
       setError(e?.message || 'Save failed.');
       addToast('Save failed — see the message above.', 'error');
