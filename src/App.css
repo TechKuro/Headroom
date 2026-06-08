@@ -2743,3 +2743,7 @@ body {
    them a touch more breathing room above the cards. */
 .ts-toolbar,
 .rnd-subnav { margin-bottom: 18px; }
+
+/* In-app confirm dialog (reuses .modal / .btn) */
+.confirm-modal { max-width: 440px; }
+.confirm-message { font-size: 14px; color: var(--text-2); line-height: 1.5; }

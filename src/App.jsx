@@ -19,6 +19,7 @@ import DocumentBar from './components/DocumentBar';
 import DocMeta from './components/DocMeta';
 import ConflictBanner from './components/ConflictBanner';
 import Toasts from './components/Toasts';
+import ConfirmHost from './components/ConfirmHost';
 import { getCurrentDate, addDays } from './utils';
 import { addToast } from './toast';
 import * as docManager from './docManager';
@@ -277,6 +278,7 @@ export default function App() {
       </div>
 
       <Toasts />
+      <ConfirmHost />
 
       {phaseModal && (
         <PhaseModal

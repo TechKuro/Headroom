@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useStore, useDispatch } from '../store';
 import { PROJECT_COLORS } from '../constants';
 import { getWhatIfImpact, formatHours, formatCurrency, formatSignedCurrency } from '../utils';
+import { confirmDialog } from '../confirm';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
@@ -37,8 +38,11 @@ export default function WhatIfBar({ whatIfProject, setWhatIfProject }) {
     setWhatIfProject(null);
   }
 
-  function discard() {
-    if (whatIfProject.phases.length > 0 && !confirm(`Discard "${whatIfProject.name}" and its ${whatIfProject.phases.length} phase(s)?`)) return;
+  async function discard() {
+    if (whatIfProject.phases.length > 0) {
+      const ok = await confirmDialog({ title: 'Discard what-if', message: `Discard "${whatIfProject.name}" and its ${whatIfProject.phases.length} phase(s)?`, confirmLabel: 'Discard', danger: true });
+      if (!ok) return;
+    }
     setWhatIfProject(null);
   }
 

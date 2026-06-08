@@ -3,6 +3,7 @@ import { useStore, useDispatch } from '../store';
 import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, getPhasePersonIds, formatDateShort, getInitiative } from '../utils';
 import { HALVES } from '../constants';
 import { PROJECT_COLORS, PHASE_TYPES, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
+import { confirmDialog } from '../confirm';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
 
@@ -72,12 +73,12 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                   <button className="icon-btn-sm" onClick={() => setLeaveModal(m)} title="Set leave / capacity">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </button>
-                  <button className="icon-btn-sm danger" onClick={() => {
+                  <button className="icon-btn-sm danger" onClick={async () => {
                     const phaseCount = projects.reduce((sum, p) => sum + p.phases.filter(ph => getPhasePersonIds(ph).includes(m.id)).length, 0);
-                    const msg = phaseCount > 0
+                    const message = phaseCount > 0
                       ? `Remove ${m.name}? This will also remove them from ${phaseCount} assigned phase${phaseCount !== 1 ? 's' : ''}.`
                       : `Remove ${m.name}?`;
-                    if (confirm(msg)) dispatch({ type: 'REMOVE_TEAM_MEMBER', payload: m.id });
+                    if (await confirmDialog({ title: 'Remove team member', message, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_TEAM_MEMBER', payload: m.id });
                   }} title="Remove">×</button>
                 </>
               )}
@@ -107,9 +108,9 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 ) : (
                   <span className="project-name" onDoubleClick={e => { e.stopPropagation(); setEditingProject(p.id); }}>{p.name}</span>
                 )}
-                <button className="icon-btn-sm danger" onClick={e => {
+                <button className="icon-btn-sm danger" onClick={async e => {
                   e.stopPropagation();
-                  if (confirm(`Remove "${p.name}" and all its ${p.phases.length} phase${p.phases.length !== 1 ? 's' : ''}?`)) {
+                  if (await confirmDialog({ title: 'Remove project', message: `Remove "${p.name}" and all its ${p.phases.length} phase${p.phases.length !== 1 ? 's' : ''}?`, confirmLabel: 'Remove', danger: true })) {
                     dispatch({ type: 'REMOVE_PROJECT', payload: p.id });
                   }
                 }} title="Remove">×</button>

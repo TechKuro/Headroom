@@ -4,6 +4,7 @@ import { api } from '../api';
 import { getCurrentDate, addDays, getWorkingDayRange, claimableHours, isLateConfirmation, formatHours } from '../utils';
 import { MAX_HOURS_PER_DAY } from '../constants';
 import { addToast } from '../toast';
+import { confirmDialog } from '../confirm';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -87,7 +88,12 @@ export default function AuthoriseView() {
   }
 
   async function lockWeek() {
-    if (!confirm(`Lock all authorised entries from ${dayLabel(from)} to ${dayLabel(to)}? Locked entries can only be corrected via adjusting entries.`)) return;
+    const ok = await confirmDialog({
+      title: 'Lock period',
+      message: `Lock all authorised entries from ${dayLabel(from)} to ${dayLabel(to)}? Locked entries can only be corrected via adjusting entries.`,
+      confirmLabel: 'Lock period', danger: true,
+    });
+    if (!ok) return;
     setLoading(true); setError(null);
     try {
       const res = await api.lockTimePeriod({ from, to });

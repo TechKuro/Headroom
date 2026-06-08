@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useDispatch } from '../store';
 import * as docs from '../docManager';
 import { addToast } from '../toast';
+import { confirmDialog } from '../confirm';
 
 export default function DocumentBar({ activeDocId, setActiveDocId }) {
   const dispatch = useDispatch();
@@ -105,7 +106,7 @@ export default function DocumentBar({ activeDocId, setActiveDocId }) {
   async function handleDelete(id, e) {
     e.stopPropagation();
     const name = docs.getDocName(id);
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (!(await confirmDialog({ title: 'Delete plan', message: `Delete "${name}"? This cannot be undone.`, confirmLabel: 'Delete', danger: true }))) return;
     try {
       await docs.deleteDoc(id);
     } catch {
