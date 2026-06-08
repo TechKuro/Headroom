@@ -63,6 +63,8 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
   const toggleCustomer = c => setCollapsedCustomers(s => {
     const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n;
   });
+  const allCollapsed = customerGroups.length > 0 && customerGroups.every(g => collapsedCustomers.has(g.customer));
+  const toggleAllCustomers = () => setCollapsedCustomers(allCollapsed ? new Set() : new Set(customerGroups.map(g => g.customer)));
 
   return (
     <aside className="sidebar">
@@ -108,7 +110,14 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
 
       {/* Projects */}
       <section className="sidebar-section">
-        <h3 className="sidebar-heading">Projects</h3>
+        <div className="sidebar-heading-row">
+          <h3 className="sidebar-heading">Projects</h3>
+          {customerGroups.length > 0 && (
+            <button type="button" className="text-btn-sm" onClick={toggleAllCustomers}>
+              {allCollapsed ? 'Expand all' : 'Collapse all'}
+            </button>
+          )}
+        </div>
         <ul className="sidebar-list">
           {customerGroups.map(group => {
             const collapsed = collapsedCustomers.has(group.customer);
