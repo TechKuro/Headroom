@@ -170,7 +170,7 @@ export default function TimesheetView() {
                     {formatHours(total)}{over ? ` · over ${MAX_HOURS_PER_DAY}h cap` : ''}
                   </span>
                   <button
-                    className="ts-day-confirm"
+                    className="btn btn-primary btn-sm"
                     onClick={() => confirmDay(date, dayRows)}
                     disabled={loading || isFuture || !dayConfirmable(dayRows)}
                     title={isFuture ? "You can't confirm time for a day that hasn't happened yet" : undefined}
