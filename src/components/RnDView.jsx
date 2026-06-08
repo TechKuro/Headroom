@@ -9,6 +9,7 @@ import {
   CLASSIFICATIONS, FUNDING_SOURCES, RND_STATUSES, DEFAULT_RND_PROJECT, DEFAULT_GRANT,
 } from '../constants';
 import { addToast } from '../toast';
+import RnDPacks from './RnDPacks';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
@@ -24,10 +25,12 @@ export default function RnDView() {
         <button className={`ov-filter-btn ${section === 'projects' ? 'active' : ''}`} onClick={() => setSection('projects')}>R&amp;D Projects</button>
         <button className={`ov-filter-btn ${section === 'grants' ? 'active' : ''}`} onClick={() => setSection('grants')}>Grants</button>
         <button className={`ov-filter-btn ${section === 'classify' ? 'active' : ''}`} onClick={() => setSection('classify')}>Classify time</button>
+        <button className={`ov-filter-btn ${section === 'packs' ? 'active' : ''}`} onClick={() => setSection('packs')}>Packs</button>
       </div>
       {section === 'projects' && <RnDProjects />}
       {section === 'grants' && <Grants />}
       {section === 'classify' && <Classify />}
+      {section === 'packs' && <RnDPacks />}
     </div>
   );
 }
