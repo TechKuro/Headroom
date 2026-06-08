@@ -49,13 +49,42 @@ export async function ensureTimeSchema() {
       authorised_by      TEXT,
       locked_at          TIMESTAMPTZ,
       adjusts_entry_id   TEXT,
+      accounting_period_id TEXT,
+      cost_rate          NUMERIC(8,2),
       created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
       created_by         TEXT,
-      updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+      updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_by         TEXT
     )
   `;
+  // Additive for tables created before these columns existed (idempotent).
+  await sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS accounting_period_id TEXT`;
+  await sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(8,2)`;
+  await sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS updated_by TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS time_entries_person_date ON time_entries (person_id, work_date)`;
+  // Natural key so confirm is idempotent (no duplicate rows on re-confirm / concurrent edits).
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS time_entries_natural ON time_entries (person_id, work_date, tracker_project_id)`;
+  // Append-only change trail — provenance for the evidence packs. Painful to add later, so it exists now.
+  await sql`
+    CREATE TABLE IF NOT EXISTS time_entry_audit (
+      id          BIGSERIAL PRIMARY KEY,
+      entry_id    TEXT NOT NULL,
+      action      TEXT NOT NULL,
+      changed_by  TEXT,
+      changed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      detail      JSONB
+    )
+  `;
   timeSchemaReady = true;
+}
+
+// Clamp logged hours to a sane bound (0–24). Absurd/negative/overflow values
+// are an integrity problem for time evidence; the claimable 8h/day cap is
+// applied separately in the reporting layer.
+export function clampHours(h) {
+  const n = Number(h);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, 24);
 }
 
 // Vercel's Node runtime usually pre-parses JSON bodies, but fall back to

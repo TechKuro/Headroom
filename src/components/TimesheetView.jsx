@@ -99,7 +99,7 @@ export default function TimesheetView() {
       for (const r of rows) {
         if (!editable(r)) continue;
         if (!r.id) {
-          if (Number(r.hours) > 0) {
+          if (Number(r.hours) > 0 && r.projectId) {
             toCreate.push({
               personId, personName: person?.name, workDate: r.date, hours: Number(r.hours),
               description: r.description || '', trackerProjectId: r.projectId, status: 'confirmed', sourceSlots: [],
