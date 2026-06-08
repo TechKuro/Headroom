@@ -19,11 +19,17 @@ export default async function handler(req, res) {
     const current = existing[0].status;
 
     if (req.method === 'PUT') {
-      // Advisory immutability now; hard server-enforced once auth/roles land.
-      if (current === 'authorised' || current === 'locked') {
-        return res.status(409).json({ error: 'Entry is authorised/locked — create an adjusting entry instead.' });
-      }
       const { hours, description, status, classification, fundingSource, rndProjectId, workPackageId } = await readBody(req);
+
+      // Immutability protects the TIME record. Classification/funding/links are
+      // the technical lead's separate step and stay editable while authorised.
+      const touchesTime = hours !== undefined || description !== undefined || status !== undefined;
+      if (current === 'locked') {
+        return res.status(409).json({ error: 'Entry is in a locked period — reopen the period or create an adjusting entry.' });
+      }
+      if (current === 'authorised' && touchesTime) {
+        return res.status(409).json({ error: 'Entry is authorised — correct hours via an adjusting entry. (Classification can still be set.)' });
+      }
       const nextStatus = status && ALLOWED_STATUS.includes(status) ? status : null;
       const hoursVal = hours == null ? null : clampHours(hours);
       const confirming = nextStatus === 'confirmed';
