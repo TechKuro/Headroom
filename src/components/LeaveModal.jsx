@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore, useDispatch } from '../store';
 import { getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable } from '../utils';
 import { HALVES } from '../constants';
+import { useFocusTrap } from '../a11y';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()]}`; };
@@ -13,6 +14,8 @@ export default function LeaveModal({ person, onClose }) {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [half, setHalf] = useState('both'); // 'am' | 'pm' | 'both'
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef);
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
@@ -39,9 +42,10 @@ export default function LeaveModal({ person, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="leave-modal-title"
+        ref={modalRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Leave — {person.name}</h2>
+          <h2 id="leave-modal-title">Leave — {person.name}</h2>
           <button className="icon-btn" onClick={onClose}>×</button>
         </div>
 

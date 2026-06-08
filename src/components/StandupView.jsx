@@ -224,7 +224,8 @@ export default function StandupView() {
                           <span className="sip-head">
                             <span className="sip-title" style={{ color: x.color }}>{x.name}</span>
                             <span className="sip-close" role="button" tabIndex={0} aria-label="Close"
-                              onClick={e => { e.stopPropagation(); setInfoId(null); }}>×</span>
+                              onClick={e => { e.stopPropagation(); setInfoId(null); }}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setInfoId(null); } }}>×</span>
                           </span>
                           {x.init.description && <span className="sip-desc">{x.init.description}</span>}
                           <span className="sip-badges">

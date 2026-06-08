@@ -4,6 +4,7 @@ import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, ge
 import { HALVES } from '../constants';
 import { PROJECT_COLORS, PHASE_TYPES, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
 import { confirmDialog } from '../confirm';
+import { activateOnKey } from '../a11y';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
 
@@ -136,7 +137,10 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 <ul className="customer-projects">
                   {group.projects.map(p => (
             <li key={p.id} className={`sidebar-item project-item ${selectedProjectId === p.id ? 'selected' : ''}`}>
-              <div className="project-row" onClick={() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id)}>
+              <div className="project-row" role="button" tabIndex={0}
+                aria-expanded={selectedProjectId === p.id}
+                onClick={() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id)}
+                onKeyDown={activateOnKey(() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id))}>
                 <span className="project-dot" style={{ background: p.color }} />
                 {editingProject === p.id ? (
                   <form onSubmit={e => { e.preventDefault(); setEditingProject(null); }} className="inline-edit" onClick={e => e.stopPropagation()}>
@@ -194,7 +198,9 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                       const names = pids.map(id => team.find(m => m.id === id)?.name).filter(Boolean).join(', ');
                       const halves = (ph.slots || []).length;
                       return (
-                        <div key={ph.id} className="phase-item" onClick={() => onEditPhase(p.id, ph)}>
+                        <div key={ph.id} className="phase-item" role="button" tabIndex={0}
+                          onClick={() => onEditPhase(p.id, ph)}
+                          onKeyDown={activateOnKey(() => onEditPhase(p.id, ph))}>
                           <span className="phase-type-badge" style={{ background: p.color + '33', color: p.color }}>
                             {ph.type}
                           </span>

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore, useDispatch } from '../store';
 import { genId, getCurrentDate, getWorkingDayRange, addDays } from '../utils';
 import { PHASE_TEMPLATES, PHASE_TYPES, HALVES } from '../constants';
+import { useFocusTrap } from '../a11y';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
@@ -12,6 +13,8 @@ export default function QuickPlanModal({ projectId, onClose }) {
   const [templateIdx, setTemplateIdx] = useState(0);
   const [personId, setPersonId] = useState(team[0]?.id ?? '');
   const [startDate, setStartDate] = useState(getCurrentDate());
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef);
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
@@ -49,9 +52,10 @@ export default function QuickPlanModal({ projectId, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="quickplan-modal-title"
+        ref={modalRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Quick Plan — Apply Template</h2>
+          <h2 id="quickplan-modal-title">Quick Plan — Apply Template</h2>
           <button className="icon-btn" onClick={onClose}>×</button>
         </div>
 

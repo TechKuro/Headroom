@@ -2698,7 +2698,6 @@ body {
 /* Form / list views read better as a centred, max-width column than edge to
    edge. The timeline GRIDS (Planning / Timeline / Heatmap / Project) are left
    full-width on purpose — they scroll horizontally. */
-.overview-view,
 .people-cost-view,
 .standup-view,
 .timesheet-view,
@@ -2706,6 +2705,12 @@ body {
 .rnd-view {
   max-width: 1120px;
   margin: 0 auto;
+  padding: 28px 28px 56px;
+}
+
+/* Overview is a wide data table (projects × risk/metrics/filters) — it reads
+   cramped in the centred column, so it runs full width with the same padding. */
+.overview-view {
   padding: 28px 28px 56px;
 }
 
