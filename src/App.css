@@ -19,6 +19,7 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
+  --surface: #1c2029;
   --surface-2: #282d3c;
   --label-width: 180px;
   --sidebar-width: 280px;
@@ -28,6 +29,27 @@
   font-size: 13px;
   color: var(--text-1);
   background: var(--bg-0);
+}
+
+/* Light theme — applied via <html data-theme="light">. Same hues, inverted
+   lightness; accent/status colours nudged darker for contrast on white. */
+:root[data-theme="light"] {
+  --bg-0: #f4f6fa;
+  --bg-1: #ffffff;
+  --bg-2: #eceff5;
+  --bg-3: #e1e6ef;
+  --border: #d8dde7;
+  --border-light: #c4cbd9;
+  --text-1: #1a1f2b;
+  --text-2: #4a5168;
+  --text-3: #828aa0;
+  --accent: #5457e6;
+  --accent-dim: #4338ca;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --surface: #ffffff;
+  --surface-2: #eef1f6;
 }
 
 *, *::before, *::after {
@@ -2224,11 +2246,12 @@ body {
   border-radius: 50%;
   border: 1px solid var(--border-light);
   font-size: 11px; font-style: italic; font-weight: 700;
-  color: var(--text-3); cursor: help; position: relative;
+  color: var(--text-3); cursor: pointer; position: relative;
 }
 .standup-info:hover, .standup-info:focus { color: var(--text-1); border-color: var(--text-2); outline: none; }
+.standup-info.open { color: var(--text-1); border-color: var(--accent); background: var(--bg-2); }
 .standup-info-pop {
-  display: none;
+  display: block;
   position: absolute; top: 22px; right: 0; z-index: 30;
   width: 280px; padding: 12px 14px;
   background: var(--bg-0); border: 1px solid var(--border);
@@ -2236,8 +2259,10 @@ body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   text-align: left; white-space: normal; cursor: default;
 }
-.standup-info:hover .standup-info-pop, .standup-info:focus .standup-info-pop { display: block; }
-.sip-title { display: block; font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.sip-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.sip-close { cursor: pointer; color: var(--text-3); font-size: 16px; line-height: 1; padding: 0 2px; }
+.sip-close:hover { color: var(--text-1); }
+.sip-title { font-weight: 700; font-size: 13px; flex: 1; }
 .sip-desc { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
 .sip-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .sip-rows { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-2); }
