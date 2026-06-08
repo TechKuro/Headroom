@@ -2605,6 +2605,40 @@ body {
 }
 .av-adjust-btn:hover { border-color: var(--accent); color: var(--text-1); }
 
+/* ============================================
+   R&D view (projects / grants / classify)
+   ============================================ */
+.rnd-view { padding: 16px 20px; overflow: auto; height: 100%; }
+.rnd-subnav { display: flex; gap: 6px; margin-bottom: 16px; }
+.rnd-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.rnd-section-head h3 { font-size: 15px; color: var(--text-1); font-weight: 700; }
+.rnd-hint { font-size: 11px; color: var(--text-3); font-weight: 400; }
+.rnd-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.rnd-card-top { display: flex; align-items: center; gap: 8px; }
+.rnd-name { flex: 1; padding: 6px 9px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-1); font-size: 14px; font-weight: 600; outline: none; }
+.rnd-name:focus { border-color: var(--accent); }
+.rnd-field { display: flex; flex-direction: column; gap: 3px; }
+.rnd-field > label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); }
+.rnd-row-fields { display: flex; gap: 12px; flex-wrap: wrap; }
+.rnd-row-fields .rnd-field { flex: 1; min-width: 120px; }
+.rnd-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.rnd-link { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.rnd-link.on { border-color: var(--accent); color: var(--text-1); }
+.rnd-wp { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.rnd-wp .init-text { flex: 1; }
+
+.rnd-classify { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.rnd-classify-head, .rnd-classify-row {
+  display: grid; grid-template-columns: 70px 110px 60px 1.2fr 1fr 1.2fr 1.4fr; gap: 8px;
+  align-items: center; padding: 7px 12px;
+}
+.rnd-classify-head { background: var(--bg-2); border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); }
+.rnd-classify-row { border-top: 1px solid var(--border); font-size: 12px; color: var(--text-1); }
+.rnd-classify-row:first-of-type { border-top: none; }
+.rnd-classify-row.incomplete { background: rgba(245, 158, 11, 0.07); }
+.rnd-classify-row select { padding: 4px 6px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text-1); font-size: 12px; outline: none; }
+.rnd-classify-row select.needs { border-color: var(--danger); }
+
 /* --- Shared-workspace: "edited by" meta + conflict banner --- */
 .doc-meta {
   font-size: 11px;

@@ -7,7 +7,7 @@ import {
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
-  claimableHours, daysAfter, isLateConfirmation,
+  claimableHours, daysAfter, isLateConfirmation, isQualifying, classificationComplete,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
 import { DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY } from './constants';
@@ -344,6 +344,19 @@ describe('R&D time validation (§4)', () => {
     expect(isLateConfirmation('2025-06-02', '2025-06-20T10:00:00Z')).toBe(true);  // 17 days
     expect(isLateConfirmation('2025-06-02', '2025-06-11T10:00:00Z', 5)).toBe(true); // custom threshold
     expect(isLateConfirmation(null, null)).toBe(false);
+  });
+
+  it('isQualifying / classificationComplete enforce funding source on qualifying', () => {
+    expect(isQualifying('qualifying_direct')).toBe(true);
+    expect(isQualifying('qualifying_indirect')).toBe(true);
+    expect(isQualifying('non_qualifying')).toBe(false);
+    expect(isQualifying(null)).toBe(false);
+    // non-qualifying / unset never needs a funding source
+    expect(classificationComplete('non_qualifying', null)).toBe(true);
+    expect(classificationComplete(null, null)).toBe(true);
+    // qualifying requires one
+    expect(classificationComplete('qualifying_direct', null)).toBe(false);
+    expect(classificationComplete('qualifying_direct', 'grant_funded')).toBe(true);
   });
 });
 

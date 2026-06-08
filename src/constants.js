@@ -31,6 +31,42 @@ export const INITIATIVE_STATUSES = {
   backlog:  { label: 'Backlog' },
 };
 
+// --- R&D module (tax relief + Innovate UK grants) ---
+
+export const CLASSIFICATIONS = {
+  qualifying_direct:   { label: 'Qualifying — direct' },
+  qualifying_indirect: { label: 'Qualifying — indirect' },
+  non_qualifying:      { label: 'Non-qualifying' },
+};
+
+export const FUNDING_SOURCES = {
+  self_funded:      { label: 'Self-funded' },
+  grant_funded:     { label: 'Grant-funded' },
+  other_subsidised: { label: 'Other subsidised' },
+};
+
+export const RND_STATUSES = {
+  planned:  { label: 'Planned' },
+  active:   { label: 'Active' },
+  complete: { label: 'Complete' },
+};
+
+// An R&D project (the tax unit — a body of work resolving a technological
+// uncertainty). Links many-to-many to tracker projects via trackerProjectIds.
+export const DEFAULT_RND_PROJECT = {
+  name: '', status: 'active', accountingPeriods: '',
+  advanceSought: '', technologicalUncertainty: '', baseline: '',
+  howResolved: '', competentProfessional: '',
+  trackerProjectIds: [],
+};
+
+// A grant (default Innovate UK) with child work packages.
+export const DEFAULT_GRANT = {
+  funder: 'Innovate UK', reference: '', budget: 0,
+  start: '', end: '', claimCadence: 'quarterly', iarMilestones: '',
+  workPackages: [], // [{ id, name }]
+};
+
 // --- Risk scoring ---
 // Ordered low → critical. `order` drives sorting; `label` is the badge text.
 export const RISK_LEVELS = {

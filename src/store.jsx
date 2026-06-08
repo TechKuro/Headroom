@@ -76,7 +76,30 @@ export function createSampleData() {
     [`${charlie}-${days[4]}-pm`]: true,
   };
 
-  return { team, projects, capacityOverrides, settings: { ...DEFAULT_SETTINGS } };
+  const rndProjects = [
+    {
+      id: genId(), name: 'Realtime pipeline R&D', status: 'active', accountingPeriods: 'FY 2026',
+      advanceSought: 'Sub-second analytics over a high-volume event stream.',
+      technologicalUncertainty: 'Whether existing OSS stream processors can meet the latency budget at our volumes.',
+      baseline: 'Off-the-shelf batch tooling cannot achieve the required latency; no readily-deducible solution.',
+      howResolved: 'Prototype + benchmark candidate architectures.', competentProfessional: 'Dana (DevOps lead)',
+      trackerProjectIds: [projects[3].id], // Data Pipeline
+    },
+  ];
+
+  const grants = [
+    {
+      id: genId(), funder: 'Innovate UK', reference: 'IUK-2026-0042', budget: 250000,
+      start: days[0], end: addDays(monday, 365), claimCadence: 'quarterly',
+      iarMilestones: 'Q1, Q2, Q3, Q4',
+      workPackages: [
+        { id: genId(), name: 'WP1 — Architecture & benchmarking' },
+        { id: genId(), name: 'WP2 — Pipeline implementation' },
+      ],
+    },
+  ];
+
+  return { team, projects, capacityOverrides, rndProjects, grants, settings: { ...DEFAULT_SETTINGS } };
 }
 
 // --- State shape ---
@@ -250,6 +273,34 @@ function reducer(state, action) {
     // Settings
     case 'SET_BLENDED_RATE':
       return { ...state, settings: { ...state.settings, blendedRate: action.payload } };
+
+    // R&D projects (the tax unit)
+    case 'ADD_RND_PROJECT':
+      return { ...state, rndProjects: [...(state.rndProjects || []), action.payload] };
+    case 'UPDATE_RND_PROJECT':
+      return { ...state, rndProjects: (state.rndProjects || []).map(r => r.id === action.payload.id ? { ...r, ...action.payload } : r) };
+    case 'REMOVE_RND_PROJECT':
+      return { ...state, rndProjects: (state.rndProjects || []).filter(r => r.id !== action.payload) };
+
+    // Grants + work packages
+    case 'ADD_GRANT':
+      return { ...state, grants: [...(state.grants || []), action.payload] };
+    case 'UPDATE_GRANT':
+      return { ...state, grants: (state.grants || []).map(g => g.id === action.payload.id ? { ...g, ...action.payload } : g) };
+    case 'REMOVE_GRANT':
+      return { ...state, grants: (state.grants || []).filter(g => g.id !== action.payload) };
+    case 'ADD_WORK_PACKAGE': {
+      const { grantId, workPackage } = action.payload;
+      return { ...state, grants: (state.grants || []).map(g => g.id === grantId ? { ...g, workPackages: [...(g.workPackages || []), workPackage] } : g) };
+    }
+    case 'UPDATE_WORK_PACKAGE': {
+      const { grantId, workPackage } = action.payload;
+      return { ...state, grants: (state.grants || []).map(g => g.id === grantId ? { ...g, workPackages: (g.workPackages || []).map(w => w.id === workPackage.id ? { ...w, ...workPackage } : w) } : g) };
+    }
+    case 'REMOVE_WORK_PACKAGE': {
+      const { grantId, workPackageId } = action.payload;
+      return { ...state, grants: (state.grants || []).map(g => g.id === grantId ? { ...g, workPackages: (g.workPackages || []).filter(w => w.id !== workPackageId) } : g) };
+    }
 
     // Bulk import
     case 'IMPORT_DATA':
