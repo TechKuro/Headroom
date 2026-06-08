@@ -176,7 +176,7 @@ function Classify() {
         <div className="rnd-classify">
           <div className="rnd-classify-head">
             <span>Date</span><span>Person</span><span>Hours</span>
-            <span>Classification</span><span>Funding</span><span>R&amp;D project</span><span>Work package</span>
+            <span>Funding</span><span>Classification</span><span>R&amp;D project</span><span>Work package</span>
           </div>
           {entries.map(e => {
             const incomplete = !classificationComplete(e.classification, e.funding_source);
@@ -186,13 +186,13 @@ function Classify() {
                 <span>{dayLabel(String(e.work_date).slice(0, 10))}</span>
                 <span>{e.person_name || e.person_id}</span>
                 <span className="mono">{formatHours(Number(e.hours))}</span>
-                <select disabled={locked} value={e.classification || ''} onChange={ev => patch(e, 'classification', ev.target.value || null)}>
-                  <option value="">—</option>
-                  {Object.entries(CLASSIFICATIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
                 <select disabled={locked} className={isQualifying(e.classification) && !e.funding_source ? 'needs' : ''} value={e.funding_source || ''} onChange={ev => patch(e, 'funding_source', ev.target.value || null)}>
                   <option value="">{isQualifying(e.classification) ? 'required…' : '—'}</option>
                   {Object.entries(FUNDING_SOURCES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <select disabled={locked} value={e.classification || ''} onChange={ev => patch(e, 'classification', ev.target.value || null)}>
+                  <option value="">—</option>
+                  {Object.entries(CLASSIFICATIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
                 <select disabled={locked} value={e.rnd_project_id || ''} onChange={ev => patch(e, 'rnd_project_id', ev.target.value || null)}>
                   <option value="">—</option>
