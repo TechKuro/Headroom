@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import {
-  getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
+  getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
   getPhasePersonIds, formatCurrency, formatSignedCurrency, formatHours,
 } from '../utils';
+import { useProjectHours } from '../timeSummary';
 import { INITIATIVE_TYPES, INITIATIVE_STATUSES, RISK_LEVELS } from '../constants';
 
 const SORT_OPTIONS = [
@@ -24,6 +25,7 @@ const NEEDS_INFO_LABELS = {
 export default function OverviewView() {
   const { team, projects, settings, capacityOverrides } = useStore();
   const blendedRate = settings?.blendedRate ?? 110;
+  const { hoursByProject } = useProjectHours();
 
   const [statusFilter, setStatusFilter] = useState('all');   // all | done | progress | backlog
   const [typeFilter, setTypeFilter] = useState('all');       // all | internal | client
@@ -38,7 +40,9 @@ export default function OverviewView() {
     const init = getInitiative(p);
     const summary = getProjectLabourSummary(p, blendedRate);
     const { roi, roiPercent } = getRoi(init.estimatedValue, summary.cost);
-    const risk = getProjectRisk(p, { projects, blendedRate, capacityOverrides });
+    const confirmedHours = hoursByProject[p.id] || 0;
+    const progress = getProgress(summary.totalHours, confirmedHours);
+    const risk = getProjectRisk(p, { projects, blendedRate, capacityOverrides, progress: progress.pct ?? 0 });
 
     const peopleIds = new Set();
     for (const ph of p.phases) for (const id of getPhasePersonIds(ph)) peopleIds.add(id);
@@ -46,10 +50,10 @@ export default function OverviewView() {
 
     return {
       id: p.id, name: p.name, color: p.color, init,
-      hours: summary.totalHours, cost: summary.cost,
+      hours: summary.totalHours, cost: summary.cost, confirmedHours, progress,
       value: init.estimatedValue, roi, roiPercent, people, risk,
     };
-  }), [projects, team, blendedRate, capacityOverrides]);
+  }), [projects, team, blendedRate, capacityOverrides, hoursByProject]);
 
   const filtered = useMemo(() => rows.filter(r => {
     if (statusFilter !== 'all' && r.init.status !== statusFilter) return false;
@@ -64,7 +68,7 @@ export default function OverviewView() {
     const dir = sortDir === 'asc' ? 1 : -1;
     const val = r => ({
       risk: RISK_LEVELS[r.risk.level].order, roi: r.roi, cost: r.cost,
-      progress: r.init.progress, hours: r.hours, name: r.name,
+      progress: r.progress.pct ?? -1, hours: r.hours, name: r.name,
     }[sortKey]);
     return [...filtered].sort((a, b) => {
       const va = val(a), vb = val(b);
@@ -80,8 +84,10 @@ export default function OverviewView() {
     const totalHours = filtered.reduce((s, r) => s + r.hours, 0);
     const totalCost = filtered.reduce((s, r) => s + r.cost, 0);
     const totalValue = filtered.reduce((s, r) => s + r.value, 0);
-    const avgProgress = filtered.length
-      ? Math.round(filtered.reduce((s, r) => s + r.init.progress, 0) / filtered.length)
+    // Average only over projects that have a plan to measure against.
+    const planned = filtered.filter(r => r.progress.pct != null);
+    const avgProgress = planned.length
+      ? Math.round(planned.reduce((s, r) => s + r.progress.pct, 0) / planned.length)
       : 0;
     const atRisk = filtered.filter(r => r.risk.level === 'at-risk' || r.risk.level === 'critical').length;
     return {
@@ -186,12 +192,7 @@ export default function OverviewView() {
                     </div>
                   </td>
                   <td><RiskCell risk={r.risk} /></td>
-                  <td className="num">
-                    <div className="ov-progress">
-                      <div className="ov-progress-track"><div className="ov-progress-fill" style={{ width: `${r.init.progress}%` }} /></div>
-                      <span className="ov-progress-pct">{r.init.progress}%</span>
-                    </div>
-                  </td>
+                  <td className="num"><ProgressCell progress={r.progress} confirmedHours={r.confirmedHours} plannedHours={r.hours} /></td>
                   <td className="num mono">{formatHours(r.hours)}</td>
                   <td className="num mono">{formatCurrency(r.cost)}</td>
                   <td className="num">
@@ -227,6 +228,23 @@ function RiskCell({ risk }) {
       {risk.needsInfo.length > 0 && (
         <span className="badge badge-needs-info" title={needsInfoTitle}>Needs info</span>
       )}
+    </div>
+  );
+}
+
+function ProgressCell({ progress, confirmedHours, plannedHours }) {
+  // No plan = no ratio to show. Otherwise a bar with the delivered/planned
+  // hours on hover, and an overrun marker when confirmed time exceeds the plan.
+  if (progress.pct == null) {
+    return <span className="ov-progress-empty" title="No planned work to measure against">—</span>;
+  }
+  const title = `${formatHours(confirmedHours)} confirmed of ${formatHours(plannedHours)} planned`;
+  return (
+    <div className="ov-progress" title={title}>
+      <div className="ov-progress-track">
+        <div className={`ov-progress-fill ${progress.overrun ? 'over' : ''}`} style={{ width: `${progress.pct}%` }} />
+      </div>
+      <span className="ov-progress-pct">{progress.pct}%{progress.overrun ? ' ▲' : ''}</span>
     </div>
   );
 }

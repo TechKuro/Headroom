@@ -2140,7 +2140,9 @@ body {
   overflow: hidden;
 }
 .ov-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.ov-progress-fill.over { background: var(--warning); }
 .ov-progress-pct { color: var(--text-2); min-width: 30px; text-align: right; }
+.ov-progress-empty { color: var(--text-3); }
 
 .ov-value-note { color: var(--text-3); font-size: 11px; margin-top: 2px; }
 .ov-roi.pos { color: var(--success); }
@@ -2209,8 +2211,8 @@ body {
 .init-textarea:focus { border-color: var(--accent); outline: none; }
 
 .init-progress-edit { display: flex; align-items: center; gap: 8px; flex: 1; }
-.init-progress-edit input[type="range"] { flex: 1; accent-color: var(--accent); }
-.init-progress-pct { font-size: 11px; color: var(--text-2); min-width: 32px; text-align: right; }
+.init-progress-pct { font-size: 12px; font-weight: 600; color: var(--text-1); }
+.init-progress-hint { font-size: 11px; color: var(--text-3); font-style: italic; }
 
 .init-checkbox {
   display: flex;

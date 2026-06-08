@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, getPhasePersonIds, formatDateShort, getInitiative } from '../utils';
+import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, getPhasePersonIds, formatDateShort, getInitiative, getProjectLabourSummary, getProgress } from '../utils';
+import { useProjectHours } from '../timeSummary';
 import { HALVES } from '../constants';
 import { PROJECT_COLORS, PHASE_TYPES, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
 import { confirmDialog } from '../confirm';
@@ -250,6 +251,10 @@ function InitiativeEditor({ project }) {
   const dispatch = useDispatch();
   const init = getInitiative(project);
   const update = patch => dispatch({ type: 'UPDATE_INITIATIVE', payload: { projectId: project.id, initiative: patch } });
+  // Progress is derived (confirmed time ÷ planned work), not hand-entered.
+  const { hoursByProject } = useProjectHours();
+  const planned = getProjectLabourSummary(project, 0).totalHours;
+  const progress = getProgress(planned, hoursByProject[project.id] || 0);
 
   return (
     <div className="initiative-editor">
@@ -274,9 +279,10 @@ function InitiativeEditor({ project }) {
       <div className="detail-row">
         <label>Progress</label>
         <div className="init-progress-edit">
-          <input type="range" min="0" max="100" value={init.progress}
-            onChange={e => update({ progress: Math.max(0, Math.min(100, Number(e.target.value))) })} />
-          <span className="init-progress-pct">{init.progress}%</span>
+          <span className="init-progress-pct">{progress.pct == null ? '—' : `${progress.pct}%`}</span>
+          <span className="init-progress-hint">
+            {progress.pct == null ? 'no planned work yet' : 'from confirmed time'}
+          </span>
         </div>
       </div>
 

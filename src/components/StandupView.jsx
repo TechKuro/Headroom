@@ -2,12 +2,16 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import {
   getInitiative, getProjectLabourSummary, getRoi, getPhasePersonIds,
-  getPersonSlotMap, getPersonUtilisation, getProjectEndMonth,
+  getPersonSlotMap, getPersonUtilisation, getProjectEndMonth, getProgress,
   getCurrentMonth, getCurrentDate, addDays, getWorkingDayRange, monthDiff, dateToMonth, formatDateShort,
   formatCurrency, formatSignedCurrency, formatHours, genId,
 } from '../utils';
+import { useProjectHours } from '../timeSummary';
 import { INITIATIVE_TYPES, INITIATIVE_STATUSES, HALVES } from '../constants';
 import { addToast } from '../toast';
+
+// "70%" when there's a plan to measure against, "—" when there isn't.
+const progressLabel = pct => (pct == null ? '—' : `${pct}%`);
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
@@ -34,6 +38,8 @@ export default function StandupView() {
   const { team, projects, settings } = useStore();
   const dispatch = useDispatch();
   const blendedRate = settings?.blendedRate ?? 110;
+
+  const { hoursByProject } = useProjectHours();
 
   const [personId, setPersonId] = useState(() => team[0]?.id ?? null);
   const [openProjectId, setOpenProjectId] = useState(null);
@@ -73,16 +79,17 @@ export default function StandupView() {
       const peopleIds = new Set();
       for (const ph of p.phases || []) for (const id of getPhasePersonIds(ph)) peopleIds.add(id);
       const people = [...peopleIds].map(id => team.find(m => m.id === id)?.name).filter(Boolean);
+      const progress = getProgress(summary.totalHours, hoursByProject[p.id] || 0);
       return {
         id: p.id, name: p.name, color: p.color, init, hours, cost: hours * blendedRate, roi,
-        start: p.start, deadline: p.deadline, people,
+        start: p.start, deadline: p.deadline, people, progressPct: progress.pct,
         totalCost: summary.cost, totalHours: summary.totalHours,
         activeNow: activeIds.has(p.id),
         overdue: init.status !== 'done' && toDeadline !== null && toDeadline < 0,
         deadlineSoon: init.status !== 'done' && toDeadline !== null && toDeadline >= 0 && toDeadline <= 2,
       };
     }).filter(x => x.hours > 0);
-  }, [projects, personId, blendedRate, days, now]);
+  }, [projects, personId, blendedRate, days, now, hoursByProject]);
 
   // Default scope shows only what's active in the window; "All" reveals the rest.
   const visible = useMemo(
@@ -116,7 +123,7 @@ export default function StandupView() {
     } else {
       for (const x of visible) {
         const flags = [x.overdue && 'overdue', x.deadlineSoon && 'deadline soon'].filter(Boolean);
-        lines.push(`• ${x.name} — ${formatHours(x.hours)}, ${x.init.progress}% done${flags.length ? ` [${flags.join(', ')}]` : ''}`);
+        lines.push(`• ${x.name} — ${formatHours(x.hours)}, ${progressLabel(x.progressPct)} done${flags.length ? ` [${flags.join(', ')}]` : ''}`);
       }
     }
     lines.push('', 'Check-in questions:', ...STANDUP_QUESTIONS.map(q => `  - ${q}`));
@@ -235,7 +242,7 @@ export default function StandupView() {
                           </span>
                           <span className="sip-rows">
                             <span><b>Runs</b>{(x.start || x.deadline) ? `${x.start ? formatDateShort(x.start) : '?'} → ${x.deadline ? formatDateShort(x.deadline) : '?'}` : '—'}</span>
-                            <span><b>Progress</b>{x.init.progress}%</span>
+                            <span><b>Progress</b>{progressLabel(x.progressPct)}</span>
                             <span><b>Total effort</b>{formatHours(x.totalHours)} · {formatCurrency(x.totalCost)}</span>
                             <span><b>Est. value</b>{x.init.estimatedValue > 0 ? formatCurrency(x.init.estimatedValue) : '—'}{x.init.valueNote ? ` (${x.init.valueNote})` : ''}</span>
                             <span><b>ROI</b><span className={x.roi >= 0 ? 'pos' : 'neg'}>{formatSignedCurrency(x.roi)}</span></span>
@@ -255,7 +262,7 @@ export default function StandupView() {
                     <div className="standup-project-meta">
                       <span className="mono">{formatHours(x.hours)}</span>
                       <span className="mono">{formatCurrency(x.cost)}</span>
-                      <span>{x.init.progress}% done</span>
+                      <span>{progressLabel(x.progressPct)} done</span>
                       <span className={x.roi >= 0 ? 'ov-roi pos' : 'ov-roi neg'}>{formatSignedCurrency(x.roi)} ROI</span>
                     </div>
                   </button>

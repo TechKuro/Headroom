@@ -44,6 +44,14 @@ export function addDays(date, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Whole calendar days from `from` to `to` (positive when `to` is later). Noon
+// anchoring sidesteps DST. Both args are YYYY-MM-DD strings.
+export function dayDiff(from, to) {
+  const a = new Date(from + 'T12:00:00');
+  const b = new Date(to + 'T12:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
 export function monthDiff(a, b) {
   const pa = parseMonth(a);
   const pb = parseMonth(b);
@@ -458,6 +466,18 @@ export function getProjectLabourSummary(project, blendedRate) {
   };
 }
 
+/**
+ * Delivery progress from confirmed engineer time vs planned work.
+ * pct = confirmed ÷ planned hours, capped at 100 for display. Returns
+ * pct = null when nothing is planned (a ratio would be meaningless), and
+ * flags overrun when more has been delivered than was planned.
+ */
+export function getProgress(plannedHours, confirmedHours) {
+  if (!(plannedHours > 0)) return { pct: null, overrun: false };
+  const raw = (confirmedHours / plannedHours) * 100;
+  return { pct: Math.min(100, Math.round(raw)), overrun: confirmedHours > plannedHours };
+}
+
 /** ROI from estimated value and labour cost. */
 export function getRoi(estimatedValue, cost) {
   const roi = (estimatedValue || 0) - cost;
@@ -480,8 +500,8 @@ const RISK_POINTS = { high: 3, med: 2, low: 1 };
 const BEHIND_MED = 20;
 const BEHIND_HIGH = 40;
 
-// A deadline this many months out (or nearer), and not done, is "approaching".
-const NEAR_DEADLINE_MONTHS = 2;
+// A deadline this many days out (or nearer), and not done, is "approaching".
+const NEAR_DEADLINE_DAYS = 14;
 
 function riskLevelFromScore(score) {
   if (score >= 6) return 'critical';
@@ -501,17 +521,22 @@ function isDefaultInitiative(init) {
  * @param project  the project to score
  * @param opts.projects     all projects (needed to detect cross-project double-booking)
  * @param opts.blendedRate  £/hour, for the ROI factor
- * @param opts.currentMonth YYYY-MM "now" (injectable for tests)
+ * @param opts.currentDate  YYYY-MM-DD "today" (injectable for tests)
+ * @param opts.progress     derived delivery % (confirmed ÷ planned); falls back to the initiative value
  * @returns { level, score, factors:[{key,label,severity,points}], needsInfo:[] }
  */
 export function getProjectRisk(project, opts = {}) {
   const {
     projects = [],
     blendedRate = 110,
-    currentMonth = getCurrentMonth(),
+    currentDate = getCurrentDate(),
+    progress,
   } = opts;
 
   const init = getInitiative(project);
+  // Derived delivery progress when supplied (confirmed ÷ planned hours);
+  // otherwise fall back to the initiative's own value.
+  const pct = progress != null ? progress : init.progress;
   const phases = project.phases || [];
   const assignedIds = new Set();
   for (const ph of phases) for (const id of getPhasePersonIds(ph)) assignedIds.add(id);
@@ -528,7 +553,7 @@ export function getProjectRisk(project, opts = {}) {
   const isDone = init.status === 'done';
 
   // Consistency flag — the only factor that can fire on a 'done' project.
-  if (isDone && init.progress < 100) {
+  if (isDone && pct < 100) {
     add('done-incomplete', 'Marked done but under 100%', 'low');
   }
 
@@ -551,26 +576,36 @@ export function getProjectRisk(project, opts = {}) {
     }
     if (overloaded) add('overload', 'Assigned person double-booked', 'high');
 
-    // Behind schedule — progress lagging the share of the timeline elapsed.
-    const startMonths = phases.map(p => dateToMonth(p.startMonth)).filter(Boolean);
-    const startMonth = startMonths.length ? startMonths.reduce((a, b) => (a < b ? a : b)) : null;
-    const endMonth = dateToMonth(getProjectEndMonth(project));
-    if (startMonth && endMonth) {
-      const total = monthDiff(startMonth, endMonth);
-      const elapsed = monthDiff(startMonth, currentMonth);
+    // Project window (day-level): explicit start, else earliest allocated
+    // slot, else the earliest phase window; end = deadline (or last slot).
+    let startDate = project.start || null;
+    if (!startDate) {
+      for (const ph of phases) for (const s of ph.slots || []) {
+        if (!startDate || s.date < startDate) startDate = s.date;
+      }
+    }
+    if (!startDate) {
+      for (const ph of phases) if (ph.startMonth && (!startDate || ph.startMonth < startDate)) startDate = ph.startMonth;
+    }
+    const endDate = getProjectEndMonth(project);
+
+    // Behind schedule — delivered progress lagging the share of the timeline elapsed.
+    if (startDate && endDate) {
+      const total = dayDiff(startDate, endDate);
+      const elapsed = dayDiff(startDate, currentDate);
       if (total > 0 && elapsed > 0) {
         const expected = Math.min(1, elapsed / total) * 100;
-        const gap = expected - init.progress;
+        const gap = expected - pct;
         if (gap >= BEHIND_HIGH) add('behind', 'Behind schedule', 'high');
         else if (gap >= BEHIND_MED) add('behind', 'Behind schedule', 'med');
       }
     }
 
     // Near / past deadline.
-    if (endMonth) {
-      const toDeadline = monthDiff(currentMonth, endMonth);
+    if (endDate) {
+      const toDeadline = dayDiff(currentDate, endDate);
       if (toDeadline < 0) add('overdue', 'Past deadline', 'high');
-      else if (toDeadline <= NEAR_DEADLINE_MONTHS) add('deadline', 'Deadline approaching', 'med');
+      else if (toDeadline <= NEAR_DEADLINE_DAYS) add('deadline', 'Deadline approaching', 'med');
     }
 
     // Scheduled work with nobody on it.
@@ -579,7 +614,7 @@ export function getProjectRisk(project, opts = {}) {
     }
 
     // Backlog on paper, but already scheduled to have started.
-    if (init.status === 'backlog' && startMonth && startMonth <= currentMonth) {
+    if (init.status === 'backlog' && startDate && startDate <= currentDate) {
       add('backlog-started', 'Backlog but already scheduled', 'low');
     }
   }

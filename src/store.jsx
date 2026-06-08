@@ -38,7 +38,7 @@ export function createSampleData() {
   const projects = [
     {
       id: genId(), name: 'Portal Redesign', color: PROJECT_COLORS[0], start: monday, deadline: addDays(monday, 25),
-      initiative: { type: 'client', status: 'progress', progress: 60, estimatedValue: 80000, chargeable: true, valueNote: 'Fixed-price engagement', description: 'Customer portal UX overhaul' },
+      initiative: { type: 'client', status: 'progress', estimatedValue: 80000, chargeable: true, valueNote: 'Fixed-price engagement', description: 'Customer portal UX overhaul' },
       phases: [
         mkPhase('active-build', [
           slot(alice, 0, 'am'), slot(alice, 0, 'pm'), slot(alice, 1, 'am'), slot(alice, 1, 'pm'),
@@ -48,21 +48,21 @@ export function createSampleData() {
     },
     {
       id: genId(), name: 'API Migration', color: PROJECT_COLORS[1], start: monday, deadline: addDays(monday, 18),
-      initiative: { type: 'internal', status: 'progress', progress: 40, estimatedValue: 30000, chargeable: false, valueNote: 'Reduced infra spend', description: 'Migrate legacy API to v2' },
+      initiative: { type: 'internal', status: 'progress', estimatedValue: 30000, chargeable: false, valueNote: 'Reduced infra spend', description: 'Migrate legacy API to v2' },
       phases: [
         mkPhase('active-build', [slot(bob, 0, 'am'), slot(bob, 0, 'pm'), slot(bob, 1, 'am')]),
       ],
     },
     {
       id: genId(), name: 'Mobile App', color: PROJECT_COLORS[2], start: addDays(monday, 10), deadline: addDays(monday, 60),
-      initiative: { type: 'client', status: 'backlog', progress: 10, estimatedValue: 120000, chargeable: true, valueNote: 'New client contract', description: 'Native mobile companion app' },
+      initiative: { type: 'client', status: 'backlog', estimatedValue: 120000, chargeable: true, valueNote: 'New client contract', description: 'Native mobile companion app' },
       phases: [
         mkPhase('scoping', [slot(charlie, 2, 'am'), slot(charlie, 2, 'pm'), slot(charlie, 3, 'am'), slot(charlie, 3, 'pm')]),
       ],
     },
     {
       id: genId(), name: 'Data Pipeline', color: PROJECT_COLORS[3], start: monday, deadline: addDays(monday, 30),
-      initiative: { type: 'internal', status: 'progress', progress: 50, estimatedValue: 45000, chargeable: false, valueNote: 'Analytics enablement', description: 'Realtime data pipeline' },
+      initiative: { type: 'internal', status: 'progress', estimatedValue: 45000, chargeable: false, valueNote: 'Analytics enablement', description: 'Realtime data pipeline' },
       phases: [
         // Bob day-1 AM here collides with API Migration day-1 AM → a deliberate double-booking demo.
         mkPhase('active-build', [slot(dana, 0, 'am'), slot(dana, 1, 'pm'), slot(bob, 1, 'am'), slot(bob, 2, 'am'), slot(bob, 2, 'pm')]),

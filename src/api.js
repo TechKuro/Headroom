@@ -42,6 +42,8 @@ export const api = {
     const q = new URLSearchParams({ from, to, ...(personId ? { personId } : {}) });
     return apiFetch(`/time-entries?${q.toString()}`);
   },
+  // Delivered hours per project (confirmed/authorised/locked), for progress.
+  timeSummary: () => apiFetch('/time-entries/summary'),
   createTimeEntries: (entries) => apiFetch('/time-entries', { method: 'POST', body: JSON.stringify({ entries }) }),
   updateTimeEntry: (id, patch) => apiFetch(`/time-entries/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteTimeEntry: (id) => apiFetch(`/time-entries/${encodeURIComponent(id)}`, { method: 'DELETE' }),

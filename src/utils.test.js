@@ -4,7 +4,7 @@ import {
   isWorkingDay, getWorkingDayRange, enumerateSlots, slotKey, isSlotAvailable,
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
-  getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
+  getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
   claimableHours, daysAfter, isLateConfirmation, isQualifying, classificationComplete,
@@ -202,14 +202,28 @@ describe('getPlannedByDayProject (timesheet pre-fill)', () => {
   });
 });
 
+describe('getProgress', () => {
+  it('is null when nothing is planned', () => {
+    expect(getProgress(0, 0)).toEqual({ pct: null, overrun: false });
+    expect(getProgress(0, 10)).toEqual({ pct: null, overrun: false });
+  });
+  it('is confirmed ÷ planned, rounded', () => {
+    expect(getProgress(40, 10)).toEqual({ pct: 25, overrun: false });
+    expect(getProgress(30, 10)).toEqual({ pct: 33, overrun: false });
+  });
+  it('caps at 100 and flags overrun when delivered exceeds planned', () => {
+    expect(getProgress(20, 30)).toEqual({ pct: 100, overrun: true });
+  });
+});
+
 describe('getProjectRisk', () => {
-  const NOW = '2025-06';
+  const TODAY = '2025-06-15';
   const keys = r => r.factors.map(f => f.key).sort();
   const baseInit = { type: 'client', status: 'progress', progress: 50, estimatedValue: 1_000_000 };
 
   it('a healthy, single-booked project is Low', () => {
     const p = { id: 'a', name: 'Healthy', deadline: '2025-12-31', initiative: baseInit, phases: [phase([slot('p1', 0), slot('p1', 1)])] };
-    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentDate: TODAY });
     expect(r.level).toBe('low');
     expect(r.factors).toEqual([]);
     expect(r.needsInfo).toEqual([]);
@@ -217,7 +231,7 @@ describe('getProjectRisk', () => {
 
   it('negative ROI alone is At risk', () => {
     const p = { id: 'a', name: 'Loss', deadline: '2025-12-31', initiative: { ...baseInit, type: 'internal', estimatedValue: 500 }, phases: [phase([slot('p1', 0), slot('p1', 1)])] };
-    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW }); // cost 800 > 500
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentDate: TODAY }); // cost 800 > 500
     expect(keys(r)).toEqual(['negative-roi']);
     expect(r.level).toBe('at-risk');
   });
@@ -225,29 +239,37 @@ describe('getProjectRisk', () => {
   it('a double-booked assignee fires the overload factor', () => {
     const a = { id: 'a', name: 'A', deadline: '2025-12-31', initiative: baseInit, phases: [phase([slot('p1', 0)])] };
     const b = { id: 'b', name: 'B', deadline: '2025-12-31', initiative: baseInit, phases: [phase([slot('p1', 0)])] };
-    const r = getProjectRisk(a, { projects: [a, b], blendedRate: 100, currentMonth: NOW });
+    const r = getProjectRisk(a, { projects: [a, b], blendedRate: 100, currentDate: TODAY });
     expect(keys(r)).toContain('overload');
     expect(r.level).toBe('at-risk');
   });
 
   it('scheduled work with nobody assigned is Watch', () => {
     const p = { id: 'a', name: 'Orphan', deadline: '2025-12-31', initiative: baseInit, phases: [phase([])] };
-    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentDate: TODAY });
     expect(keys(r)).toEqual(['unassigned']);
     expect(r.level).toBe('watch');
   });
 
   it('done-but-incomplete is the only factor allowed on a done project', () => {
     const p = { id: 'a', name: 'Shipped', initiative: { ...baseInit, status: 'done', progress: 80, estimatedValue: 0 }, phases: [phase([slot('p1', 0)])] };
-    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentDate: TODAY });
     expect(keys(r)).toEqual(['done-incomplete']);
     expect(r.level).toBe('watch');
+  });
+
+  it('uses derived progress (opts.progress) over the initiative value for done-incomplete', () => {
+    const base = { id: 'a', name: 'Shipped', initiative: { ...baseInit, status: 'done', estimatedValue: 0 }, phases: [phase([slot('p1', 0)])] };
+    // Derived 100% → no done-incomplete factor, even though init.progress is 50.
+    expect(keys(getProjectRisk(base, { projects: [base], currentDate: TODAY, progress: 100 }))).toEqual([]);
+    // Derived 80% → done-incomplete fires.
+    expect(keys(getProjectRisk(base, { projects: [base], currentDate: TODAY, progress: 80 }))).toEqual(['done-incomplete']);
   });
 
   it('reports data gaps separately from the score', () => {
     // no initiative (all defaults), future-dated slots → no factors fire
     const p = { id: 'a', name: 'Blank', phases: [phase([{ personId: 'p1', date: '2025-09-01', half: 'am' }])] };
-    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentMonth: NOW });
+    const r = getProjectRisk(p, { projects: [p], blendedRate: 100, currentDate: TODAY });
     expect(r.needsInfo.sort()).toEqual(['metadata', 'value']);
     expect(r.factors).toEqual([]);
     expect(r.level).toBe('low');
