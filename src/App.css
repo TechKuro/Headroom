@@ -2573,6 +2573,38 @@ body {
 .ts-status-authorised { background: rgba(99,102,241,0.15); color: #a5b4fc; }
 .ts-status-locked { background: rgba(99,107,130,0.25); color: var(--text-2); }
 
+/* ============================================
+   Authorise (manager) view
+   ============================================ */
+.authorise-view { padding: 16px 20px; overflow: auto; height: 100%; }
+.ts-lock-btn {
+  padding: 7px 16px; border-radius: 6px; cursor: pointer;
+  background: var(--bg-2); border: 1px solid var(--border-light); color: var(--text-1);
+  font-size: 13px; font-weight: 600;
+}
+.ts-lock-btn:hover { border-color: var(--text-2); }
+.ts-lock-btn:disabled { opacity: 0.5; cursor: default; }
+.av-selectall { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin-bottom: 12px; }
+.av-person { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.av-person-head { padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-1); }
+.av-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.av-row:first-of-type { border-top: none; }
+.av-row.av-adjust { background: rgba(99,102,241,0.06); }
+.av-date { width: 110px; min-width: 110px; color: var(--text-2); }
+.av-proj { display: flex; align-items: center; gap: 7px; width: 200px; min-width: 200px; color: var(--text-1); }
+.av-hours { width: 130px; min-width: 130px; color: var(--text-1); font-family: 'JetBrains Mono', monospace; }
+.av-desc { flex: 1; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-flag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.18); color: #fbbf24;
+}
+.av-flag.over { background: rgba(220,38,38,0.18); color: #f87171; }
+.av-adjust-btn {
+  font-size: 11px; padding: 3px 9px; border-radius: 5px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border-light); color: var(--text-2);
+}
+.av-adjust-btn:hover { border-color: var(--accent); color: var(--text-1); }
+
 /* --- Shared-workspace: "edited by" meta + conflict banner --- */
 .doc-meta {
   font-size: 11px;

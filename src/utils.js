@@ -1,4 +1,4 @@
-import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -669,6 +669,28 @@ export function getWhatIfImpact(whatIfProject, opts = {}) {
     roi, roiPercent,
     overloadedPeople,
   };
+}
+
+// --- R&D time validation (§4) ---
+
+/** Claimable hours = actual capped at the scheme limit (only the cap is claimable). */
+export function claimableHours(actual, cap) {
+  const a = Number(actual) || 0;
+  return Math.max(0, Math.min(a, cap));
+}
+
+/** Whole calendar days between a work date and when it was confirmed. */
+export function daysAfter(workDate, confirmedAt) {
+  if (!workDate || !confirmedAt) return 0;
+  const w = new Date(workDate + 'T12:00:00');
+  const c = new Date(confirmedAt);
+  return Math.floor((c - w) / 86400000);
+}
+
+/** Was this entry confirmed suspiciously long after the work happened? */
+export function isLateConfirmation(workDate, confirmedAt, days = LATE_CONFIRMATION_DAYS) {
+  if (!workDate || !confirmedAt) return false;
+  return daysAfter(workDate, confirmedAt) > days;
 }
 
 // --- Formatting ---
