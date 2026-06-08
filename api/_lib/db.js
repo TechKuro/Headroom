@@ -62,8 +62,12 @@ export async function ensureTimeSchema() {
   await sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(8,2)`;
   await sql`ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS updated_by TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS time_entries_person_date ON time_entries (person_id, work_date)`;
-  // Natural key so confirm is idempotent (no duplicate rows on re-confirm / concurrent edits).
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS time_entries_natural ON time_entries (person_id, work_date, tracker_project_id)`;
+  // Natural key so confirm is idempotent — but only for PRIMARY rows. Adjusting
+  // entries (corrections, adjusts_entry_id set) are append-only and exempt.
+  await sql`DROP INDEX IF EXISTS time_entries_natural`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS time_entries_natural_primary
+            ON time_entries (person_id, work_date, tracker_project_id)
+            WHERE adjusts_entry_id IS NULL`;
   // Append-only change trail — provenance for the evidence packs. Painful to add later, so it exists now.
   await sql`
     CREATE TABLE IF NOT EXISTS time_entry_audit (

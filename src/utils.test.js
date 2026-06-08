@@ -7,6 +7,7 @@ import {
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
+  claimableHours, daysAfter, isLateConfirmation,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
 import { DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY } from './constants';
@@ -320,6 +321,29 @@ describe('findAvailableSlots', () => {
     const overrides = { [`p2-${WK[1]}-am`]: true };
     const res = findAvailableSlots(team, WK, projects, null, overrides, 1);
     expect(res.p2.has(`${WK[1]}|am`)).toBe(false);
+  });
+});
+
+describe('R&D time validation (§4)', () => {
+  it('claimableHours caps at the scheme limit', () => {
+    expect(claimableHours(6, 8)).toBe(6);
+    expect(claimableHours(10, 8)).toBe(8);     // only the cap is claimable
+    expect(claimableHours(50, 40)).toBe(40);
+    expect(claimableHours(-3, 8)).toBe(0);
+    expect(claimableHours(undefined, 8)).toBe(0);
+  });
+
+  it('daysAfter counts whole days from work date to confirmation', () => {
+    expect(daysAfter('2025-06-02', '2025-06-02T15:00:00Z')).toBe(0);
+    expect(daysAfter('2025-06-02', '2025-06-05T10:00:00Z')).toBe(2);
+    expect(daysAfter('2025-06-02', '2025-06-20T10:00:00Z')).toBe(17);
+  });
+
+  it('isLateConfirmation flags confirmations well after the work', () => {
+    expect(isLateConfirmation('2025-06-02', '2025-06-04T10:00:00Z')).toBe(false); // 2 days
+    expect(isLateConfirmation('2025-06-02', '2025-06-20T10:00:00Z')).toBe(true);  // 17 days
+    expect(isLateConfirmation('2025-06-02', '2025-06-11T10:00:00Z', 5)).toBe(true); // custom threshold
+    expect(isLateConfirmation(null, null)).toBe(false);
   });
 });
 

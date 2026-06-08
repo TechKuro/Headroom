@@ -60,6 +60,9 @@ export const SLOTS_PER_DAY = 2;
 // Innovate UK claimable caps (R&D time reporting).
 export const MAX_HOURS_PER_DAY = 8;
 export const MAX_HOURS_PER_WEEK = 40;
+// Confirmations later than this many days after the work date are flagged
+// (contemporaneity matters for both funding schemes).
+export const LATE_CONFIRMATION_DAYS = 7;
 
 // Ordered for stark contrast on consecutive picks: each color is ~opposite or
 // well-separated in hue from its neighbour, so the first N projects look as

@@ -42,38 +42,57 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'each entry needs personId, workDate and trackerProjectId' });
         }
         const hours = clampHours(e.hours);
-        const status = e.status === 'confirmed' ? 'confirmed' : 'draft';
-        const confirming = status === 'confirmed';
-        // Idempotent on the natural key. A re-confirm updates the row instead of
-        // duplicating; an already authorised/locked row is left untouched.
-        const rows = await sql`
-          INSERT INTO time_entries
-            (id, person_id, person_name, work_date, hours, description, tracker_project_id,
-             source_slots, status, confirmed_at, confirmed_by, created_by, updated_by)
-          VALUES
-            (${newId()}, ${e.personId}, ${e.personName || null}, ${e.workDate},
-             ${hours}, ${e.description || null}, ${e.trackerProjectId},
-             ${JSON.stringify(e.sourceSlots || [])}::jsonb, ${status},
-             ${confirming ? new Date().toISOString() : null}, ${confirming ? user.name : null},
-             ${user.name}, ${user.name})
-          ON CONFLICT (person_id, work_date, tracker_project_id) DO UPDATE SET
-            hours        = EXCLUDED.hours,
-            description  = EXCLUDED.description,
-            status       = EXCLUDED.status,
-            confirmed_at = CASE WHEN EXCLUDED.status = 'confirmed' THEN now() ELSE time_entries.confirmed_at END,
-            confirmed_by = CASE WHEN EXCLUDED.status = 'confirmed' THEN EXCLUDED.confirmed_by ELSE time_entries.confirmed_by END,
-            updated_by   = EXCLUDED.updated_by,
-            updated_at   = now()
-          WHERE time_entries.status IN ('draft', 'confirmed')
-          RETURNING *`;
-        let row = rows[0];
-        if (!row) {
-          // Conflict hit an authorised/locked row — return it unchanged.
-          const ex = await sql`SELECT * FROM time_entries WHERE person_id = ${e.personId} AND work_date = ${e.workDate} AND tracker_project_id = ${e.trackerProjectId}`;
-          row = ex[0];
-        } else {
+        const nowIso = new Date().toISOString();
+        let row;
+
+        if (e.adjustsEntryId) {
+          // Append-only correction to an authorised/locked entry — never deduped.
+          const rows = await sql`
+            INSERT INTO time_entries
+              (id, person_id, person_name, work_date, hours, description, tracker_project_id,
+               source_slots, status, confirmed_at, confirmed_by, adjusts_entry_id, created_by, updated_by)
+            VALUES
+              (${newId()}, ${e.personId}, ${e.personName || null}, ${e.workDate}, ${hours},
+               ${e.description || null}, ${e.trackerProjectId}, ${JSON.stringify(e.sourceSlots || [])}::jsonb,
+               'confirmed', ${nowIso}, ${user.name}, ${e.adjustsEntryId}, ${user.name}, ${user.name})
+            RETURNING *`;
+          row = rows[0];
           await sql`INSERT INTO time_entry_audit (entry_id, action, changed_by, detail)
-                    VALUES (${row.id}, 'upsert', ${user.name}, ${JSON.stringify({ status, hours })}::jsonb)`;
+                    VALUES (${row.id}, 'adjust', ${user.name}, ${JSON.stringify({ adjustsEntryId: e.adjustsEntryId, hours })}::jsonb)`;
+        } else {
+          const status = e.status === 'confirmed' ? 'confirmed' : 'draft';
+          const confirming = status === 'confirmed';
+          // Idempotent on the natural key (primary rows only). A re-confirm updates
+          // the row instead of duplicating; an authorised/locked row is left untouched.
+          const rows = await sql`
+            INSERT INTO time_entries
+              (id, person_id, person_name, work_date, hours, description, tracker_project_id,
+               source_slots, status, confirmed_at, confirmed_by, created_by, updated_by)
+            VALUES
+              (${newId()}, ${e.personId}, ${e.personName || null}, ${e.workDate},
+               ${hours}, ${e.description || null}, ${e.trackerProjectId},
+               ${JSON.stringify(e.sourceSlots || [])}::jsonb, ${status},
+               ${confirming ? nowIso : null}, ${confirming ? user.name : null},
+               ${user.name}, ${user.name})
+            ON CONFLICT (person_id, work_date, tracker_project_id) WHERE adjusts_entry_id IS NULL DO UPDATE SET
+              hours        = EXCLUDED.hours,
+              description  = EXCLUDED.description,
+              status       = EXCLUDED.status,
+              confirmed_at = CASE WHEN EXCLUDED.status = 'confirmed' THEN now() ELSE time_entries.confirmed_at END,
+              confirmed_by = CASE WHEN EXCLUDED.status = 'confirmed' THEN EXCLUDED.confirmed_by ELSE time_entries.confirmed_by END,
+              updated_by   = EXCLUDED.updated_by,
+              updated_at   = now()
+            WHERE time_entries.status IN ('draft', 'confirmed')
+            RETURNING *`;
+          row = rows[0];
+          if (!row) {
+            // Conflict hit an authorised/locked row — return it unchanged.
+            const ex = await sql`SELECT * FROM time_entries WHERE person_id = ${e.personId} AND work_date = ${e.workDate} AND tracker_project_id = ${e.trackerProjectId} AND adjusts_entry_id IS NULL`;
+            row = ex[0];
+          } else {
+            await sql`INSERT INTO time_entry_audit (entry_id, action, changed_by, detail)
+                      VALUES (${row.id}, 'upsert', ${user.name}, ${JSON.stringify({ status, hours })}::jsonb)`;
+          }
         }
         if (row) out.push(row);
       }
