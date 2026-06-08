@@ -22,6 +22,8 @@ export default function AuthoriseView() {
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [adjustId, setAdjustId] = useState(null); // entry being adjusted (inline)
+  const [adjustHours, setAdjustHours] = useState('');
 
   const days = useMemo(() => getWorkingDayRange(weekStart, addDays(weekStart, 4)), [weekStart]);
   const from = days[0];
@@ -95,11 +97,14 @@ export default function AuthoriseView() {
     finally { setLoading(false); }
   }
 
-  async function adjust(e) {
-    const raw = prompt(`Adjusting entry for ${e.person_name || ''} — ${projName(e.tracker_project_id)} on ${dayLabel(e.date)}.\nCorrected hours:`, String(e.hours));
-    if (raw == null) return;
-    const hours = Number(raw);
-    if (!Number.isFinite(hours) || hours < 0) { addToast('Invalid hours', 'error'); return; }
+  function startAdjust(e) {
+    setAdjustId(e.id);
+    setAdjustHours(String(e.hours));
+  }
+
+  async function saveAdjust(e) {
+    const hours = Number(adjustHours);
+    if (!Number.isFinite(hours) || hours < 0) { addToast('Enter valid hours', 'error'); return; }
     setLoading(true); setError(null);
     try {
       await api.createTimeEntries([{
@@ -108,6 +113,7 @@ export default function AuthoriseView() {
         adjustsEntryId: e.id, sourceSlots: [],
       }]);
       addToast('Adjusting entry created', 'success');
+      setAdjustId(null);
       await load();
     } catch (err) { setError(err?.message || 'Adjustment failed.'); }
     finally { setLoading(false); }
@@ -165,7 +171,17 @@ export default function AuthoriseView() {
                 {over && <span className="av-flag over">over</span>}
                 <span className={`badge ts-status ts-status-${e.status}`}>{STATUS_LABEL[e.status] || e.status}</span>
                 {(e.status === 'authorised' || e.status === 'locked') && (
-                  <button className="av-adjust-btn" onClick={() => adjust(e)}>Adjust</button>
+                  adjustId === e.id ? (
+                    <span className="av-adjust-edit">
+                      <input type="number" min="0" max="24" step="0.5" className="av-adjust-input" autoFocus
+                        value={adjustHours} onChange={ev => setAdjustHours(ev.target.value)}
+                        onKeyDown={ev => { if (ev.key === 'Enter') saveAdjust(e); if (ev.key === 'Escape') setAdjustId(null); }} />
+                      <button className="av-adjust-btn" disabled={loading} onClick={() => saveAdjust(e)}>Save</button>
+                      <button className="av-adjust-btn" onClick={() => setAdjustId(null)}>Cancel</button>
+                    </span>
+                  ) : (
+                    <button className="av-adjust-btn" onClick={() => startAdjust(e)}>Adjust</button>
+                  )
                 )}
               </div>
             );

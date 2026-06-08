@@ -2611,6 +2611,13 @@ body {
   background: transparent; border: 1px solid var(--border-light); color: var(--text-2);
 }
 .av-adjust-btn:hover { border-color: var(--accent); color: var(--text-1); }
+.av-adjust-btn:disabled { opacity: 0.5; cursor: default; }
+.av-adjust-edit { display: inline-flex; align-items: center; gap: 6px; }
+.av-adjust-input {
+  width: 60px; padding: 3px 6px; text-align: right;
+  background: var(--bg-2); border: 1px solid var(--accent); border-radius: 5px;
+  color: var(--text-1); font-size: 12px; font-family: 'JetBrains Mono', monospace; outline: none;
+}
 
 /* ============================================
    R&D view (projects / grants / classify)
