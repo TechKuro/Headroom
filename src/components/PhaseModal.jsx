@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore, useDispatch } from '../store';
 import { genId, getCurrentDate, getWorkingDayRange, getPhasePersonIds } from '../utils';
 import { PHASE_TYPES, HALVES } from '../constants';
+import { confirmDialog } from '../confirm';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = date => { const d = new Date(date + 'T12:00:00'); return `${DOW[d.getDay()]} ${d.getDate()}`; };
@@ -97,10 +98,10 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
     onClose();
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!phase) return;
     const names = getPhasePersonIds(phase).map(id => team.find(t => t.id === id)?.name).filter(Boolean).join(', ');
-    if (!confirm(`Delete this ${PHASE_TYPES[phase.type]?.label || phase.type} phase for ${names || 'unknown'}?`)) return;
+    if (!(await confirmDialog({ title: 'Delete phase', message: `Delete this ${PHASE_TYPES[phase.type]?.label || phase.type} phase for ${names || 'unknown'}?`, confirmLabel: 'Delete', danger: true }))) return;
     if (isWhatIf) {
       setWhatIfProject(prev => ({ ...prev, phases: prev.phases.filter(ph => ph.id !== phase.id) }));
     } else {

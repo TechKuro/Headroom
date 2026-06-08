@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { useStore, useDispatch } from '../store';
+import { addToast } from '../toast';
 
 export default function ExportImport() {
   const store = useStore();
@@ -26,11 +27,12 @@ export default function ExportImport() {
         const data = JSON.parse(reader.result);
         if (data.team && data.projects) {
           dispatch({ type: 'IMPORT_DATA', payload: data });
+          addToast('Plan imported', 'success');
         } else {
-          alert('Invalid file format. Expected { team, projects }.');
+          addToast('Invalid file — expected a Headroom export with team and projects.', 'error');
         }
       } catch {
-        alert('Failed to parse JSON file.');
+        addToast('Could not parse that JSON file.', 'error');
       }
     };
     reader.readAsText(file);

@@ -9,6 +9,7 @@ import {
   CLASSIFICATIONS, FUNDING_SOURCES, RND_STATUSES, DEFAULT_RND_PROJECT, DEFAULT_GRANT,
 } from '../constants';
 import { addToast } from '../toast';
+import { confirmDialog } from '../confirm';
 import RnDPacks from './RnDPacks';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -52,7 +53,7 @@ function RnDProjects() {
             <select className="init-select" value={r.status} onChange={e => update(r.id, { status: e.target.value })}>
               {Object.entries(RND_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
-            <button className="icon-btn-sm danger" title="Remove" onClick={() => { if (confirm(`Remove "${r.name}"?`)) dispatch({ type: 'REMOVE_RND_PROJECT', payload: r.id }); }}>×</button>
+            <button className="icon-btn-sm danger" title="Remove" onClick={async () => { if (await confirmDialog({ title: 'Remove R&D project', message: `Remove "${r.name}"?`, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_RND_PROJECT', payload: r.id }); }}>×</button>
           </div>
           <Field label="Accounting period(s)" value={r.accountingPeriods} onChange={v => update(r.id, { accountingPeriods: v })} placeholder="e.g. FY 2026" />
           <Field label="Advance sought" area value={r.advanceSought} onChange={v => update(r.id, { advanceSought: v })} />
@@ -98,7 +99,7 @@ function Grants() {
           <div className="rnd-card-top">
             <input className="rnd-name" value={g.funder} onChange={e => update(g.id, { funder: e.target.value })} placeholder="Funder" />
             <input className="init-text" value={g.reference} onChange={e => update(g.id, { reference: e.target.value })} placeholder="Reference" />
-            <button className="icon-btn-sm danger" title="Remove" onClick={() => { if (confirm(`Remove grant ${g.reference || ''}?`)) dispatch({ type: 'REMOVE_GRANT', payload: g.id }); }}>×</button>
+            <button className="icon-btn-sm danger" title="Remove" onClick={async () => { if (await confirmDialog({ title: 'Remove grant', message: `Remove grant ${g.reference || g.funder || ''}?`, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_GRANT', payload: g.id }); }}>×</button>
           </div>
           <div className="rnd-row-fields">
             <Field label="Budget £" type="number" value={g.budget} onChange={v => update(g.id, { budget: Number(v) || 0 })} />
