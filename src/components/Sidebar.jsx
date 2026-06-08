@@ -16,6 +16,7 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
   const [editingProject, setEditingProject] = useState(null);
   const [leaveModal, setLeaveModal] = useState(null); // person object
   const [quickPlanModal, setQuickPlanModal] = useState(null); // projectId
+  const [collapsedCustomers, setCollapsedCustomers] = useState(() => new Set());
 
   function addMember(e) {
     e.preventDefault();
@@ -48,6 +49,20 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
     return getWorkingDayRange(today, addDays(today, 27))
       .some(date => HALVES.some(h => !isSlotAvailable(personId, date, h, capacityOverrides)));
   }
+
+  // Group projects by customer = the first word of the project name.
+  const customerOf = name => (name || '').trim().split(/\s+/)[0] || 'Other';
+  const customerGroups = [];
+  const groupIndex = new Map();
+  for (const p of projects) {
+    const c = customerOf(p.name);
+    let g = groupIndex.get(c);
+    if (!g) { g = { customer: c, projects: [] }; groupIndex.set(c, g); customerGroups.push(g); }
+    g.projects.push(p);
+  }
+  const toggleCustomer = c => setCollapsedCustomers(s => {
+    const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n;
+  });
 
   return (
     <aside className="sidebar">
@@ -95,7 +110,18 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
       <section className="sidebar-section">
         <h3 className="sidebar-heading">Projects</h3>
         <ul className="sidebar-list">
-          {projects.map(p => (
+          {customerGroups.map(group => {
+            const collapsed = collapsedCustomers.has(group.customer);
+            return (
+            <li key={group.customer} className="customer-group">
+              <button type="button" className="customer-header" onClick={() => toggleCustomer(group.customer)}>
+                <svg className={`customer-chevron ${collapsed ? '' : 'open'}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                <span className="customer-name">{group.customer}</span>
+                <span className="customer-count">{group.projects.length}</span>
+              </button>
+              {!collapsed && (
+                <ul className="customer-projects">
+                  {group.projects.map(p => (
             <li key={p.id} className={`sidebar-item project-item ${selectedProjectId === p.id ? 'selected' : ''}`}>
               <div className="project-row" onClick={() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id)}>
                 <span className="project-dot" style={{ background: p.color }} />
@@ -171,7 +197,12 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 </div>
               )}
             </li>
-          ))}
+                  ))}
+                </ul>
+              )}
+            </li>
+            );
+          })}
         </ul>
         <form onSubmit={addProject} className="sidebar-add">
           <input value={newProject} onChange={e => setNewProject(e.target.value)} placeholder="Add project…" className="sidebar-input" />
