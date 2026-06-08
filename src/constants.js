@@ -57,6 +57,10 @@ export const VIEW_DAYS = 10;                 // 2 working weeks shown at once
 // Each person has 2 half-day slots per working day.
 export const SLOTS_PER_DAY = 2;
 
+// Innovate UK claimable caps (R&D time reporting).
+export const MAX_HOURS_PER_DAY = 8;
+export const MAX_HOURS_PER_WEEK = 40;
+
 // Ordered for stark contrast on consecutive picks: each color is ~opposite or
 // well-separated in hue from its neighbour, so the first N projects look as
 // distinct as possible.

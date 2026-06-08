@@ -36,4 +36,13 @@ export const api = {
     apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ data, name, lastKnownUpdatedAt }) }),
   renameDoc: (id, name) => apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   deleteDoc: (id) => apiFetch(`/docs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // R&D actuals (time entries) — separate per-row table, not the doc blob.
+  listTimeEntries: ({ from, to, personId } = {}) => {
+    const q = new URLSearchParams({ from, to, ...(personId ? { personId } : {}) });
+    return apiFetch(`/time-entries?${q.toString()}`);
+  },
+  createTimeEntries: (entries) => apiFetch('/time-entries', { method: 'POST', body: JSON.stringify({ entries }) }),
+  updateTimeEntry: (id, patch) => apiFetch(`/time-entries/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteTimeEntry: (id) => apiFetch(`/time-entries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

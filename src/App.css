@@ -2520,6 +2520,59 @@ body {
 
 .phase-empty-hint { position: absolute; left: 8px; top: 12px; font-size: 11px; color: var(--text-3); font-style: italic; }
 
+/* ============================================
+   Timesheet (R&D actuals)
+   ============================================ */
+.timesheet-view { padding: 16px 20px; overflow: auto; height: 100%; }
+.ts-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.ts-who { display: flex; align-items: center; gap: 8px; }
+.ts-who label { font-size: 12px; color: var(--text-3); }
+.ts-confirm-btn {
+  margin-left: auto; padding: 7px 16px; border: none; border-radius: 6px;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ts-confirm-btn:hover { background: var(--accent-dim); }
+.ts-confirm-btn:disabled { opacity: 0.5; cursor: default; }
+.ts-advisory {
+  font-size: 12px; color: var(--text-2); line-height: 1.5;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 14px;
+}
+.ts-error { color: #f87171; background: rgba(220,38,38,0.12); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
+
+.ts-days { display: flex; flex-direction: column; gap: 12px; }
+.ts-day { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.ts-day-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border);
+}
+.ts-day-label { font-weight: 600; color: var(--text-1); font-size: 13px; }
+.ts-day-total { font-size: 12px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; }
+.ts-day-total.over { color: #f87171; font-weight: 600; }
+.ts-empty { padding: 10px 12px; font-size: 12px; color: var(--text-3); font-style: italic; }
+.ts-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); }
+.ts-row:first-of-type { border-top: none; }
+.ts-proj { display: flex; align-items: center; gap: 7px; width: 200px; min-width: 200px; color: var(--text-1); font-size: 13px; }
+.ts-hours {
+  width: 70px; padding: 5px 7px; text-align: right;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-1); font-size: 13px; font-family: 'JetBrains Mono', monospace; outline: none;
+}
+.ts-hours:focus { border-color: var(--accent); }
+.ts-desc {
+  flex: 1; padding: 5px 8px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-1); font-size: 13px; outline: none;
+}
+.ts-desc:focus { border-color: var(--accent); }
+.ts-desc:disabled, .ts-hours:disabled { opacity: 0.6; cursor: not-allowed; }
+.ts-status { white-space: nowrap; }
+.ts-status-unsaved { background: rgba(99,107,130,0.18); color: var(--text-3); }
+.ts-status-draft { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.ts-status-confirmed { background: rgba(34,197,94,0.15); color: #4ade80; }
+.ts-status-authorised { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+.ts-status-locked { background: rgba(99,107,130,0.25); color: var(--text-2); }
+
 /* --- Shared-workspace: "edited by" meta + conflict banner --- */
 .doc-meta {
   font-size: 11px;

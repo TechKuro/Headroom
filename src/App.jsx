@@ -6,6 +6,7 @@ import StandupView from './components/StandupView';
 import PeopleCostView from './components/PeopleCostView';
 import PlanningView from './components/PlanningView';
 import TimelineView from './components/TimelineView';
+import TimesheetView from './components/TimesheetView';
 import HeatmapView from './components/HeatmapView';
 import ProjectView from './components/ProjectView';
 import PhaseModal from './components/PhaseModal';
@@ -114,6 +115,7 @@ export default function App() {
           <button className={`tab ${view === 'project' ? 'active' : ''}`} onClick={() => setView('project')}>Project</button>
           <button className={`tab ${view === 'standup' ? 'active' : ''}`} onClick={() => setView('standup')}>Standup</button>
           <button className={`tab ${view === 'people' ? 'active' : ''}`} onClick={() => setView('people')}>People &amp; Cost</button>
+          <button className={`tab ${view === 'timesheet' ? 'active' : ''}`} onClick={() => setView('timesheet')}>Timesheet</button>
         </nav>
 
         <div className="header-right">
@@ -235,6 +237,7 @@ export default function App() {
           {view === 'overview' && <OverviewView />}
           {view === 'standup' && <StandupView />}
           {view === 'people' && <PeopleCostView />}
+          {view === 'timesheet' && <TimesheetView />}
           {view === 'planning' && (
             <PlanningView
               viewStart={viewStart}

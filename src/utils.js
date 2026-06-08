@@ -267,6 +267,31 @@ export function getOverCommitment(team, projects, whatIfProject = null) {
   return result;
 }
 
+/**
+ * Pre-fill rows for the R&D timesheet: a person's planned half-day allocation
+ * over `days`, grouped per (working day × tracker project), with hours =
+ * slots × 4. The engineer confirms/edits these into actual TimeEntry records.
+ */
+export function getPlannedByDayProject(personId, days, projects) {
+  const map = getPersonSlotMap(personId, projects);
+  const rows = [];
+  for (const date of days) {
+    const byProject = new Map();
+    for (const half of HALVES) {
+      for (const c of (map.get(`${date}|${half}`) || [])) {
+        const p = byProject.get(c.projectId)
+          || { date, trackerProjectId: c.projectId, projectName: c.projectName, projectColor: c.projectColor, slots: 0 };
+        p.slots += 1;
+        byProject.set(c.projectId, p);
+      }
+    }
+    for (const p of byProject.values()) {
+      rows.push({ date: p.date, trackerProjectId: p.trackerProjectId, projectName: p.projectName, projectColor: p.projectColor, hours: p.slots * HOURS_PER_HALF_DAY });
+    }
+  }
+  return rows;
+}
+
 // load/capacity as a percentage (capacity in halves; e.g. 1 of 2 halves = 50%).
 export function getEffectiveUtilisation(load, capacity) {
   if (capacity <= 0) return load > 0 ? 999 : 0;
