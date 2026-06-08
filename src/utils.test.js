@@ -5,7 +5,7 @@ import {
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk,
-  getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation,
+  getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
@@ -173,6 +173,30 @@ describe('slot map / over-commitment', () => {
     const u = getPersonUtilisation('p1', [WK[0], WK[1]], [a, b]);
     expect(u[0]).toMatchObject({ date: WK[0], halvesFilled: 1, doubleBooked: true, util: 50 });
     expect(u[1]).toMatchObject({ date: WK[1], halvesFilled: 1, util: 50 });
+  });
+});
+
+describe('getPlannedByDayProject (timesheet pre-fill)', () => {
+  it('groups a person\'s slots into per-day, per-project hours', () => {
+    const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0), slot('p1', 0, 'pm'), slot('p1', 1)])] };
+    const rows = getPlannedByDayProject('p1', [WK[0], WK[1]], [a]);
+    expect(rows).toEqual([
+      { date: WK[0], trackerProjectId: 'A', projectName: 'A', projectColor: '#f00', hours: 8 },
+      { date: WK[1], trackerProjectId: 'A', projectName: 'A', projectColor: '#f00', hours: 4 },
+    ]);
+  });
+
+  it('splits a day across projects (4h each)', () => {
+    const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0, 'am')])] };
+    const b = { id: 'B', name: 'B', color: '#0f0', phases: [phase([slot('p1', 0, 'pm')])] };
+    const rows = getPlannedByDayProject('p1', [WK[0]], [a, b]);
+    expect(rows).toHaveLength(2);
+    expect(rows.map(r => r.hours)).toEqual([4, 4]);
+  });
+
+  it('returns nothing for a person with no planned slots', () => {
+    const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0)])] };
+    expect(getPlannedByDayProject('nobody', [WK[0]], [a])).toEqual([]);
   });
 });
 
