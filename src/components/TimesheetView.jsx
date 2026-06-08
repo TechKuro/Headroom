@@ -32,6 +32,7 @@ export default function TimesheetView() {
 
   const days = useMemo(() => getWorkingDayRange(weekStart, addDays(weekStart, 4)), [weekStart]);
   const person = team.find(m => m.id === personId);
+  const today = getCurrentDate(); // can't confirm time for a day that hasn't happened yet
 
   const load = useCallback(async () => {
     if (!personId || days.length === 0) return;
@@ -96,6 +97,7 @@ export default function TimesheetView() {
 
   // Confirm (lock in) a single day's rows.
   async function confirmDay(date, dayRows) {
+    if (date > today) return; // guard: never confirm a future day
     setLoading(true); setError(null);
     try {
       const toCreate = [];
@@ -158,6 +160,7 @@ export default function TimesheetView() {
           const dayRows = rowsByDay.get(date) || [];
           const total = dayRows.reduce((s, r) => s + (Number(r.hours) || 0), 0);
           const over = total > MAX_HOURS_PER_DAY;
+          const isFuture = date > today;
           return (
             <div key={date} className="ts-day">
               <div className="ts-day-head">
@@ -169,9 +172,10 @@ export default function TimesheetView() {
                   <button
                     className="ts-day-confirm"
                     onClick={() => confirmDay(date, dayRows)}
-                    disabled={loading || !dayConfirmable(dayRows)}
+                    disabled={loading || isFuture || !dayConfirmable(dayRows)}
+                    title={isFuture ? "You can't confirm time for a day that hasn't happened yet" : undefined}
                   >
-                    Confirm
+                    {isFuture ? 'Upcoming' : 'Confirm'}
                   </button>
                 </div>
               </div>
