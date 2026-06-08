@@ -2747,3 +2747,24 @@ body {
 /* In-app confirm dialog (reuses .modal / .btn) */
 .confirm-modal { max-width: 440px; }
 .confirm-message { font-size: 14px; color: var(--text-2); line-height: 1.5; }
+
+/* Sidebar: projects grouped under collapsible customer headers */
+.customer-group { margin-bottom: 2px; }
+.customer-header {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 6px 8px; background: none; border: none; cursor: pointer;
+  color: var(--text-2); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; border-radius: 6px;
+}
+.customer-header:hover { background: var(--bg-2); color: var(--text-1); }
+.customer-chevron { flex-shrink: 0; color: var(--text-3); transition: transform 0.15s; }
+.customer-chevron.open { transform: rotate(90deg); }
+.customer-name { flex: 1; text-align: left; }
+.customer-count {
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+  background: var(--bg-2); border-radius: 10px; padding: 1px 7px;
+}
+.customer-projects {
+  list-style: none; margin: 2px 0 6px 12px; padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
