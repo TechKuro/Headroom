@@ -27,6 +27,16 @@
 
   /* --- Design tokens (governance: prefer these over ad-hoc values) --- */
   --info: var(--accent);
+  /* Status tints — soft background (derived from the base hue) + readable text.
+     Dark theme uses the lighter -400 text shade; light theme overrides below. */
+  --success-text: #4ade80;
+  --warning-text: #fbbf24;
+  --danger-text:  #f87171;
+  --info-text:    #a5b4fc;
+  --success-soft: color-mix(in srgb, var(--success) 15%, transparent);
+  --warning-soft: color-mix(in srgb, var(--warning) 15%, transparent);
+  --danger-soft:  color-mix(in srgb, var(--danger) 15%, transparent);
+  --info-soft:    color-mix(in srgb, var(--info) 15%, transparent);
   /* Spacing scale */
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px;  --s-4: 16px;  --s-5: 24px;  --s-6: 32px;
   /* Radius scale */
@@ -59,6 +69,11 @@
   --danger: #dc2626;
   --surface: #ffffff;
   --surface-2: #eef1f6;
+  /* On white, the lighter -400 tints wash out — use the base hue for contrast. */
+  --success-text: var(--success);
+  --warning-text: var(--warning);
+  --danger-text:  var(--danger);
+  --info-text:    var(--accent);
 }
 
 *, *::before, *::after {
@@ -1161,8 +1176,8 @@ body {
 .wii-warn {
   font-size: 11px;
   font-weight: 600;
-  color: #f87171;
-  background: rgba(220, 38, 38, 0.15);
+  color: var(--danger-text);
+  background: var(--danger-soft);
   border-radius: 4px;
   padding: 2px 8px;
   cursor: default;
@@ -1390,7 +1405,7 @@ body {
    ============================================ */
 
 .heatmap-cell.has-whatif {
-  border: 1px dashed rgba(245, 158, 11, 0.5);
+  border: 1px dashed color-mix(in srgb, var(--warning) 50%, transparent);
 }
 
 .heatmap-whatif-delta {
@@ -1591,8 +1606,8 @@ body {
 
 .timeline-cell.finder-match,
 .heatmap-cell.finder-match {
-  background: rgba(34, 197, 94, 0.12) !important;
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.3);
+  background: color-mix(in srgb, var(--success) 12%, transparent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 30%, transparent);
 }
 
 
@@ -2011,18 +2026,18 @@ body {
      light theme, where the translucent fills alone read too faint. */
   border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
 }
-.badge-type-client    { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
+.badge-type-client    { background: var(--info-soft);    color: var(--info-text); }
 .badge-type-internal  { background: rgba(160, 168, 190, 0.12); color: var(--text-2); }
-.badge-status-done    { background: rgba(34, 197, 94, 0.15);  color: #4ade80; }
-.badge-status-progress{ background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.badge-status-done    { background: var(--success-soft); color: var(--success-text); }
+.badge-status-progress{ background: var(--warning-soft); color: var(--warning-text); }
 .badge-status-backlog { background: rgba(99, 107, 130, 0.18); color: var(--text-2); }
 .badge-chargeable     { background: rgba(6, 182, 212, 0.15);  color: #22d3ee; }
 
 /* Risk levels — green → amber → orange → red, matching the load palette. */
-.badge-risk-low       { background: rgba(34, 197, 94, 0.15);  color: #4ade80; }
-.badge-risk-watch     { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.badge-risk-low       { background: var(--success-soft); color: var(--success-text); }
+.badge-risk-watch     { background: var(--warning-soft); color: var(--warning-text); }
 .badge-risk-at-risk   { background: rgba(234, 88, 12, 0.18);  color: #fb923c; }
-.badge-risk-critical  { background: rgba(220, 38, 38, 0.18);  color: #f87171; }
+.badge-risk-critical  { background: var(--danger-soft);  color: var(--danger-text); }
 /* Data-completeness flag — neutral/dashed, clearly not a risk level. */
 .badge-needs-info {
   background: transparent;
@@ -2242,8 +2257,8 @@ body {
 .standup-overload {
   margin-top: 12px;
   font-size: 12px; font-weight: 600;
-  color: #f87171;
-  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger-text);
+  background: var(--danger-soft);
   border-radius: 6px;
   padding: 6px 10px;
   cursor: default;
@@ -2395,7 +2410,7 @@ body {
 .pc-bar { display: flex; height: 100%; border-radius: 4px; overflow: hidden; }
 .pc-seg { height: 100%; }
 .pc-seg-labels { display: flex; gap: 14px; font-size: 11px; }
-.pc-label.client { color: #a5b4fc; }
+.pc-label.client { color: var(--info-text); }
 .pc-label.internal { color: var(--text-2); }
 .pc-label.none { color: var(--text-3); font-style: italic; }
 
@@ -2423,7 +2438,7 @@ body {
 .pc-stats { display: flex; gap: 18px; flex-wrap: wrap; }
 .pc-stat { text-align: right; min-width: 52px; }
 .pc-stat-value { font-size: 14px; font-weight: 700; color: var(--text-1); font-family: 'JetBrains Mono', monospace; }
-.pc-stat-value.tone-warn { color: #fbbf24; }
+.pc-stat-value.tone-warn { color: var(--warning-text); }
 .pc-stat-value.tone-neg { color: var(--danger); }
 .pc-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
 
@@ -2442,7 +2457,7 @@ body {
 .pc-warn {
   font-size: 11px; font-weight: 600;
   padding: 2px 8px; border-radius: 4px;
-  background: rgba(220, 38, 38, 0.15); color: #f87171;
+  background: var(--danger-soft); color: var(--danger-text);
 }
 
 /* ============================================
@@ -2539,7 +2554,7 @@ body {
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 12px; margin-bottom: 14px;
 }
-.ts-error { color: #f87171; background: rgba(220,38,38,0.12); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
+.ts-error { color: var(--danger-text); background: var(--danger-soft); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
 
 .ts-days { display: flex; flex-direction: column; gap: 12px; }
 .ts-day { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -2550,7 +2565,7 @@ body {
 .ts-day-label { font-weight: 600; color: var(--text-1); font-size: 13px; }
 .ts-day-right { display: flex; align-items: center; gap: 12px; }
 .ts-day-total { font-size: 12px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; }
-.ts-day-total.over { color: #f87171; font-weight: 600; }
+.ts-day-total.over { color: var(--danger-text); font-weight: 600; }
 .ts-empty { padding: 10px 12px; font-size: 12px; color: var(--text-3); font-style: italic; }
 .ts-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); }
 .ts-row:first-of-type { border-top: none; }
@@ -2570,9 +2585,9 @@ body {
 .ts-desc:disabled, .ts-hours:disabled { opacity: 0.6; cursor: not-allowed; }
 .ts-status { white-space: nowrap; }
 .ts-status-unsaved { background: rgba(99,107,130,0.18); color: var(--text-3); }
-.ts-status-draft { background: rgba(245,158,11,0.15); color: #fbbf24; }
-.ts-status-confirmed { background: rgba(34,197,94,0.15); color: #4ade80; }
-.ts-status-authorised { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+.ts-status-draft { background: var(--warning-soft); color: var(--warning-text); }
+.ts-status-confirmed { background: var(--success-soft); color: var(--success-text); }
+.ts-status-authorised { background: var(--info-soft); color: var(--info-text); }
 .ts-status-locked { background: rgba(99,107,130,0.25); color: var(--text-2); }
 
 /* ============================================
@@ -2584,16 +2599,16 @@ body {
 .av-person-head { padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-1); }
 .av-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13px; }
 .av-row:first-of-type { border-top: none; }
-.av-row.av-adjust { background: rgba(99,102,241,0.06); }
+.av-row.av-adjust { background: color-mix(in srgb, var(--info) 6%, transparent); }
 .av-date { width: 110px; min-width: 110px; color: var(--text-2); }
 .av-proj { display: flex; align-items: center; gap: 7px; width: 200px; min-width: 200px; color: var(--text-1); }
 .av-hours { width: 130px; min-width: 130px; color: var(--text-1); font-family: 'JetBrains Mono', monospace; }
 .av-desc { flex: 1; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .av-flag {
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.18); color: #fbbf24;
+  padding: 1px 6px; border-radius: 4px; background: var(--warning-soft); color: var(--warning-text);
 }
-.av-flag.over { background: rgba(220,38,38,0.18); color: #f87171; }
+.av-flag.over { background: var(--danger-soft); color: var(--danger-text); }
 .av-adjust-edit { display: inline-flex; align-items: center; gap: 6px; }
 .av-adjust-input {
   width: 60px; padding: 3px 6px; text-align: right;
@@ -2631,12 +2646,12 @@ body {
 .rnd-classify-head { background: var(--bg-2); border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); }
 .rnd-classify-row { border-top: 1px solid var(--border); font-size: 12px; color: var(--text-1); }
 .rnd-classify-row:first-of-type { border-top: none; }
-.rnd-classify-row.incomplete { background: rgba(245, 158, 11, 0.07); }
+.rnd-classify-row.incomplete { background: color-mix(in srgb, var(--warning) 7%, transparent); }
 .rnd-classify-row select { padding: 4px 6px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text-1); font-size: 12px; outline: none; }
 .rnd-classify-row select.needs { border-color: var(--danger); }
 
 /* R&D packs */
-.pack-draft { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); border-radius: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; margin-bottom: 14px; }
+.pack-draft { background: var(--warning-soft); color: var(--warning-text); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); border-radius: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; margin-bottom: 14px; }
 .pack-controls { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
 .pack-controls label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-3); }
 .pack-controls select, .pack-controls input { padding: 6px 8px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-1); font-size: 13px; outline: none; }
