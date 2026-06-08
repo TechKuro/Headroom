@@ -8,6 +8,7 @@ import {
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
   claimableHours, daysAfter, isLateConfirmation, isQualifying, classificationComplete,
+  resolveEffectiveEntries, getClaimableByPerson, toCsv,
   formatCurrency, formatSignedCurrency, formatHours,
 } from './utils';
 import { DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY } from './constants';
@@ -357,6 +358,46 @@ describe('R&D time validation (§4)', () => {
     // qualifying requires one
     expect(classificationComplete('qualifying_direct', null)).toBe(false);
     expect(classificationComplete('qualifying_direct', 'grant_funded')).toBe(true);
+  });
+});
+
+describe('R&D reporting (Phase 4)', () => {
+  it('resolveEffectiveEntries counts only authorised/locked and folds adjustments', () => {
+    const entries = [
+      { id: 'A', person_id: 'p1', work_date: '2025-06-02', hours: 4, status: 'authorised', adjusts_entry_id: null, created_at: '2025-06-10T00:00:00Z' },
+      { id: 'B', person_id: 'p1', work_date: '2025-06-03', hours: 8, status: 'confirmed', adjusts_entry_id: null, created_at: '2025-06-10T00:00:00Z' },
+      { id: 'C', person_id: 'p1', work_date: '2025-06-02', hours: 6, status: 'authorised', adjusts_entry_id: 'A', created_at: '2025-06-12T00:00:00Z' },
+    ];
+    const eff = resolveEffectiveEntries(entries);
+    expect(eff).toHaveLength(1);
+    expect(eff[0].id).toBe('A');
+    expect(eff[0].hours).toBe(6);          // adjustment supersedes
+    expect(eff[0]._adjusted).toBe(true);
+  });
+
+  it('ignores an unauthorised adjustment', () => {
+    const entries = [
+      { id: 'A', person_id: 'p1', work_date: '2025-06-02', hours: 4, status: 'authorised', created_at: '2025-06-10T00:00:00Z' },
+      { id: 'C', person_id: 'p1', work_date: '2025-06-02', hours: 6, status: 'confirmed', adjusts_entry_id: 'A', created_at: '2025-06-12T00:00:00Z' },
+    ];
+    expect(resolveEffectiveEntries(entries)[0].hours).toBe(4);
+  });
+
+  it('getClaimableByPerson applies the day cap then the week cap', () => {
+    const r1 = getClaimableByPerson([
+      { person_id: 'p1', person_name: 'Pat', work_date: '2025-06-02', hours: 10 },
+      { person_id: 'p1', person_name: 'Pat', work_date: '2025-06-03', hours: 4 },
+    ]);
+    expect(r1.p1.actual).toBe(14);
+    expect(r1.p1.claimable).toBe(12);      // min(10,8) + 4
+
+    const r2 = getClaimableByPerson(WK.map(d => ({ person_id: 'p1', work_date: d, hours: 10 })));
+    expect(r2.p1.actual).toBe(50);
+    expect(r2.p1.claimable).toBe(40);      // 5×8 = 40, week cap
+  });
+
+  it('toCsv quotes fields containing commas/quotes', () => {
+    expect(toCsv(['a', 'b'], [['x', 'y,z'], ['p"q', 'r']])).toBe('a,b\nx,"y,z"\n"p""q",r');
   });
 });
 

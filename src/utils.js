@@ -1,4 +1,4 @@
-import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS, MAX_HOURS_PER_DAY, MAX_HOURS_PER_WEEK } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -707,6 +707,77 @@ export function daysAfter(workDate, confirmedAt) {
 export function isLateConfirmation(workDate, confirmedAt, days = LATE_CONFIRMATION_DAYS) {
   if (!workDate || !confirmedAt) return false;
   return daysAfter(workDate, confirmedAt) > days;
+}
+
+// --- R&D reporting (Phase 4 packs) ---
+
+function mondayStr(date) {
+  let d = String(date).slice(0, 10);
+  while (new Date(d + 'T12:00:00').getDay() !== 1) d = addDays(d, -1);
+  return d;
+}
+
+/**
+ * Collapse a raw entry list to the EFFECTIVE set that counts toward a pack:
+ * only authorised/locked entries, with any authorised/locked adjusting entry
+ * superseding its target's hours (latest wins). Adjusting entries are folded
+ * into their target, never counted on their own — so no double-counting.
+ */
+export function resolveEffectiveEntries(entries) {
+  const counts = e => e.status === 'authorised' || e.status === 'locked';
+  const adjByTarget = new Map();
+  for (const e of entries) {
+    if (e.adjusts_entry_id && counts(e)) {
+      const cur = adjByTarget.get(e.adjusts_entry_id);
+      if (!cur || String(e.created_at) > String(cur.created_at)) adjByTarget.set(e.adjusts_entry_id, e);
+    }
+  }
+  const out = [];
+  for (const e of entries) {
+    if (e.adjusts_entry_id) continue;
+    if (!counts(e)) continue;
+    const adj = adjByTarget.get(e.id);
+    out.push(adj ? { ...e, hours: Number(adj.hours), description: adj.description ?? e.description, _adjusted: true } : e);
+  }
+  return out;
+}
+
+/**
+ * Per-person actual vs claimable hours, applying the day cap then the week cap
+ * ("only the cap is claimable"). Input: effective entries with person_id,
+ * work_date, hours.
+ */
+export function getClaimableByPerson(entries, dayCap = MAX_HOURS_PER_DAY, weekCap = MAX_HOURS_PER_WEEK) {
+  const byPerson = new Map();
+  for (const e of entries) {
+    const pid = e.person_id;
+    const date = String(e.work_date).slice(0, 10);
+    const rec = byPerson.get(pid) || { actual: 0, byDay: new Map(), name: e.person_name || pid };
+    const h = Number(e.hours) || 0;
+    rec.actual += h;
+    rec.byDay.set(date, (rec.byDay.get(date) || 0) + h);
+    byPerson.set(pid, rec);
+  }
+  const out = {};
+  for (const [pid, rec] of byPerson) {
+    const byWeek = new Map();
+    for (const [date, h] of rec.byDay) {
+      byWeek.set(mondayStr(date), (byWeek.get(mondayStr(date)) || 0) + Math.min(h, dayCap));
+    }
+    let claimable = 0;
+    for (const wk of byWeek.values()) claimable += Math.min(wk, weekCap);
+    out[pid] = { name: rec.name, actual: rec.actual, claimable };
+  }
+  return out;
+}
+
+/** Render rows to CSV (RFC-4180 quoting). */
+export function toCsv(headers, rows) {
+  const esc = v => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers, ...rows].map(r => r.map(esc).join(',')).join('\n');
 }
 
 // --- Formatting ---
