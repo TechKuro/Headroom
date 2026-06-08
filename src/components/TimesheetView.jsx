@@ -85,18 +85,22 @@ export default function TimesheetView() {
     return m;
   }, [rows, days]);
 
-  const dirty = Object.keys(edits).length > 0 || rows.some(r => r.status === 'unsaved' && r.hours > 0);
-
   function setEdit(key, patch) { setEdits(e => ({ ...e, [key]: { ...(e[key] || {}), ...patch } })); }
 
   const editable = r => r.status !== 'authorised' && r.status !== 'locked';
 
-  async function confirmWeek() {
+  // A day is confirmable when it has new hours to save or edits to existing entries.
+  const dayConfirmable = dayRows => dayRows.some(r => editable(r) && (
+    (!r.id && Number(r.hours) > 0 && r.projectId) || (r.id && edits[r.key])
+  ));
+
+  // Confirm (lock in) a single day's rows.
+  async function confirmDay(date, dayRows) {
     setLoading(true); setError(null);
     try {
       const toCreate = [];
       const toUpdate = [];
-      for (const r of rows) {
+      for (const r of dayRows) {
         if (!editable(r)) continue;
         if (!r.id) {
           if (Number(r.hours) > 0 && r.projectId) {
@@ -111,7 +115,8 @@ export default function TimesheetView() {
       }
       if (toCreate.length) await api.createTimeEntries(toCreate);
       for (const u of toUpdate) await api.updateTimeEntry(u.id, { hours: u.hours, description: u.description, status: u.status });
-      addToast(`Confirmed ${toCreate.length + toUpdate.length} entr${toCreate.length + toUpdate.length === 1 ? 'y' : 'ies'}`, 'success');
+      const n = toCreate.length + toUpdate.length;
+      addToast(`Confirmed ${dayLabel(date)} — ${n} entr${n === 1 ? 'y' : 'ies'}`, 'success');
       await load();
     } catch (e) {
       setError(e?.message || 'Save failed.');
@@ -139,14 +144,11 @@ export default function TimesheetView() {
           <button className="text-btn" onClick={() => setWeekStart(mondayOf(getCurrentDate()))}>This week</button>
           <button className="icon-btn" onClick={() => setWeekStart(w => mondayOf(addDays(w, 7)))} title="Next week">›</button>
         </div>
-        <button className="ts-confirm-btn" onClick={confirmWeek} disabled={loading || !dirty}>
-          {loading ? 'Saving…' : 'Confirm week'}
-        </button>
       </div>
 
       <div className="ts-advisory">
-        Pre-filled from the plan. Confirm your <strong>actual</strong> hours and add an activity note.
-        Authorisation &amp; locking are advisory until server enforcement is enabled.
+        Pre-filled from the plan. Adjust your <strong>actual</strong> hours, add an activity note, and
+        <strong> Confirm</strong> each day to lock it in. Authorisation &amp; locking are advisory until server enforcement is enabled.
       </div>
 
       {error && <div className="ts-error">{error}</div>}
@@ -160,9 +162,18 @@ export default function TimesheetView() {
             <div key={date} className="ts-day">
               <div className="ts-day-head">
                 <span className="ts-day-label">{dayLabel(date)}</span>
-                <span className={`ts-day-total ${over ? 'over' : ''}`}>
-                  {formatHours(total)}{over ? ` · over ${MAX_HOURS_PER_DAY}h cap` : ''}
-                </span>
+                <div className="ts-day-right">
+                  <span className={`ts-day-total ${over ? 'over' : ''}`}>
+                    {formatHours(total)}{over ? ` · over ${MAX_HOURS_PER_DAY}h cap` : ''}
+                  </span>
+                  <button
+                    className="ts-day-confirm"
+                    onClick={() => confirmDay(date, dayRows)}
+                    disabled={loading || !dayConfirmable(dayRows)}
+                  >
+                    Confirm
+                  </button>
+                </div>
               </div>
               {dayRows.length === 0 ? (
                 <div className="ts-empty">No planned work.</div>
