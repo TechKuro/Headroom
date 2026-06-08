@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import {
-  getInitiative, getProjectLabourSummary, getRoi,
+  getInitiative, getProjectLabourSummary, getRoi, getPhasePersonIds,
   getPersonSlotMap, getPersonUtilisation, getProjectEndMonth,
-  getCurrentMonth, getCurrentDate, addDays, getWorkingDayRange, monthDiff, dateToMonth,
+  getCurrentMonth, getCurrentDate, addDays, getWorkingDayRange, monthDiff, dateToMonth, formatDateShort,
   formatCurrency, formatSignedCurrency, formatHours, genId,
 } from '../utils';
 import { INITIATIVE_TYPES, INITIATIVE_STATUSES, HALVES } from '../constants';
@@ -60,8 +60,13 @@ export default function StandupView() {
       const { roi } = getRoi(init.estimatedValue, summary.cost);
       const endMonth = getProjectEndMonth(p);
       const toDeadline = endMonth ? monthDiff(now, dateToMonth(endMonth)) : null;
+      const peopleIds = new Set();
+      for (const ph of p.phases || []) for (const id of getPhasePersonIds(ph)) peopleIds.add(id);
+      const people = [...peopleIds].map(id => team.find(m => m.id === id)?.name).filter(Boolean);
       return {
         id: p.id, name: p.name, color: p.color, init, hours, cost: hours * blendedRate, roi,
+        start: p.start, deadline: p.deadline, people,
+        totalCost: summary.cost, totalHours: summary.totalHours,
         activeNow: activeIds.has(p.id),
         overdue: init.status !== 'done' && toDeadline !== null && toDeadline < 0,
         deadlineSoon: init.status !== 'done' && toDeadline !== null && toDeadline >= 0 && toDeadline <= 2,
@@ -199,6 +204,27 @@ export default function StandupView() {
                     <div className="standup-project-top">
                       <span className="project-dot" style={{ background: x.color }} />
                       <strong>{x.name}</strong>
+                      <span className="standup-info" tabIndex={0} role="img" aria-label={`${x.name} details`}
+                        onClick={e => e.stopPropagation()}>
+                        i
+                        <span className="standup-info-pop" style={{ borderColor: x.color }}>
+                          <span className="sip-title" style={{ color: x.color }}>{x.name}</span>
+                          {x.init.description && <span className="sip-desc">{x.init.description}</span>}
+                          <span className="sip-badges">
+                            <span className={`badge badge-type-${x.init.type}`}>{INITIATIVE_TYPES[x.init.type]?.label}</span>
+                            <span className={`badge badge-status-${x.init.status}`}>{INITIATIVE_STATUSES[x.init.status]?.label}</span>
+                            {x.init.chargeable && <span className="badge badge-chargeable">Chargeable</span>}
+                          </span>
+                          <span className="sip-rows">
+                            <span><b>Runs</b>{(x.start || x.deadline) ? `${x.start ? formatDateShort(x.start) : '?'} → ${x.deadline ? formatDateShort(x.deadline) : '?'}` : '—'}</span>
+                            <span><b>Progress</b>{x.init.progress}%</span>
+                            <span><b>Total effort</b>{formatHours(x.totalHours)} · {formatCurrency(x.totalCost)}</span>
+                            <span><b>Est. value</b>{x.init.estimatedValue > 0 ? formatCurrency(x.init.estimatedValue) : '—'}{x.init.valueNote ? ` (${x.init.valueNote})` : ''}</span>
+                            <span><b>ROI</b><span className={x.roi >= 0 ? 'pos' : 'neg'}>{formatSignedCurrency(x.roi)}</span></span>
+                            <span><b>Team</b>{x.people.length ? x.people.join(', ') : '—'}</span>
+                          </span>
+                        </span>
+                      </span>
                     </div>
                     <div className="ov-badges">
                       <span className={`badge badge-type-${x.init.type}`}>{INITIATIVE_TYPES[x.init.type]?.label}</span>
