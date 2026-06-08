@@ -196,7 +196,7 @@ export default function StandupView() {
               <button className={`ov-filter-btn ${scope === 'active' ? 'active' : ''}`} onClick={() => setScope('active')}>Next 2 weeks</button>
               <button className={`ov-filter-btn ${scope === 'all' ? 'active' : ''}`} onClick={() => setScope('all')}>All assigned</button>
             </div>
-            <button className="standup-copy-btn" onClick={copySummary} disabled={!person}>Copy summary</button>
+            <button className="btn btn-secondary btn-sm" onClick={copySummary} disabled={!person}>Copy summary</button>
           </div>
 
           {visible.length === 0 ? (

@@ -120,7 +120,7 @@ function GrantPack() {
             {[1, 2, 3, 4].map(q => <option key={q} value={q}>Q{q}</option>)}
           </select>
         </label>
-        <button className="ts-confirm-btn" onClick={generate} disabled={loading || !grant}>{loading ? 'Generating…' : 'Generate'}</button>
+        <button className="btn btn-primary" onClick={generate} disabled={loading || !grant}>{loading ? 'Generating…' : 'Generate'}</button>
       </div>
       {error && <div className="ts-error">{error}</div>}
 
@@ -160,7 +160,7 @@ function GrantPack() {
               </table>
               <div className="pack-foot">
                 <span className="pack-note">* claimable capped at {MAX_HOURS_PER_DAY}h/day, 40h/week. Generated {new Date(result.generatedAt).toLocaleString('en-GB')}.</span>
-                <button className="ts-lock-btn" onClick={exportCsv}>Download CSV</button>
+                <button className="btn btn-secondary" onClick={exportCsv}>Download CSV</button>
               </div>
             </>
           )}
@@ -233,7 +233,7 @@ function ReliefPack() {
             {rndProjects.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </label>
-        <button className="ts-confirm-btn" onClick={generate} disabled={loading}>{loading ? 'Generating…' : 'Generate'}</button>
+        <button className="btn btn-primary" onClick={generate} disabled={loading}>{loading ? 'Generating…' : 'Generate'}</button>
       </div>
       {error && <div className="ts-error">{error}</div>}
 
@@ -261,7 +261,7 @@ function ReliefPack() {
           </table>
           <div className="pack-foot">
             <span className="pack-note">No £ relief computed — for the specialist to apply current scheme rules. Generated {new Date(result.generatedAt).toLocaleString('en-GB')}.</span>
-            <button className="ts-lock-btn" onClick={exportCsv}>Download CSV</button>
+            <button className="btn btn-secondary" onClick={exportCsv}>Download CSV</button>
           </div>
         </>
       ))}

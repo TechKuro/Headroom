@@ -135,10 +135,10 @@ export default function AuthoriseView() {
         </div>
         <span className="alloc-hint">{dayLabel(from)} – {dayLabel(to)}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button className="ts-confirm-btn" onClick={authorise} disabled={loading || selected.size === 0}>
+          <button className="btn btn-primary" onClick={authorise} disabled={loading || selected.size === 0}>
             Authorise selected ({selected.size})
           </button>
-          <button className="ts-lock-btn" onClick={lockWeek} disabled={loading}>Lock week</button>
+          <button className="btn btn-secondary" onClick={lockWeek} disabled={loading}>Lock week</button>
         </div>
       </div>
 
@@ -182,11 +182,11 @@ export default function AuthoriseView() {
                       <input type="number" min="0" max="24" step="0.5" className="av-adjust-input" autoFocus
                         value={adjustHours} onChange={ev => setAdjustHours(ev.target.value)}
                         onKeyDown={ev => { if (ev.key === 'Enter') saveAdjust(e); if (ev.key === 'Escape') setAdjustId(null); }} />
-                      <button className="av-adjust-btn" disabled={loading} onClick={() => saveAdjust(e)}>Save</button>
-                      <button className="av-adjust-btn" onClick={() => setAdjustId(null)}>Cancel</button>
+                      <button className="btn btn-primary btn-sm" disabled={loading} onClick={() => saveAdjust(e)}>Save</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setAdjustId(null)}>Cancel</button>
                     </span>
                   ) : (
-                    <button className="av-adjust-btn" onClick={() => startAdjust(e)}>Adjust</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => startAdjust(e)}>Adjust</button>
                   )
                 )}
               </div>

@@ -55,8 +55,8 @@ export default function ConflictBanner() {
           : <><strong>{who}</strong> just updated this plan.</>}
       </span>
       <div className="conflict-actions">
-        <button className="conflict-btn primary" onClick={reload} disabled={busy}>Reload theirs</button>
-        <button className="conflict-btn" onClick={keepMine} disabled={busy}>
+        <button className="btn btn-primary btn-sm" onClick={reload} disabled={busy}>Reload theirs</button>
+        <button className="btn btn-secondary btn-sm" onClick={keepMine} disabled={busy}>
           {conflict.kind === 'save' ? 'Overwrite with mine' : 'Keep mine'}
         </button>
       </div>

@@ -28,7 +28,7 @@ export default function LoginPage({ onContinue }) {
           placeholder="Your name"
           aria-label="Your name"
         />
-        <button className="login-btn" type="submit" disabled={!name.trim()}>Continue</button>
+        <button className="btn btn-primary login-btn" type="submit" disabled={!name.trim()}>Continue</button>
       </form>
     </div>
   );
