@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { onConfirm } from '../confirm';
+import { useFocusTrap } from '../a11y';
 
 // Renders the in-app confirm dialog (one at a time) and resolves its promise.
 export default function ConfirmHost() {
   const [req, setReq] = useState(null);
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef, req);
 
   useEffect(() => onConfirm(setReq), []);
 
@@ -23,8 +26,9 @@ export default function ConfirmHost() {
 
   return (
     <div className="modal-backdrop" onClick={() => close(false)}>
-      <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header"><h2>{req.title}</h2></div>
+      <div className="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title"
+        ref={modalRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><h2 id="confirm-title">{req.title}</h2></div>
         <div className="modal-body"><p className="confirm-message">{req.message}</p></div>
         <div className="modal-footer">
           <div className="modal-spacer" />

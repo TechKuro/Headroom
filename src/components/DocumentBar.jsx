@@ -3,6 +3,7 @@ import { useDispatch } from '../store';
 import * as docs from '../docManager';
 import { addToast } from '../toast';
 import { confirmDialog } from '../confirm';
+import { activateOnKey } from '../a11y';
 
 export default function DocumentBar({ activeDocId, setActiveDocId }) {
   const dispatch = useDispatch();
@@ -190,7 +191,10 @@ export default function DocumentBar({ activeDocId, setActiveDocId }) {
               <div className="doc-menu-divider" />
               <div className="doc-menu-label">Saved Plans</div>
               {otherDocs.map(d => (
-                <div key={d.id} className="doc-menu-item doc-load-item" onClick={() => handleLoad(d.id)}>
+                <div key={d.id} className="doc-menu-item doc-load-item" role="button" tabIndex={0}
+                  aria-label={`Load plan ${d.name}`}
+                  onClick={() => handleLoad(d.id)}
+                  onKeyDown={activateOnKey(() => handleLoad(d.id))}>
                   <div className="doc-load-info">
                     <span className="doc-load-name">{d.name}</span>
                     <span className="doc-load-date">{formatDate(d.lastModified)}</span>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { onToast } from '../toast';
+import { activateOnKey } from '../a11y';
 
 export default function Toasts() {
   const [toasts, setToasts] = useState([]);
@@ -22,7 +23,9 @@ export default function Toasts() {
   return (
     <div className="toast-container" role="status" aria-live="polite">
       {toasts.map(t => (
-        <div key={t.id} className={`toast toast-${t.type}`} onClick={() => dismiss(t.id)}>
+        <div key={t.id} className={`toast toast-${t.type}`} role="button" tabIndex={0}
+          aria-label={`Dismiss notification: ${t.message}`}
+          onClick={() => dismiss(t.id)} onKeyDown={activateOnKey(() => dismiss(t.id))}>
           {t.type === 'error' && (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
