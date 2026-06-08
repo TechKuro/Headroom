@@ -39,6 +39,16 @@ export default function StandupView() {
   const [openProjectId, setOpenProjectId] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [scope, setScope] = useState('active'); // 'active' (next 2 weeks) | 'all'
+  const [infoId, setInfoId] = useState(null);   // project whose summary popover is pinned open
+
+  // Dismiss the pinned summary on any outside click (armed on the next tick so
+  // the opening click doesn't immediately close it).
+  useEffect(() => {
+    if (!infoId) return;
+    const close = () => setInfoId(null);
+    const t = setTimeout(() => document.addEventListener('click', close), 0);
+    return () => { clearTimeout(t); document.removeEventListener('click', close); };
+  }, [infoId]);
 
   // The two-week look-ahead window (working days).
   const days = useMemo(() => { const s = getCurrentDate(); return getWorkingDayRange(s, addDays(s, 13)); }, []);
@@ -204,11 +214,18 @@ export default function StandupView() {
                     <div className="standup-project-top">
                       <span className="project-dot" style={{ background: x.color }} />
                       <strong>{x.name}</strong>
-                      <span className="standup-info" tabIndex={0} role="img" aria-label={`${x.name} details`}
-                        onClick={e => e.stopPropagation()}>
+                      <span className={`standup-info ${infoId === x.id ? 'open' : ''}`} tabIndex={0} role="button"
+                        aria-label={`${x.name} details`} aria-expanded={infoId === x.id}
+                        onClick={e => { e.stopPropagation(); setInfoId(id => id === x.id ? null : x.id); }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setInfoId(id => id === x.id ? null : x.id); } }}>
                         i
-                        <span className="standup-info-pop" style={{ borderColor: x.color }}>
-                          <span className="sip-title" style={{ color: x.color }}>{x.name}</span>
+                        {infoId === x.id && (
+                        <span className="standup-info-pop" style={{ borderColor: x.color }} onClick={e => e.stopPropagation()}>
+                          <span className="sip-head">
+                            <span className="sip-title" style={{ color: x.color }}>{x.name}</span>
+                            <span className="sip-close" role="button" tabIndex={0} aria-label="Close"
+                              onClick={e => { e.stopPropagation(); setInfoId(null); }}>×</span>
+                          </span>
                           {x.init.description && <span className="sip-desc">{x.init.description}</span>}
                           <span className="sip-badges">
                             <span className={`badge badge-type-${x.init.type}`}>{INITIATIVE_TYPES[x.init.type]?.label}</span>
@@ -224,6 +241,7 @@ export default function StandupView() {
                             <span><b>Team</b>{x.people.length ? x.people.join(', ') : '—'}</span>
                           </span>
                         </span>
+                        )}
                       </span>
                     </div>
                     <div className="ov-badges">
