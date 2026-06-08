@@ -249,9 +249,10 @@ function InitiativeEditor({ project }) {
           onChange={e => update({ valueNote: e.target.value })} />
       </div>
 
-      <div className="detail-row">
+      <div className="detail-row detail-row-stacked">
         <label>Description</label>
-        <input type="text" className="init-text" value={init.description} placeholder="Short description"
+        <textarea className="init-textarea" rows={3} value={init.description}
+          placeholder="What is this project and what's the goal? Shown on the Standup card."
           onChange={e => update({ description: e.target.value })} />
       </div>
 
