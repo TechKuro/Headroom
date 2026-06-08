@@ -1,8 +1,8 @@
 // Microsoft Entra (Azure AD) auth via MSAL.
 //
-// Cloud mode activates only when VITE_AZURE_CLIENT_ID is set. With it absent,
-// IS_CLOUD is false and the app runs fully local (localStorage, no sign-in) —
-// so `npm run dev` works with zero configuration.
+// The app is always cloud-backed (Neon via the serverless API). Real Microsoft
+// SSO activates when VITE_AZURE_CLIENT_ID is set; otherwise it runs in shared
+// no-login mode (a display name + anonymous API, server ALLOW_ANONYMOUS=1).
 import { PublicClientApplication } from '@azure/msal-browser';
 
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
@@ -10,13 +10,9 @@ const tenantId = import.meta.env.VITE_AZURE_TENANT_ID;
 export const API_SCOPE = import.meta.env.VITE_AZURE_API_SCOPE;
 
 // Real Microsoft SSO is active only when an Azure client id is configured.
+// Without it the app still runs cloud-backed, in shared no-login mode (users
+// pick a display name on the landing page instead of signing in).
 export const IS_SSO = !!clientId;
-// Cloud persistence (Neon, shared workspace) can also run WITHOUT login for
-// testing, via VITE_CLOUD=1 — the API must then allow anonymous access
-// (ALLOW_ANONYMOUS=1 server-side). In that mode users pick a display name on a
-// simple landing page instead of signing in.
-const FORCE_CLOUD = import.meta.env.VITE_CLOUD === '1' || import.meta.env.VITE_CLOUD === 'true';
-export const IS_CLOUD = IS_SSO || FORCE_CLOUD;
 
 export const msalInstance = IS_SSO
   ? new PublicClientApplication({

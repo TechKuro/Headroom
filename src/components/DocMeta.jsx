@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as docs from '../docManager';
-import { IS_CLOUD } from '../auth/authConfig';
 
-// Compact "edited by X · 4m ago" indicator for the shared workspace. Cloud-only:
-// in local mode there are no other editors so it renders nothing.
+// Compact "edited by X · 4m ago" indicator for the shared workspace.
 function ago(iso) {
   if (!iso) return '';
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -24,7 +22,6 @@ export default function DocMeta() {
     return () => { unsub(); clearInterval(t); };
   }, []);
 
-  if (!IS_CLOUD) return null;
   const meta = docs.getActiveDocMeta();
   if (!meta || !meta.updatedBy) return null;
 

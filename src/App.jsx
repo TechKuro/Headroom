@@ -19,7 +19,7 @@ import Toasts from './components/Toasts';
 import { getCurrentDate, addDays } from './utils';
 import { addToast } from './toast';
 import * as docManager from './docManager';
-import { IS_CLOUD, getAccountName, signOut } from './auth/authConfig';
+import { getAccountName, signOut } from './auth/authConfig';
 
 // Snap a date back to the Monday of its week.
 function mondayOf(date) {
