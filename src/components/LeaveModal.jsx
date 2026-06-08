@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import { getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable } from '../utils';
 import { HALVES } from '../constants';
@@ -13,6 +13,12 @@ export default function LeaveModal({ person, onClose }) {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [half, setHalf] = useState('both'); // 'am' | 'pm' | 'both'
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   function setLeave(off) {
     const halves = half === 'both' ? HALVES : [half];

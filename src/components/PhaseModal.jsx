@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import { genId, getCurrentDate, getWorkingDayRange, getPhasePersonIds } from '../utils';
 import { PHASE_TYPES, HALVES } from '../constants';
@@ -27,6 +27,12 @@ export default function PhaseModal({ projectId, phase, presets, whatIfProject, s
   const [endDate, setEndDate] = useState(phase?.endMonth || presets?.endMonth || presets?.startMonth || getCurrentDate());
   const [slots, setSlots] = useState(phase?.slots ? [...phase.slots] : []);
   const [targetProjectId, setTargetProjectId] = useState(projectId);
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const gridDays = useMemo(
     () => (endDate >= startDate ? getWorkingDayRange(startDate, endDate) : getWorkingDayRange(startDate, startDate)),

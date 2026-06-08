@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore, useDispatch } from '../store';
 import { genId, getCurrentDate, getWorkingDayRange, addDays } from '../utils';
 import { PHASE_TEMPLATES, PHASE_TYPES, HALVES } from '../constants';
@@ -12,6 +12,12 @@ export default function QuickPlanModal({ projectId, onClose }) {
   const [templateIdx, setTemplateIdx] = useState(0);
   const [personId, setPersonId] = useState(team[0]?.id ?? '');
   const [startDate, setStartDate] = useState(getCurrentDate());
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const template = PHASE_TEMPLATES[templateIdx];
   const totalDays = template.phases.reduce((s, p) => s + p.days, 0);
