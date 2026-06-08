@@ -154,6 +154,8 @@ export function migrateData(data) {
     ...data,
     capacityOverrides: data.capacityOverrides || {},
     settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
+    rndProjects: Array.isArray(data.rndProjects) ? data.rndProjects : [],
+    grants: Array.isArray(data.grants) ? data.grants : [],
     projects: data.projects.map(p => ({
       ...p,
       initiative: { ...DEFAULT_INITIATIVE, ...(p.initiative || {}) },
@@ -677,6 +679,20 @@ export function getWhatIfImpact(whatIfProject, opts = {}) {
 export function claimableHours(actual, cap) {
   const a = Number(actual) || 0;
   return Math.max(0, Math.min(a, cap));
+}
+
+/** A qualifying classification (direct or indirect) — drives tax treatment. */
+export function isQualifying(classification) {
+  return classification === 'qualifying_direct' || classification === 'qualifying_indirect';
+}
+
+/**
+ * §4: a qualifying entry MUST carry a funding source (so grant-funded hours can
+ * be segregated in the relief pack). Non-qualifying / unclassified are fine.
+ */
+export function classificationComplete(classification, fundingSource) {
+  if (!isQualifying(classification)) return true;
+  return !!fundingSource;
 }
 
 /** Whole calendar days between a work date and when it was confirmed. */

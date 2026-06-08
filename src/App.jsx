@@ -8,6 +8,7 @@ import PlanningView from './components/PlanningView';
 import TimelineView from './components/TimelineView';
 import TimesheetView from './components/TimesheetView';
 import AuthoriseView from './components/AuthoriseView';
+import RnDView from './components/RnDView';
 import HeatmapView from './components/HeatmapView';
 import ProjectView from './components/ProjectView';
 import PhaseModal from './components/PhaseModal';
@@ -118,6 +119,7 @@ export default function App() {
           <button className={`tab ${view === 'people' ? 'active' : ''}`} onClick={() => setView('people')}>People &amp; Cost</button>
           <button className={`tab ${view === 'timesheet' ? 'active' : ''}`} onClick={() => setView('timesheet')}>Timesheet</button>
           <button className={`tab ${view === 'authorise' ? 'active' : ''}`} onClick={() => setView('authorise')}>Authorise</button>
+          <button className={`tab ${view === 'rnd' ? 'active' : ''}`} onClick={() => setView('rnd')}>R&amp;D</button>
         </nav>
 
         <div className="header-right">
@@ -241,6 +243,7 @@ export default function App() {
           {view === 'people' && <PeopleCostView />}
           {view === 'timesheet' && <TimesheetView />}
           {view === 'authorise' && <AuthoriseView />}
+          {view === 'rnd' && <RnDView />}
           {view === 'planning' && (
             <PlanningView
               viewStart={viewStart}

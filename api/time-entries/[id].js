@@ -6,6 +6,7 @@ import { requireUser } from '../_lib/auth.js';
 // This endpoint only moves entries between draft/confirmed. authorised/locked
 // are reached via the (future) authorisation flow, so they record an authoriser.
 const ALLOWED_STATUS = ['draft', 'confirmed'];
+const isQualifying = c => c === 'qualifying_direct' || c === 'qualifying_indirect';
 
 export default async function handler(req, res) {
   try {
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
     await ensureTimeSchema();
     const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').pop();
 
-    const existing = await sql`SELECT status FROM time_entries WHERE id = ${id}`;
+    const existing = await sql`SELECT status, classification, funding_source FROM time_entries WHERE id = ${id}`;
     if (existing.length === 0) return res.status(404).json({ error: 'Not found' });
     const current = existing[0].status;
 
@@ -22,23 +23,36 @@ export default async function handler(req, res) {
       if (current === 'authorised' || current === 'locked') {
         return res.status(409).json({ error: 'Entry is authorised/locked — create an adjusting entry instead.' });
       }
-      const { hours, description, status } = await readBody(req);
+      const { hours, description, status, classification, fundingSource, rndProjectId, workPackageId } = await readBody(req);
       const nextStatus = status && ALLOWED_STATUS.includes(status) ? status : null;
       const hoursVal = hours == null ? null : clampHours(hours);
       const confirming = nextStatus === 'confirmed';
+
+      // §4: a qualifying classification requires a funding source. Validate the
+      // EFFECTIVE values (this request's, falling back to what's stored).
+      const effClass = classification !== undefined ? classification : existing[0].classification;
+      const effFunding = fundingSource !== undefined ? fundingSource : existing[0].funding_source;
+      if (isQualifying(effClass) && !effFunding) {
+        return res.status(400).json({ error: 'A qualifying entry requires a funding source.' });
+      }
+
       const rows = await sql`
         UPDATE time_entries SET
-          hours        = COALESCE(${hoursVal}, hours),
-          description  = COALESCE(${description ?? null}, description),
-          status       = COALESCE(${nextStatus}, status),
-          confirmed_at = CASE WHEN ${confirming} THEN now() ELSE confirmed_at END,
-          confirmed_by = CASE WHEN ${confirming} THEN ${user.name} ELSE confirmed_by END,
-          updated_by   = ${user.name},
-          updated_at   = now()
+          hours          = COALESCE(${hoursVal}, hours),
+          description    = COALESCE(${description ?? null}, description),
+          status         = COALESCE(${nextStatus}, status),
+          classification = COALESCE(${classification ?? null}, classification),
+          funding_source = COALESCE(${fundingSource ?? null}, funding_source),
+          rnd_project_id = COALESCE(${rndProjectId ?? null}, rnd_project_id),
+          work_package_id = COALESCE(${workPackageId ?? null}, work_package_id),
+          confirmed_at   = CASE WHEN ${confirming} THEN now() ELSE confirmed_at END,
+          confirmed_by   = CASE WHEN ${confirming} THEN ${user.name} ELSE confirmed_by END,
+          updated_by     = ${user.name},
+          updated_at     = now()
         WHERE id = ${id}
         RETURNING *`;
       await sql`INSERT INTO time_entry_audit (entry_id, action, changed_by, detail)
-                VALUES (${id}, 'update', ${user.name}, ${JSON.stringify({ status: nextStatus, hours: hoursVal })}::jsonb)`;
+                VALUES (${id}, 'update', ${user.name}, ${JSON.stringify({ status: nextStatus, hours: hoursVal, classification, fundingSource })}::jsonb)`;
       return res.status(200).json(rows[0]);
     }
 
