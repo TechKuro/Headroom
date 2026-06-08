@@ -118,6 +118,10 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
             </button>
           )}
         </div>
+        <form onSubmit={addProject} className="sidebar-add">
+          <input value={newProject} onChange={e => setNewProject(e.target.value)} placeholder="Add project…" className="sidebar-input" />
+          <button type="submit" className="icon-btn-sm" disabled={!newProject.trim()}>+</button>
+        </form>
         <ul className="sidebar-list">
           {customerGroups.map(group => {
             const collapsed = collapsedCustomers.has(group.customer);
@@ -213,10 +217,6 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
             );
           })}
         </ul>
-        <form onSubmit={addProject} className="sidebar-add">
-          <input value={newProject} onChange={e => setNewProject(e.target.value)} placeholder="Add project…" className="sidebar-input" />
-          <button type="submit" className="icon-btn-sm" disabled={!newProject.trim()}>+</button>
-        </form>
       </section>
 
       {/* What-If */}
