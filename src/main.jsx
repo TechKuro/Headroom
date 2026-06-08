@@ -5,7 +5,7 @@ import LoginPage from './components/LoginPage';
 import { StoreProvider, createSampleData } from './store';
 import * as docManager from './docManager';
 import {
-  IS_SSO, IS_CLOUD, API_SCOPE, msalInstance, setActiveAccount, getAccount,
+  IS_SSO, API_SCOPE, msalInstance, setActiveAccount, getAccount,
   getDisplayName, setDisplayName,
 } from './auth/authConfig';
 import './App.css';
@@ -45,12 +45,11 @@ async function start() {
   }
 
   // Shared no-login mode: gate on a display name via the landing page.
-  if (IS_CLOUD && !getDisplayName()) {
+  if (!getDisplayName()) {
     root.render(<LoginPage onContinue={name => { setDisplayName(name); renderApp(); }} />);
     return;
   }
 
-  // Pure local mode (no cloud, no SSO): straight in.
   return renderApp();
 }
 
