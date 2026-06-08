@@ -2749,6 +2749,8 @@ body {
 .confirm-message { font-size: 14px; color: var(--text-2); line-height: 1.5; }
 
 /* Sidebar: projects grouped under collapsible customer headers */
+.sidebar-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.sidebar-heading-row .sidebar-heading { margin-bottom: 0; }
 .customer-group { margin-bottom: 2px; }
 .customer-header {
   display: flex; align-items: center; gap: 7px; width: 100%;
