@@ -190,7 +190,7 @@ export default function App() {
 
           <ExportImport />
 
-          {IS_CLOUD && (
+          {getAccountName() && (
             <>
               <div className="header-divider" />
               <div className="account-control">

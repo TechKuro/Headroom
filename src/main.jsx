@@ -1,10 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import LoginPage from './components/LoginPage';
 import { StoreProvider, createSampleData } from './store';
 import * as docManager from './docManager';
-import { IS_CLOUD, API_SCOPE, msalInstance, setActiveAccount, getAccount } from './auth/authConfig';
+import {
+  IS_SSO, IS_CLOUD, API_SCOPE, msalInstance, setActiveAccount, getAccount,
+  getDisplayName, setDisplayName,
+} from './auth/authConfig';
 import './App.css';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
 
 function renderMessage(html) {
   document.getElementById('root').innerHTML =
@@ -12,9 +18,21 @@ function renderMessage(html) {
       color:#a0a8be;font-family:Inter,sans-serif;font-size:14px;text-align:center;padding:24px">${html}</div>`;
 }
 
+// Hydrate the document cache (cloud: API, local: localStorage), then render.
+async function renderApp() {
+  await docManager.init({ makeSeed: createSampleData });
+  root.render(
+    <React.StrictMode>
+      <StoreProvider>
+        <App />
+      </StoreProvider>
+    </React.StrictMode>
+  );
+}
+
 async function start() {
-  // Cloud mode: complete the Entra sign-in (redirect flow) before anything else.
-  if (IS_CLOUD) {
+  // Real SSO: complete the Entra sign-in (redirect flow) before anything else.
+  if (IS_SSO) {
     await msalInstance.initialize();
     await msalInstance.handleRedirectPromise();
     let account = getAccount();
@@ -23,18 +41,17 @@ async function start() {
       return; // browser navigates away to Microsoft; nothing more to do here
     }
     setActiveAccount(account);
+    return renderApp();
   }
 
-  // Hydrate the document cache (cloud: API, local: localStorage).
-  await docManager.init({ makeSeed: createSampleData });
+  // Shared no-login mode: gate on a display name via the landing page.
+  if (IS_CLOUD && !getDisplayName()) {
+    root.render(<LoginPage onContinue={name => { setDisplayName(name); renderApp(); }} />);
+    return;
+  }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-      <StoreProvider>
-        <App />
-      </StoreProvider>
-    </React.StrictMode>
-  );
+  // Pure local mode (no cloud, no SSO): straight in.
+  return renderApp();
 }
 
 start().catch(err => {
