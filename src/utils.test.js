@@ -5,6 +5,7 @@ import {
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
+  parseCsv, projectsFromWorkloadCsv,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
   claimableHours, daysAfter, isLateConfirmation, isQualifying, classificationComplete,
@@ -199,6 +200,58 @@ describe('getPlannedByDayProject (timesheet pre-fill)', () => {
   it('returns nothing for a person with no planned slots', () => {
     const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0)])] };
     expect(getPlannedByDayProject('nobody', [WK[0]], [a])).toEqual([]);
+  });
+});
+
+describe('parseCsv', () => {
+  it('parses rows, quoted fields, embedded commas/newlines and escaped quotes', () => {
+    const csv = 'a,b,c\n"x,y","line1\nline2","he said ""hi"""';
+    expect(parseCsv(csv)).toEqual([
+      ['a', 'b', 'c'],
+      ['x,y', 'line1\nline2', 'he said "hi"'],
+    ]);
+  });
+});
+
+describe('projectsFromWorkloadCsv', () => {
+  // A trimmed SharePoint-style export: schema preamble line, header, then rows.
+  const csv = [
+    'ListSchema={"junk":"ignore this line"}',
+    '"Task Name","Description","Start Date","End Date","Status","Progress Stage"',
+    '"Build Agent","Does a thing","2026-05-17T23:00:00Z","2026-05-21T23:00:00Z","Done","Done"',
+    '"Migrate API","Move to v2",,,"In Progress","Development"',
+    '"New Idea","Maybe later",,,"New","Backlog"',
+    '"",,"","","New","Backlog"',
+  ].join('\n');
+
+  it('skips the preamble, maps the sensible columns and skips blank-name rows', () => {
+    const { projects, skipped } = projectsFromWorkloadCsv(csv, { startColorIndex: 0 });
+    expect(projects).toHaveLength(3);
+    expect(skipped).toBe(1);
+    expect(projects.map(p => p.name)).toEqual(['Build Agent', 'Migrate API', 'New Idea']);
+    expect(projects.map(p => p.initiative.status)).toEqual(['done', 'progress', 'not-started']);
+    expect(projects[0].initiative.description).toBe('Does a thing');
+    expect(projects[0].deadline).toBe('2026-05-22'); // 23:00Z → next UK calendar day
+    expect(projects[1].start).toBe(''); // blank stays blank
+    expect(projects[0].initiative.estimatedValue).toBe(0);
+    expect(projects[0].initiative.type).toBe('internal');
+    expect(projects[0].phases).toEqual([]);
+  });
+
+  it('survives a messy SharePoint schema preamble with unbalanced quotes/commas', () => {
+    const messy = [
+      'ListSchema={"schemaXmlList":["<Field ID=\\"{x}\\" Name=\\"Title\\" DisplayName=\\"Task Name\\", Type=\\"Text\\" />"]}',
+      '"Task Name","Description","Start Date","End Date","Status","Progress Stage"',
+      '"Real Project","With, commas","","","Done","Done"',
+    ].join('\n');
+    const { projects } = projectsFromWorkloadCsv(messy);
+    expect(projects).toHaveLength(1);
+    expect(projects[0].name).toBe('Real Project');
+    expect(projects[0].initiative.description).toBe('With, commas');
+  });
+
+  it('returns nothing when there is no Task Name header', () => {
+    expect(projectsFromWorkloadCsv('foo,bar\n1,2')).toEqual({ projects: [], skipped: 0 });
   });
 });
 

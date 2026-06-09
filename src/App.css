@@ -2759,6 +2759,7 @@ body {
 /* Sidebar: projects grouped under collapsible customer headers */
 .sidebar-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .sidebar-heading-row .sidebar-heading { margin-bottom: 0; }
+.sidebar-heading-actions { display: flex; align-items: center; gap: 10px; }
 .customer-group { margin-bottom: 2px; }
 .customer-header {
   display: flex; align-items: center; gap: 7px; width: 100%;

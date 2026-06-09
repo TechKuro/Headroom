@@ -169,6 +169,8 @@ function reducer(state, action) {
     // Projects
     case 'ADD_PROJECT':
       return { ...state, projects: [...state.projects, action.payload] };
+    case 'IMPORT_PROJECTS': // append a batch (e.g. from a CSV) in one undo step
+      return { ...state, projects: [...state.projects, ...action.payload] };
     case 'UPDATE_PROJECT':
       return { ...state, projects: state.projects.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p) };
     case 'UPDATE_INITIATIVE': {

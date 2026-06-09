@@ -117,6 +117,7 @@ Three sections: **Team**, **Projects**, and **What-If Mode**.
 - Projects are **grouped by customer** — the first word of the project name. Use **Collapse all / Expand all** at the top right.
 - **+ Add project** (top) opens a card: **Name** (required), Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable.
 - **Edit**: double-click the name or click the **pencil** icon.
+- **Import CSV** (top of the section) bulk-adds projects from a spreadsheet/SharePoint export — it **appends** to the current plan (doesn't replace it). It maps the columns that have a sensible home — **Task Name → name**, **Description**, **Start/End Date**, and **Status** (New → Not Started, In Progress, Done) — and defaults the rest (Internal, £0 value, auto colour). Blank rows are skipped; it reports how many were imported.
 - **Expand** a project (click it) to see its **phases** — each phase shows its type, who's on it, the dates and the half-day count — with **Quick Plan**, **+ Add**, and **View project →**.
 - **Remove**: the **×** button (confirms; shows the phase count).
 
