@@ -345,14 +345,6 @@ body {
 
 /* ---- View Tabs ---- */
 
-.view-tabs {
-  display: flex;
-  gap: 2px;
-  background: var(--bg-0);
-  padding: 3px;
-  border-radius: 6px;
-}
-
 .tab {
   padding: 5px 14px;
   border: none;
@@ -367,6 +359,25 @@ body {
 
 .tab:hover { color: var(--text-2); background: var(--bg-2); }
 .tab.active { color: var(--text-1); background: var(--bg-3); }
+
+/* Dedicated nav row beneath the header, with the tabs clustered into groups. */
+.view-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 5px 16px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  z-index: 19;
+}
+.nav-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.nav-group:not(:last-child) { padding-right: 18px; border-right: 1px solid var(--border); }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-3); margin-right: 6px; white-space: nowrap;
+}
 
 /* ---- Timeline Nav ---- */
 
@@ -1911,7 +1922,7 @@ body {
     height: auto;
   }
 
-  .view-tabs { display: none; }
+  .view-nav { display: none; }
 
   .doc-name-btn {
     border: none;
