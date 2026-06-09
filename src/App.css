@@ -1261,6 +1261,7 @@ body {
   letter-spacing: 0.5px;
   color: var(--text-3);
 }
+.form-group label .req { color: var(--danger); margin-left: 1px; }
 
 .form-row {
   display: flex;

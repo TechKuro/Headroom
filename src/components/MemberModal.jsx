@@ -36,7 +36,8 @@ export default function MemberModal({ member, onClose }) {
   }, [onClose]);
 
   const name = `${firstName.trim()} ${lastName.trim()}`.trim();
-  const canSave = firstName.trim().length > 0;
+  // Every field is mandatory — a member only commits with full details.
+  const canSave = firstName.trim() && lastName.trim() && manager && team;
 
   function save(e) {
     e.preventDefault();
@@ -69,18 +70,18 @@ export default function MemberModal({ member, onClose }) {
           <div className="modal-body">
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="member-first">First name</label>
+                <label htmlFor="member-first">First name <span className="req">*</span></label>
                 <input id="member-first" className="form-input" autoFocus value={firstName}
                   onChange={e => setFirstName(e.target.value)} placeholder="e.g. Alice" />
               </div>
               <div className="form-group">
-                <label htmlFor="member-last">Second name</label>
+                <label htmlFor="member-last">Second name <span className="req">*</span></label>
                 <input id="member-last" className="form-input" value={lastName}
                   onChange={e => setLastName(e.target.value)} placeholder="e.g. Murray" />
               </div>
             </div>
             <div className="form-group">
-              <label htmlFor="member-manager">Manager</label>
+              <label htmlFor="member-manager">Manager <span className="req">*</span></label>
               <select id="member-manager" className="form-select" value={manager} onChange={e => setManager(e.target.value)}>
                 <option value="">— Select manager —</option>
                 {MEMBER_MANAGERS.map(mgr => <option key={mgr} value={mgr}>{mgr}</option>)}
@@ -88,7 +89,7 @@ export default function MemberModal({ member, onClose }) {
               </select>
             </div>
             <div className="form-group">
-              <label htmlFor="member-team">Team</label>
+              <label htmlFor="member-team">Team <span className="req">*</span></label>
               <select id="member-team" className="form-select" value={team} onChange={e => setTeam(e.target.value)}>
                 <option value="">— Select team —</option>
                 {MEMBER_TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
