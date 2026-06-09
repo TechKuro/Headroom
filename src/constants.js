@@ -15,7 +15,7 @@ export const MEMBER_TEAMS = ['Projects', 'Engineer', 'Automation'];
 // --- Initiative / commercial layer ---
 
 // Default per-project initiative metadata. Applied as a safe fallback wherever
-// a project predates the initiative layer (old localStorage docs, imports).
+// a project predates the initiative layer (older saved docs, imports).
 export const DEFAULT_INITIATIVE = {
   type: 'internal',       // 'internal' | 'client'
   status: 'not-started',  // 'not-started' | 'backlog' | 'progress' | 'done'

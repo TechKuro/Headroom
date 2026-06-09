@@ -1,26 +1,30 @@
 # Headroom — Multi-user deployment checklist
 
-Phase B turns Headroom from a localStorage-only SPA into a shared, multi-user app
-on Vercel: a Neon Postgres backend behind serverless `/api/*` functions, with
-Microsoft 365 (Entra) single sign-on.
+Headroom is a shared, multi-user app: a Neon Postgres backend behind serverless
+`/api/*` functions, with Microsoft 365 (Entra) single sign-on. It is **cloud-only**
+— all plans live in the database; there is no localStorage/offline data mode.
 
 **The code is already written.** This document covers only the provisioning steps
-that have to happen in Vercel, Neon, and Entra — the parts Claude can't do for you.
+that have to happen in the hosting platform, Neon, and Entra — the parts Claude
+can't do for you.
 
-## How the two modes work
+## How the two sign-in modes work
 
-The app is dual-mode and decides at build time based on a single env var:
+The app always reads/writes plans through `/api/*` → Neon. A single build-time env
+var chooses how users are identified:
 
-- **Local mode** — `VITE_AZURE_CLIENT_ID` is **absent**. No sign-in, data lives in
-  the browser's localStorage. This is what `npm run dev` does with no config.
-- **Cloud mode** — `VITE_AZURE_CLIENT_ID` is **set**. The app forces Entra sign-in,
-  then reads/writes the shared workspace through `/api/docs` → Neon.
+- **Shared no-login** — `VITE_AZURE_CLIENT_ID` is **absent**. Users type a display
+  name (used to label their edits); the server must run with `ALLOW_ANONYMOUS=1`.
+  Pair with platform deployment protection, since the API is then open.
+- **Microsoft 365 SSO** — `VITE_AZURE_CLIENT_ID` is **set**. The app forces Entra
+  sign-in and the API verifies the token on every request.
 
-So nothing below affects local development. You only need it to go live.
+Either way the app needs the API + database to run — `npm run dev` alone (just
+Vite, no functions) won't load plans; use `vercel dev` (or the deployed app).
 
-The multi-user model is **shared workspace, last-write-wins** — everyone signs in
-and edits the same plans; the most recent save wins. There is no per-user private
-data and no live collaborative editing.
+The multi-user model is **shared workspace, last-write-wins** — everyone edits the
+same plans; the most recent save wins. There is no per-user private data and no
+live collaborative editing.
 
 ---
 
@@ -128,8 +132,11 @@ your machine.
 
 ## Notes / known follow-ups
 
-- The server has a stale-write guard (returns `409 + current` when the stored copy
-  is newer than `lastKnownUpdatedAt`), but the client doesn't yet send
-  `lastKnownUpdatedAt`, so behaviour is currently pure last-write-wins by design.
-  Wiring the client to send it would surface conflicts instead of silently
-  overwriting — a future enhancement, not required for launch.
+- **Stale-write conflicts are handled.** The client sends `lastKnownUpdatedAt`; if
+  another user saved in the meantime the server returns `409 + current` and the app
+  raises a conflict banner offering **reload theirs / keep mine** (autosave pauses
+  until you choose), rather than silently overwriting.
+- **Hosting is moving to Azure**, and Microsoft 365 SSO is not yet switched on (the
+  app currently runs in shared no-login mode). The full activation/migration
+  checklist lives in [`SSO_SNAG_LIST.md`](SSO_SNAG_LIST.md) — including that the
+  Vercel-style `/api/*` handlers will need adapting to Azure's function model.

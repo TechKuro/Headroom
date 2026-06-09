@@ -12,7 +12,7 @@ This scope is written as implementation guidance for Claude Code or another codi
 - Do not remove existing Timeline, Heatmap, Project, What-if, Export/Import, Documents, Availability Finder, undo/redo, or phase editing workflows.
 - Do not apply the Nexian visual redesign in this scope. Keep the current Headroom visual language, CSS architecture, and component structure unless a small component-level style is needed for a new feature.
 - Do not introduce network integrations yet. Microsoft Planner, HaloPSA, Microsoft Graph, and Microsoft Lists should be represented only as future integration seams.
-- Do not migrate persisted user documents destructively. Any schema additions must have safe defaults and preserve old localStorage documents.
+- Do not migrate persisted user documents destructively. Any schema additions must have safe defaults and preserve existing saved documents.
 
 ## Current Headroom baseline to preserve
 

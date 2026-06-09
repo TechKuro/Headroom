@@ -363,8 +363,8 @@ export function StoreProvider({ children }) {
     future: [],
   }));
 
-  // Persist present state to the active document (debounced; async-safe for the
-  // cloud backend, harmless for localStorage).
+  // Persist present state to the active document (debounced; saved to the cloud
+  // API in the background).
   useEffect(() => {
     const activeId = docManager.getActiveDocId();
     if (!activeId) return;
@@ -380,8 +380,8 @@ export function StoreProvider({ children }) {
     return () => clearTimeout(t);
   }, [history.present]);
 
-  // Cloud only: when the tab regains focus, check whether someone else has
-  // saved over the plan we're editing (no-op in local mode).
+  // When the tab regains focus, check whether someone else has saved over the
+  // plan we're editing (shared workspace).
   useEffect(() => {
     function onFocus() { docManager.checkActiveFreshness(); }
     function onVisible() { if (!document.hidden) docManager.checkActiveFreshness(); }
