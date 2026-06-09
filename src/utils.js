@@ -1,4 +1,4 @@
-import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS, MAX_HOURS_PER_DAY, MAX_HOURS_PER_WEEK } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS, MAX_HOURS_PER_DAY, MAX_HOURS_PER_WEEK, PROJECT_COLORS } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -464,6 +464,90 @@ export function getProjectLabourSummary(project, blendedRate) {
     clientHours: isClient ? totalHours : 0,
     internalHours: isClient ? 0 : totalHours,
   };
+}
+
+// --- CSV import (projects) ---
+
+// Minimal RFC-4180-ish CSV parser → rows of cell strings. Handles quoted
+// fields, embedded commas/newlines, and "" escaped quotes.
+export function parseCsv(text) {
+  const s = String(text || '').replace(/\r\n?/g, '\n');
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inQuotes) {
+      if (c === '"') { if (s[i + 1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// SharePoint "Status" → Headroom initiative status. Anything else → not-started.
+const CSV_STATUS = { 'new': 'not-started', 'in progress': 'progress', 'done': 'done' };
+
+// Date cell → YYYY-MM-DD, resolved in UK time so a SharePoint "…T23:00:00Z"
+// (UK local midnight under BST) lands on the intended calendar date regardless
+// of the runtime timezone. Blank/invalid → ''.
+function csvDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
+
+// Map a SharePoint-style workload CSV export into Headroom project objects
+// (without ids — the caller stamps those). Skips the schema preamble by finding
+// the header row containing "Task Name". Only columns with a sensible Headroom
+// destination are mapped (Task Name, Description, Start/End Date, Status);
+// Progress Stage has no home and is ignored. Type/value/chargeable take safe
+// defaults. Colours cycle the palette from startColorIndex.
+export function projectsFromWorkloadCsv(text, { startColorIndex = 0 } = {}) {
+  // SharePoint prepends a schema line (full of unbalanced quotes/commas) that
+  // would derail a strict CSV parse, so slice from the header line first. Data
+  // records after the header may contain embedded newlines inside quotes, so we
+  // only cut at the header and let parseCsv handle the rest.
+  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  const start = lines.findIndex(l => /^\s*"?task name"?\s*,/i.test(l));
+  if (start === -1) return { projects: [], skipped: 0 };
+  const rows = parseCsv(lines.slice(start).join('\n'));
+  if (rows.length === 0) return { projects: [], skipped: 0 };
+  const header = rows[0].map(c => c.trim().toLowerCase());
+  const idx = name => header.indexOf(name);
+  const iName = idx('task name'), iDesc = idx('description'), iStart = idx('start date'), iEnd = idx('end date'), iStatus = idx('status');
+
+  const projects = [];
+  let skipped = 0, ci = startColorIndex;
+  for (let r = 1; r < rows.length; r++) {
+    const cells = rows[r];
+    const name = (cells[iName] || '').trim();
+    if (!name) { skipped++; continue; }
+    projects.push({
+      name,
+      color: PROJECT_COLORS[ci % PROJECT_COLORS.length],
+      start: iStart >= 0 ? csvDate(cells[iStart]) : '',
+      deadline: iEnd >= 0 ? csvDate(cells[iEnd]) : '',
+      phases: [],
+      initiative: {
+        type: 'internal',
+        status: CSV_STATUS[(cells[iStatus] || '').trim().toLowerCase()] || 'not-started',
+        estimatedValue: 0,
+        description: iDesc >= 0 ? (cells[iDesc] || '').trim() : '',
+        chargeable: false,
+        valueNote: '',
+      },
+    });
+    ci++;
+  }
+  return { projects, skipped };
 }
 
 /**

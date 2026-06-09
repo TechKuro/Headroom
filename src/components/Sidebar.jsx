@@ -9,6 +9,7 @@ import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
 import MemberModal from './MemberModal';
 import ProjectModal from './ProjectModal';
+import ImportProjectsButton from './ImportProjectsButton';
 
 export default function Sidebar({ selectedProjectId, setSelectedProjectId, setView, onAddPhase, onEditPhase, whatIfProject, setWhatIfProject }) {
   const { team, projects, capacityOverrides } = useStore();
@@ -93,11 +94,14 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
       <section className="sidebar-section">
         <div className="sidebar-heading-row">
           <h3 className="sidebar-heading">Projects</h3>
-          {customerGroups.length > 0 && (
-            <button type="button" className="text-btn-sm" onClick={toggleAllCustomers}>
-              {allCollapsed ? 'Expand all' : 'Collapse all'}
-            </button>
-          )}
+          <div className="sidebar-heading-actions">
+            <ImportProjectsButton />
+            {customerGroups.length > 0 && (
+              <button type="button" className="text-btn-sm" onClick={toggleAllCustomers}>
+                {allCollapsed ? 'Expand all' : 'Collapse all'}
+              </button>
+            )}
+          </div>
         </div>
         <button type="button" className="btn btn-secondary btn-sm sidebar-add-btn" onClick={() => setProjectModal({ mode: 'add' })}>
           + Add project
