@@ -5,7 +5,8 @@ import {
   resolveEffectiveEntries, getClaimableByPerson, toCsv, lastDayOfMonth,
   formatHours, formatCurrency, isQualifying,
 } from '../utils';
-import { CLASSIFICATIONS, FUNDING_SOURCES, MAX_HOURS_PER_DAY } from '../constants';
+import { CLASSIFICATIONS, FUNDING_SOURCES, MAX_HOURS_PER_DAY, RAG_STATUSES, RND_WP_OUTCOMES } from '../constants';
+import { canExportClaim } from '../rdValidation';
 import { addToast } from '../toast';
 
 const PRODUCTIVE_DAYS = 220; // §5: annual salary ÷ ~220 productive days
@@ -179,6 +180,7 @@ function ReliefPack() {
   const [error, setError] = useState(null);
 
   const rnd = rndProjects.find(r => r.id === rndId);
+  const gate = rnd ? canExportClaim(rnd) : null; // export gate when a specific project is selected
 
   async function generate() {
     setLoading(true); setError(null);
@@ -214,11 +216,30 @@ function ReliefPack() {
     rows.push(['Qualifying total', '', qualifying, total ? `${Math.round((qualifying / total) * 100)}%` : '0%']);
     for (const [k, h] of Object.entries(byFunding)) rows.push(['Qualifying by funding', FUNDING_SOURCES[k]?.label || k, h, qualifying ? `${Math.round((h / qualifying) * 100)}%` : '0%']);
     if (rnd) {
-      rows.push([], ['Narrative', 'Advance sought', rnd.advanceSought || '', '']);
+      const cp = rnd.competentProfessionalDetail || {};
+      const cpLine = cp.name
+        ? `${cp.name}${cp.role ? ', ' + cp.role : ''}${cp.years ? ' (' + cp.years + ' yrs)' : ''}`
+        : (rnd.competentProfessional || '');
+      rows.push([], ['Narrative', 'Context', rnd.context || '', '']);
+      rows.push(['Narrative', 'Advance sought', rnd.advanceSought || '', '']);
       rows.push(['Narrative', 'Technological uncertainty', rnd.technologicalUncertainty || '', '']);
-      rows.push(['Narrative', 'Baseline', rnd.baseline || '', '']);
+      rows.push(['Narrative', 'Baseline & gaps', rnd.baseline || '', '']);
+      rows.push(['Narrative', 'Prior art reviewed', rnd.priorArt || '', '']);
+      rows.push(['Narrative', 'Why not readily deducible', rnd.whyNotDeducible || '', '']);
       rows.push(['Narrative', 'How resolved', rnd.howResolved || '', '']);
-      rows.push(['Narrative', 'Competent professional', rnd.competentProfessional || '', '']);
+      rows.push(['Narrative', 'Competent professional', cpLine, '']);
+      if (cp.experienceSummary) rows.push(['Narrative', 'CP experience', cp.experienceSummary, '']);
+      rows.push(['Narrative', 'Boundary / non-R&D', (rnd.boundary || {}).activities || '', '']);
+      rows.push(['Narrative', 'Apportionment basis', (rnd.boundary || {}).apportionmentBasis || '', '']);
+      for (const wp of (rnd.workPackages || [])) {
+        rows.push([], ['Work package', wp.title || '(untitled)', 'Hypothesis', wp.hypothesis || '']);
+        rows.push(['Work package', wp.title || '', 'Method', wp.method || '']);
+        rows.push(['Work package', wp.title || '', 'Metrics', wp.metrics || '']);
+        rows.push(['Work package', wp.title || '', 'Outcome', RND_WP_OUTCOMES[wp.outcome]?.label || wp.outcome || '']);
+        rows.push(['Work package', wp.title || '', 'R&D hours (est)', String(wp.rdHoursEstimate || 0)]);
+      }
+      if (rnd.aifNarrative) rows.push([], ['AIF narrative', '', rnd.aifNarrative, '']);
+      if (rnd.lastAssessment) rows.push([], ['Readiness', 'Score', String(rnd.lastAssessment.overallScore ?? ''), rnd.lastAssessment.ragStatus || '']);
     }
     download(`tax-relief-${rnd ? rnd.name.replace(/\s+/g, '-') : 'all'}-${year}-DRAFT.csv`, toCsv([`Tax-relief pack ${year} — DRAFT`], rows));
   }
@@ -259,10 +280,19 @@ function ReliefPack() {
                 ))}
             </tbody>
           </table>
+          {rnd && (
+            <div className="rnd-review-stat" style={{ marginTop: 4 }}>
+              {rnd.lastAssessment?.ragStatus
+                ? <span className={`badge badge-rag-${rnd.lastAssessment.ragStatus}`}>Readiness: {RAG_STATUSES[rnd.lastAssessment.ragStatus]?.label}{rnd.lastAssessment.overallScore != null ? ` · ${rnd.lastAssessment.overallScore}/10` : ''}</span>
+                : <span className="rnd-hint">Not yet assessed — run the readiness assessment in the claim builder.</span>}
+              {(rnd.workPackages || []).length > 0 && <span className="rnd-hint">· {rnd.workPackages.length} work package{rnd.workPackages.length === 1 ? '' : 's'} included</span>}
+            </div>
+          )}
           <div className="pack-foot">
             <span className="pack-note">No £ relief computed — for the specialist to apply current scheme rules. Generated {new Date(result.generatedAt).toLocaleString('en-GB')}.</span>
-            <button className="btn btn-secondary" onClick={exportCsv}>Download CSV</button>
+            <button className="btn btn-secondary" onClick={exportCsv} disabled={gate && !gate.ok} title={gate && !gate.ok ? gate.reasons.join(' ') : undefined}>Download CSV</button>
           </div>
+          {gate && !gate.ok && <div className="rnd-issue amber" style={{ marginTop: 8 }}>Export gated: {gate.reasons.join(' ')}</div>}
         </>
       ))}
     </div>
