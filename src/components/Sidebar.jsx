@@ -73,6 +73,10 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
       {/* Team Members */}
       <section className="sidebar-section">
         <h3 className="sidebar-heading">Team</h3>
+        <form onSubmit={addMember} className="sidebar-add">
+          <input value={newMember} onChange={e => setNewMember(e.target.value)} placeholder="Add member…" className="sidebar-input" />
+          <button type="submit" className="icon-btn-sm" disabled={!newMember.trim()}>+</button>
+        </form>
         <ul className="sidebar-list">
           {team.map(m => (
             <li key={m.id} className="sidebar-item">
@@ -104,10 +108,6 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
             </li>
           ))}
         </ul>
-        <form onSubmit={addMember} className="sidebar-add">
-          <input value={newMember} onChange={e => setNewMember(e.target.value)} placeholder="Add member…" className="sidebar-input" />
-          <button type="submit" className="icon-btn-sm" disabled={!newMember.trim()}>+</button>
-        </form>
       </section>
 
       {/* Projects */}
