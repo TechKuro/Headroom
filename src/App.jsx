@@ -40,6 +40,13 @@ function viewFromHash() {
   return VIEWS.includes(h) ? h : 'overview';
 }
 
+// The tabs, clustered so the nav reads as groups rather than a flat run of ten.
+const NAV_GROUPS = [
+  { label: 'Insight', tabs: [['overview', 'Overview'], ['standup', 'Standup'], ['people', 'People & Cost']] },
+  { label: 'Plan', tabs: [['planning', 'Planning'], ['timeline', 'Timeline'], ['heatmap', 'Heatmap'], ['project', 'Project']] },
+  { label: 'R&D', tabs: [['timesheet', 'Timesheet'], ['authorise', 'Authorise'], ['rnd', 'R&D']] },
+];
+
 export default function App() {
   const store = useStore();
   const dispatch = useDispatch();
@@ -131,19 +138,6 @@ export default function App() {
         <DocumentBar activeDocId={activeDocId} setActiveDocId={setActiveDocId} />
         <DocMeta />
 
-        <nav className="view-tabs">
-          <button className={`tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
-          <button className={`tab ${view === 'planning' ? 'active' : ''}`} onClick={() => setView('planning')}>Planning</button>
-          <button className={`tab ${view === 'timeline' ? 'active' : ''}`} onClick={() => setView('timeline')}>Timeline</button>
-          <button className={`tab ${view === 'heatmap' ? 'active' : ''}`} onClick={() => setView('heatmap')}>Heatmap</button>
-          <button className={`tab ${view === 'project' ? 'active' : ''}`} onClick={() => setView('project')}>Project</button>
-          <button className={`tab ${view === 'standup' ? 'active' : ''}`} onClick={() => setView('standup')}>Standup</button>
-          <button className={`tab ${view === 'people' ? 'active' : ''}`} onClick={() => setView('people')}>People &amp; Cost</button>
-          <button className={`tab ${view === 'timesheet' ? 'active' : ''}`} onClick={() => setView('timesheet')}>Timesheet</button>
-          <button className={`tab ${view === 'authorise' ? 'active' : ''}`} onClick={() => setView('authorise')}>Authorise</button>
-          <button className={`tab ${view === 'rnd' ? 'active' : ''}`} onClick={() => setView('rnd')}>R&amp;D</button>
-        </nav>
-
         <div className="header-right">
           {/* Blended rate — drives cost & ROI across Overview / Standup / People */}
           <div className="rate-control" title="Blended hourly rate used for cost & ROI">
@@ -231,6 +225,17 @@ export default function App() {
           )}
         </div>
       </header>
+
+      <nav className="view-nav">
+        {NAV_GROUPS.map(g => (
+          <div className="nav-group" key={g.label}>
+            <span className="nav-group-label">{g.label}</span>
+            {g.tabs.map(([key, label]) => (
+              <button key={key} className={`tab ${view === key ? 'active' : ''}`} onClick={() => setView(key)}>{label}</button>
+            ))}
+          </div>
+        ))}
+      </nav>
 
       <ConflictBanner />
 

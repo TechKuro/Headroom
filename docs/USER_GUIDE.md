@@ -91,7 +91,6 @@ Left to right:
 | **Menu icon** | Show/hide the sidebar |
 | **Headroom** | App title |
 | **Plan name + menu** | Document menu — New, Save As Copy, Rename, Load, Delete, Export to PDF |
-| **View tabs** | Overview · Planning · Timeline · Heatmap · Project · Standup · People & Cost · Timesheet · Authorise · R&D |
 | **Rate £/h** | The blended hourly rate (1–999, default 110). Drives all cost/ROI in Overview, Standup, People & Cost. Recalculates instantly; undoable. |
 | **Theme toggle** | Switch light / dark (remembered per browser) |
 | **Undo / Redo** | Undo or redo any change (also Ctrl+Z / Ctrl+Y) |
@@ -99,6 +98,16 @@ Left to right:
 | **‹ This week ›** | Scroll the half-day grids by a week, or jump to the current week |
 | **Export / Import** | Download or load a plan as JSON |
 | **Your name + sign-out** | Account label and sign-out |
+
+### View navigation
+
+Beneath the header is a navigation row with the views **clustered into groups**:
+
+- **Insight** — Overview · Standup · People & Cost
+- **Plan** — Planning · Timeline · Heatmap · Project
+- **R&D** — Timesheet · Authorise · R&D
+
+Every view is still one click; the grouping just makes the bar easier to scan. The app opens on **Overview**, and the current view is remembered in the page address (so a refresh or a bookmarked `…/#planning` keeps it).
 
 ### Sidebar
 
