@@ -284,6 +284,21 @@ function reducer(state, action) {
     case 'REMOVE_RND_PROJECT':
       return { ...state, rndProjects: (state.rndProjects || []).filter(r => r.id !== action.payload) };
 
+    // R&D work packages (rich narrative units on an R&D project — distinct from
+    // grant work packages below).
+    case 'ADD_RND_WORK_PACKAGE': {
+      const { rndProjectId, workPackage } = action.payload;
+      return { ...state, rndProjects: (state.rndProjects || []).map(r => r.id === rndProjectId ? { ...r, workPackages: [...(r.workPackages || []), workPackage] } : r) };
+    }
+    case 'UPDATE_RND_WORK_PACKAGE': {
+      const { rndProjectId, workPackage } = action.payload;
+      return { ...state, rndProjects: (state.rndProjects || []).map(r => r.id === rndProjectId ? { ...r, workPackages: (r.workPackages || []).map(w => w.id === workPackage.id ? { ...w, ...workPackage } : w) } : r) };
+    }
+    case 'REMOVE_RND_WORK_PACKAGE': {
+      const { rndProjectId, workPackageId } = action.payload;
+      return { ...state, rndProjects: (state.rndProjects || []).map(r => r.id === rndProjectId ? { ...r, workPackages: (r.workPackages || []).filter(w => w.id !== workPackageId) } : r) };
+    }
+
     // Grants + work packages
     case 'ADD_GRANT':
       return { ...state, grants: [...(state.grants || []), action.payload] };
