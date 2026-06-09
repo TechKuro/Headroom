@@ -1,71 +1,82 @@
-# Headroom — Capacity Planner User Guide
+# Headroom — User Guide
 
 ## What is Headroom?
 
-Headroom is a resource capacity planning tool for small engineering teams (2-5 people) juggling multiple projects. It answers one key question: **"If a new project lands next week, who can take it on and when?"**
+Headroom is a **capacity, commercial and R&D planning tool** for small engineering teams. It started life answering one scheduling question — *"if a new project lands next week, who can take it on and when?"* — and now layers two more on top:
 
-It is **not** a task tracker. It sits above your existing tools (Halo PSA, Jira, etc.) and gives you a high-level view of who is doing what, and where the room is.
+- **Capacity planning** — who is working on what, at half-day resolution, and where the room is.
+- **Commercial view** — turn planned time into **labour cost, ROI and delivery risk** per initiative, using a single blended hourly rate.
+- **R&D reporting** — confirm *actual* time against the plan, then classify it for **HMRC R&D tax relief** and **Innovate UK grant claims**, with downloadable evidence packs.
 
-On top of the capacity model, Headroom adds a lightweight **initiative / commercial layer**: each project can carry initiative metadata (client vs internal, status, progress, estimated value), and a global blended hourly rate turns assigned phase time into **labour cost and ROI**. This lets Headroom answer commercial questions ("which initiatives pay for themselves?", "how much of each engineer's time is chargeable client work?") alongside the scheduling ones — surfaced in the **Overview**, **Standup**, and **People & Cost** views.
+It is **not** a task tracker. It sits above your delivery tools (Jira, Halo, etc.) and gives a high-level picture of capacity, commercial health, and R&D claimability.
+
+It is a **shared, cloud-backed workspace**: everyone on the team sees and edits the same plans, and changes save automatically.
 
 ---
 
 ## Getting Started
 
-### Running the app
+### Signing in
 
-Double-click `start.bat` in the project folder, or run manually:
+Headroom runs in your browser at the team's Headroom URL. How you sign in depends on how your workspace is configured:
 
-```
-cd Headroom
-npm run dev
-```
+- **Microsoft 365 (SSO):** you're sent to the Microsoft sign-in page and returned to the app. Your name comes from your Microsoft account.
+- **Shared workspace (name only):** a landing page asks for your name. This is used to label your changes (so the team can see who did what) and to match you to your timesheet.
 
-The app opens at `http://localhost:5173` in your browser. Keep the terminal window open while using the app.
+Your name appears top-right, with a **sign-out** button next to it.
 
-### First run
+### First look
 
-The app comes pre-loaded with a "Sample Plan" containing 4 team members and 4 projects so you can explore immediately. The sample projects also include **initiative metadata** (a mix of client and internal work, with estimated values) so the Overview, Standup, and People & Cost views have something to show on first run. All changes are automatically saved to your browser's localStorage.
+The workspace comes pre-loaded with a **Sample Plan** — four people (Alice, Bob, Charlie, Dana), four projects, some allocated half-days (including a deliberate double-booking so the over-commitment view has something to show), plus a sample R&D project and Innovate UK grant. Explore it, then create your own plan when ready.
 
-To start a fresh plan, use the document menu (see below).
+The app opens on the **Planning** tab. The tab you're on is stored in the page address, so a refresh — or a bookmarked link like `…/#overview` — keeps (or opens) that view.
 
-### Quick-start: setting up your real plan
+### Quick start: your real plan
 
-1. **Create a new plan**: Click the plan name in the header (e.g. "Sample Plan"), then click **New Plan**. Name it something like "Q3 2026".
-2. **Add your team**: In the sidebar under "Team", click **+ Add member** to open a card. First name, Second name, Manager and Team are all required — then click **Save**.
-3. **Add your projects**: Under "Projects", click **+ Add project** to open a card. Name and Estimated value are required; you can also set Start, Deadline, Colour, Type, Status, and the other initiative fields. Click **Save**.
-4. **Add phases**: Click a project to expand it, then click **Quick Plan** to apply a template, or **+ Add** to create phases one by one. Phases allocate half-day (AM/PM) slots to a person.
-5. **Check the heatmap / planning grid**: Red cells mean someone is over-committed (double-booked on a half-day) — adjust phases until the plan works.
-
-The whole setup should take under 10 minutes for a typical team. After that, weekly updates take seconds.
+1. **New plan** — click the plan name in the header → **New Plan**, name it (e.g. "Q3 2026").
+2. **Add your team** — in the sidebar under **Team**, click **+ Add member** and fill in the card (First name, Second name, Manager, Team — all required), then **Save**.
+3. **Add your projects** — under **Projects**, click **+ Add project**. Name and Estimated value are required; set Start, Deadline, Colour, Type, Status and the rest, then **Save**.
+4. **Allocate work** — on the **Planning** tab, pick a project in "Allocating to", then click a person's AM/PM cells to put them on it. Or expand a project in the sidebar and use **Quick Plan** / **+ Add** to lay out phases.
+5. **Check for clashes** — the **Heatmap** tab flags anyone double-booked (red). Adjust until the plan works.
 
 ---
 
 ## Core Concepts
 
-### Phases, not tasks
+### Half-day slots
 
-Projects don't consume engineer time evenly. A developer might be "on" a project for 6 months but only genuinely loaded for 3 of them. Headroom models projects as **broad phases**, each with a different intensity:
+The working week is **Monday–Friday**, and each day has two **half-day slots**: **AM** and **PM**, each worth **4 hours** (so 8 hours/day). All allocation happens by clicking these half-day slots — there are no fractional hours to type.
 
-| Phase | Default Load | Description |
-|---|---|---|
-| **Scoping** | 40% | Discovery, requirements, planning |
-| **Active Build** | 100% | Heads-down development |
-| **Waiting on 3rd Party** | 10% | Blocked on external dependency — engineer is mostly free |
-| **Final Push** | 90% | Pre-deadline crunch, testing, bug fixes |
-| **Handover** | 30% | Documentation, client training, go-live support |
+### Phases
 
-These loads **stack** across projects. If someone has two "Active Build" phases in the same month, they're at 200% — that's a problem. One "Active Build" + two "Waiting" = 120% — tight but manageable.
+Work on a project is grouped into **phases** — a phase has a type, a date window, and a set of allocated half-day slots for one or more people. The phase **types** are labels/colours that describe the kind of work; they no longer carry a load percentage:
 
-### Monthly resolution
+| Type | Short code |
+|---|---|
+| Scoping | SCP |
+| Active Build | BLD |
+| Waiting on 3rd Party | W8 |
+| Final Push | FIN |
+| Handover | H/O |
 
-Everything operates at month granularity. No hours, no days, no sprints. This is deliberate — it should take **seconds** to update, not minutes.
+### Over-commitment (double-booking)
 
-### Capacity vs load
+Capacity is measured by **double-booking**, not percentages. If the **same person's half-day slot is claimed by two or more projects**, that's an over-commitment — shown in **red** across the grids. A clean plan has at most one project per person per half-day.
 
-**Load** is how much work is assigned to a person in a given month (the sum of all their phase intensities).
+### Cost, value and ROI
 
-**Capacity** is how much time they have available. Default is 100%. If someone is on holiday for half a month, their capacity drops to 50%. A person with 60% load and 50% capacity is effectively at 120% — overcommitted.
+A global **blended hourly rate** (default **£110/h**, editable in the header) turns planned time into money:
+
+- **Labour cost** = allocated half-days × 4h × rate
+- **ROI** = a project's estimated value − its labour cost
+
+### Progress is *derived*
+
+Project **progress is not typed in** — it's calculated as **confirmed timesheet hours ÷ planned hours** (capped at 100%). A project with no plan shows "—"; one where confirmed time exceeds the plan shows an overrun marker (▲). Progress climbs as people confirm time on the **Timesheet**.
+
+### Risk
+
+Each project gets a **risk level** (Low / Watch / At risk / Critical) from a transparent scoring model — see [Risk scoring](#risk-scoring). Hovering a risk badge always lists exactly which signals fired.
 
 ---
 
@@ -73,361 +84,249 @@ Everything operates at month granularity. No hours, no days, no sprints. This is
 
 ### Header bar
 
-From left to right:
+Left to right:
 
 | Element | What it does |
 |---|---|
-| **Hamburger menu** | Show/hide the sidebar |
-| **Headroom** | App name |
-| **Document menu** | Click the plan name to open: New, Save As Copy, Load, Rename, Delete, Export to PDF |
-| **Overview / Timeline / Heatmap / Project / Standup / People & Cost** tabs | Switch between views. Timeline stays the default landing view; Overview is first in the tab strip. |
-| **Rate £/h** | The global blended hourly rate (default 45, range 1–999). Drives all cost and ROI figures in Overview, Standup, and People & Cost. Changing it recalculates immediately and is undoable. It does **not** affect Timeline/Heatmap load. |
-| **Undo / Redo** arrows | Undo or redo any change (also Ctrl+Z / Ctrl+Y) |
+| **Menu icon** | Show/hide the sidebar |
+| **Headroom** | App title |
+| **Plan name + menu** | Document menu — New, Save As Copy, Rename, Load, Delete, Export to PDF |
+| **View tabs** | Overview · Planning · Timeline · Heatmap · Project · Standup · People & Cost · Timesheet · Authorise · R&D |
+| **Rate £/h** | The blended hourly rate (1–999, default 110). Drives all cost/ROI in Overview, Standup, People & Cost. Recalculates instantly; undoable. |
+| **Theme toggle** | Switch light / dark (remembered per browser) |
+| **Undo / Redo** | Undo or redo any change (also Ctrl+Z / Ctrl+Y) |
 | **Search icon** | Toggle the Availability Finder |
-| **Arrow buttons / Today** | Scroll the timeline earlier/later, or jump to the current month |
-| **Down-arrow / Up-arrow** icons | Export / Import JSON data |
+| **‹ This week ›** | Scroll the half-day grids by a week, or jump to the current week |
+| **Export / Import** | Download or load a plan as JSON |
+| **Your name + sign-out** | Account label and sign-out |
 
-### Sidebar (left panel)
+### Sidebar
 
-Three collapsible sections:
+Three sections: **Team**, **Projects**, and **What-If Mode**.
 
 #### Team
-- Lists all team members, with their **Team** shown as a subtitle
-- **Add**: Click **+ Add member** (top of the section) to open a pop-out card. Capture **First name**, **Second name**, **Manager** and **Team** — all required — then **Save**. Manager and Team are fixed pick-lists (Managers: *Jason Roberts, John Babb*; Teams: *Projects, Engineer, Automation*).
-- **Edit**: Double-click a name, or click the **pencil** icon, to reopen the card.
-- **Leave/Capacity**: Click the calendar icon next to a name to set leave (AM / PM / full day)
-- **Remove**: Click the × button (confirms first; warns you how many phases will be deleted)
-- An **"L"** badge appears next to people with leave set
+- Lists members, with their **Team** shown as a subtitle.
+- **+ Add member** (top) opens a card capturing **First name**, **Second name**, **Manager** and **Team** — all required. Manager and Team are fixed pick-lists (Managers: *Jason Roberts*, *John Babb*; Teams: *Projects*, *Engineer*, *Automation*).
+- **Edit**: double-click a name or click the **pencil** icon.
+- **Leave**: click the **calendar** icon to mark leave (AM / PM / full day). An **"L"** badge shows on people with leave set.
+- **Remove**: the **×** button (confirms; warns how many phases will be affected).
 
-> Managers (Jason Roberts, John Babb) are for reporting/sign-off and are **not** part of the team roster — they aren't allocated work or costed.
+> Managers (Jason Roberts, John Babb) are for **reporting and sign-off only** — they're not part of the roster, so they aren't allocated work or costed. They become the approvers in the R&D timesheet flow.
 
 #### Projects
-- Lists all projects, **grouped by customer** (the first word of the project name), each with a colour dot
-- **Add**: Click **+ Add project** (top of the section) to open a pop-out card capturing **Name** (required), Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable. Click **Save**.
-- **Edit**: Double-click the project name, or click the **pencil** icon, to reopen the same card.
-- **Expand**: Click a project to reveal its **phases** — the phase list (each showing type, person, dates and half-day count), with **Quick Plan** / **+ Add**, and a **View project →** link. Click any phase row to edit it.
-- **Collapse all / Expand all**: toggle at the top-right of the Projects heading.
-- **Remove**: Click the × button (confirms first, shows phase count)
+- Projects are **grouped by customer** — the first word of the project name. Use **Collapse all / Expand all** at the top right.
+- **+ Add project** (top) opens a card: **Name** (required), Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable.
+- **Edit**: double-click the name or click the **pencil** icon.
+- **Expand** a project (click it) to see its **phases** — each phase shows its type, who's on it, the dates and the half-day count — with **Quick Plan**, **+ Add**, and **View project →**.
+- **Remove**: the **×** button (confirms; shows the phase count).
 
 #### What-If Mode
-- Click "What-If Mode" to start a hypothetical project
-- See the What-If section below for full details
+Click **What-If Mode** to model a hypothetical project without committing it — see [What-If Mode](#what-if-mode).
 
 ---
 
 ## Views
 
-### Overview View
+### Planning
 
-The commercial dashboard — first tab in the strip. It answers "which initiatives are worth it?" by turning assigned phase time into labour cost and comparing it against each project's estimated value.
+The half-day **allocation grid**: people down the side, working days across the top (about four weeks, scroll by week), each day split into **AM** and **PM**.
 
-**Metrics strip** (top) reflects whatever the filters currently show:
+- Pick a project in **"Allocating to"**, then **click a half-day cell** to add or remove that person on it.
+- Each filled cell shows a **short project code** (e.g. `AM` for "API Migration") on the project colour. A **double-booked** cell turns red and shows **×N** (the number of projects clashing).
+- Each person's row shows a **fill count** (e.g. `8/40`) and a **⚠ N** badge if any of their slots are double-booked.
+- Leave shows as a striped, unavailable cell. Today's column is highlighted.
 
-- **Initiatives** — count of projects in view
-- **Est. hours** — total estimated labour hours
-- **Labour cost** — hours × the blended rate
-- **Est. value** — sum of the initiatives' estimated values
-- **Net ROI** — estimated value minus labour cost (shown with an explicit + / − sign)
-- **Avg progress** — mean progress across the filtered initiatives
+### Timeline
 
-**Filters**: by status (Not Started / Backlog / In Progress / Done), by type (Internal / Client), a **Chargeable only** toggle, a **Risk** level filter, and a **Needs info** toggle.
+A longer-range **roadmap** (about six months, scroll by three) with **draggable bars**. Toggle between:
 
-**Sort**: by ROI, Labour cost, Progress, Est. hours, or Name. Click the active sort again to flip direction (↑ / ↓).
+- **Projects** — one bar per project showing when it runs; drag the **middle** to move it, the **edges** to resize start/end.
+- **People** — each person's phases stacked across the months.
 
-**Initiative table** — one row per project:
+Bar labels show the project and its duration in weeks (Projects mode) or hours (People mode). What-if phases appear dashed.
 
-- **Initiative**: project name, description, and the people assigned
-- **Status**: type, status, and (if set) a Chargeable badge
-- **Progress**: a bar plus the percentage
-- **Est. hours** and **Labour cost** (at the current rate)
-- **Est. value** and its value note
-- **ROI**: the signed figure and a percentage
+### Heatmap
 
-Projects without initiative metadata still appear, using safe defaults (Internal / Backlog / £0) rather than breaking the table.
+The **over-commitment** view — same people × half-day layout as Planning, coloured by commitment:
 
-> **How hours are estimated:** Headroom reuses its month-intensity model — a phase running at intensity *I*% covering fraction *F* of a month contributes (*I*/100) × *F* × ~160 person-hours, counted once per assigned person. Urgency and hold weighting (which are scheduling/visual amplifiers) are deliberately excluded from cost. The same calculation feeds Overview, Standup, and People & Cost.
-
-### Standup View
-
-A person-by-person check-in view, useful for running a stand-up or a one-to-one.
-
-- **Engineer chip rail**: one chip per team member — click to switch the active engineer
-- **Summary panel**: their active project count, estimated hours, labour cost at the current rate, and how many of those hours are **client** work
-- **Project rows**: each assigned project with its type/status/chargeable badges, this engineer's hours and cost on it, the project's progress, and its ROI signal
-- **Check-in prompts**: selecting a project shows four fixed stand-up questions (no AI involved) — what changed, the next deliverable, whether the estimate still holds, and any blockers/scope/client-expectation risks
-- **Check-in notes**: below the questions, type a free-text note and click **Add note** (or press Ctrl+Enter). Each note is stamped with the engineer's name and the date/time, and kept per engineer-per-project so prior check-ins are there for reference next time. Notes save with the plan and can be removed with the **×**.
-
-If the selected person has no assigned work, a friendly empty state is shown instead of a blank panel.
-
-### People & Cost View
-
-Ranks the team by workload and shows how each person's time splits between client and internal work.
-
-- Engineers are listed **ranked by total estimated assigned hours** (busiest first)
-- A horizontal bar shows each person's relative load, split into **client** and **internal** segments with raw hour labels
-- **Total hours** and **labour cost** (at the current rate) appear on the right of each row
-- Hours are classified client vs internal from each project's initiative **type**; projects without metadata default to internal
-
-### Timeline View
-
-The primary view. Team members down the left, months across the top, phase bars showing who is doing what.
-
-**Reading the timeline:**
-
-- Each **coloured bar** represents one phase of one project
-- The bar label shows the **project name** and a **phase abbreviation**: SCP (Scoping), BLD (Active Build), W8 (Waiting), FIN (Final Push), H/O (Handover)
-- Bar **opacity** reflects intensity — brighter bars = higher load
-- **Dashed bars** with diagonal stripes = what-if project phases (not yet committed)
-- **Dashed vertical lines** = project deadlines (colour-matched, with project name label)
-- **Solid blue vertical line** = current month
-- **Load badge** next to each person's name shows their total load for the current month (green/amber/red)
-- **Hover a bar** for a tooltip showing the project, phase, and intensity — plus the initiative type/status (and Chargeable, if set) when the project has initiative metadata
-
-**Interacting with the timeline:**
-
-| Action | Result |
+| Colour | Meaning |
 |---|---|
-| Click an **empty cell** | Opens the Add Phase modal, pre-filled with that person and month |
-| Click a **phase bar** | Opens the Edit Phase modal |
-| Drag the **left edge** of a bar | Extend or shrink the start date |
-| Drag the **right edge** of a bar | Extend or shrink the end date |
-| Drag the **middle** of a bar | Slide the entire phase to new dates (duration stays the same) |
+| Green | Committed (one project) |
+| Red (with a number) | Double-booked (two or more projects) |
+| Striped | On leave |
 
-Green-highlighted cells appear when the Availability Finder is active, showing where capacity exists.
+Below the grid, a **Commitment summary** per person shows a bar plus `committed/total halves`, `N double-booked`, and `N free`.
 
-### Heatmap View
+### Project
 
-Same layout as the timeline, but each cell shows the **total load percentage** per person per month. This is the "where's the room?" view.
+A single project's allocation grid. Pick the project from the dropdown.
 
-**Colour coding:**
+- Click cells to allocate/remove people **for this project**.
+- Cells booked on **other** projects show as a striped "busy elsewhere" pattern; a cell on this project that's *also* booked elsewhere shows as a clash.
+- People with no allocation to this project are dimmed (click their cells to add them).
+- What-if projects are **read-only** here.
 
-| Colour | Load Range | Meaning |
-|---|---|---|
-| Dark/empty | 0% | No work assigned |
-| Green | 1–60% | Light load — room for more |
-| Yellow/amber | 61–80% | Moderate load |
-| Orange | 81–100% | At capacity |
-| Red (pulsing glow) | Over 100% | Overcommitted — action needed |
+### Overview
 
-**Additional indicators:**
+The **commercial dashboard** (first tab). One row per project, turning planned time into cost and comparing it to value.
 
-- **"/50" after the load value**: This person has reduced capacity that month (e.g. leave). The number shows their available capacity. The cell colour reflects *effective* utilisation — 40% load with 50% capacity is coloured as 80%.
-- **Dashed amber border + "+N%"**: The cell includes load from a what-if project. The "+N%" shows how much the what-if adds.
-- **Coloured dots** below the percentage: Each dot represents a project active for that person that month. Hover to see the project name. The cell tooltip also tags each contributing project as `[Client]` or `[Internal]` from its initiative type.
-- **Team Average row**: Bottom row shows the average load across all team members for each month.
+**Metrics strip** (reflects the current filters): **Initiatives**, **Est. hours**, **Labour cost**, **Est. value**, **Net ROI** (signed), **Avg progress** (planned projects only), **At risk** (count at At-risk or Critical).
 
-**Utilisation Summary** (below the grid):
+**Filters:** Status (Not Started / Backlog / In Progress / Done), Type (Internal / Client), **Risk** level, **Chargeable only**, and **Needs info**. **Sort** by Risk, ROI, Labour cost, Progress, Est. hours or Name (click the active sort to flip direction).
 
-A horizontal bar chart showing each person's average load, peak load, and number of "light" months (under 60%) across the visible date range. This answers "who has been consistently overloaded?" at a glance.
+**Table columns:** Initiative (name, description, people) · Status badges · **Risk** (hover for the fired factors; a **Needs info** chip flags missing data) · **Progress** (bar; "—" if no plan; ▲ on overrun) · Est. hours · Labour cost · Est. value · ROI.
 
-**Print legend**: When exported to PDF, a colour legend is included at the bottom explaining what each colour means.
+### Standup
 
-### Project View
+A person-by-person check-in, for stand-ups and one-to-ones.
 
-A focused view of a **single project**. Use the dropdown at the top to select which project to view.
+- Pick a person; the **summary** shows their active project count, estimated hours, labour cost, **client hours**, and a **⚠ Double-booked** warning with dates if relevant.
+- **Project rows** show each assignment with type/status/chargeable badges, the person's hours and cost on it, the project's progress and ROI, and **Overdue / Deadline soon** flags. The **ⓘ** button opens a project summary popover.
+- Selecting a project shows four fixed **check-in questions** and a **notes** area — notes are stamped with name and time, kept per person-per-project, and saved with the plan.
 
-- Shows all phases for that project, grouped by team member
-- **Involved people** appear at the top with their phase bars
-- **Uninvolved people** appear dimmed below — click their cells to assign them to a phase
-- The project's **deadline** appears as a dashed vertical line
-- All drag-to-resize/move interactions work the same as Timeline View
-- Click **+ Add Phase** to add a new phase to this project
+### People & Cost
+
+The team **ranked by workload** (busiest first), each as a card showing:
+
+- **Hours**, **Cost**, **Billable %** (chargeable share), **Avg fill**, and **Double-booked** day count.
+- A **utilisation forecast** strip for the next ~20 working days, coloured by how full each day is (green part-day → amber full → red over-committed).
+- A **client vs internal** split bar, top projects, and when they next have availability.
+
+### Timesheet
+
+Where an engineer confirms **actual** time against the plan (the start of the R&D trail).
+
+- Pick the person in **"Recording time for"** and the **week**.
+- Each working day is a card listing its projects, pre-filled from the plan. Adjust **hours** (0–24, half-hour steps) and add a short **description**, then **Confirm** the day. Future days show **Upcoming** and can't be confirmed.
+- A day over **8h** is flagged ("over 8h cap"). Each row carries a status: **Not saved → Draft → Confirmed → Authorised → Locked**.
+
+### Authorise
+
+The **manager** flow.
+
+- Pick the week (optionally filter by person). Tick **confirmed** entries (or **select all**) and click **Authorise selected (N)**.
+- **Lock week** closes the period — all *authorised* entries become **Locked** (immutable). Any still-confirmed-but-unauthorised entries are reported back.
+- Locked/authorised time is corrected via an **adjusting entry**: click **Adjust**, enter the corrected hours, Save — this appends a new confirmed entry linked to the original (marked "(adj.)").
+- Flags: **late** (confirmed more than 7 days after the work) and **over** (day exceeds the 8h claimable cap).
+
+### R&D
+
+Four sub-sections for tax relief and grant claims:
+
+1. **R&D Projects** — the tax unit. Capture the narrative HMRC expects (technological uncertainty, baseline, how it was resolved, the competent professional, accounting periods, advance sought) and **link the tracker projects** that contribute to it.
+2. **Grants** — funder, reference, budget, dates, claim cadence, IAR milestones, and **work packages**.
+3. **Classify Time** — for each confirmed entry in the week, set **Funding source** (Self-funded / Grant-funded / Other subsidised), **Classification** (Qualifying — direct / indirect, or Non-qualifying), the **R&D project**, and **work package**. A qualifying classification **requires** a funding source.
+4. **Packs** — generate evidence:
+   - **Grant claim pack** — actual vs **claimable** hours per work package/person (capped at **8h/day, 40h/week**), with day-rate cost. Downloads as CSV.
+   - **Tax-relief pack** — qualifying vs non-qualifying hours, split by funding source, plus the project narrative. Downloads as CSV.
+   - Packs use **authorised/locked** time only and are marked **DRAFT** — a basis for your specialist/IAR to review, not a final claim.
 
 ---
 
 ## Key Features
 
-### Adding a Phase
+### Adding & editing phases
 
-There are three ways to add a phase:
+Open the **Phase** card by clicking an empty cell on a grid, or **+ Add** in a project's sidebar panel. It captures:
 
-1. **Click an empty cell** on the timeline or project view — opens the modal pre-filled with that person and month
-2. **Click "+ Add"** in the sidebar project detail panel — opens the modal for that project
-3. **Use Quick Plan** to apply a template that generates multiple phases at once
+- **Team members** (tick one or more; unticking clears their slots)
+- **Project** (when adding)
+- **Phase type**
+- **From / To** dates
+- A **half-day mini-grid** — click the AM/PM cells to allocate; clashes are highlighted, and a **Double-booking** warning lists who's already booked.
 
-The **Phase Modal** lets you set:
+Click a phase row (sidebar) or bar (Timeline) to edit it; editing adds a **Delete** button.
 
-- **Project** (when adding a new phase; locked when editing)
-- **Team member** to assign the phase to
-- **Phase type** — each type has a default intensity (shown in parentheses)
-- **Start month** and **end month**
-- **Intensity override** — check the box to override the default load percentage with a custom value using the slider (0–150%)
+### Quick Plan (templates)
 
-**Overcommitment warnings** appear in red at the bottom of the modal if the phase would push the assigned person over 100% in any month. The warning shows the specific months and projected load.
+In a project's sidebar panel, **Quick Plan** lays out a sequence of phases across consecutive working days (both halves) for one assignee:
 
-### Editing a Phase
-
-Click any phase bar on the timeline, or click a phase row in the sidebar project panel. The Edit Phase modal shows the same fields as Add, plus a **Delete** button (with confirmation).
-
-### Editing Initiative Details
-
-Open a project's **card** (double-click its name, click the pencil icon, or **+ Add project** for a new one) to set the commercial metadata that powers the Overview, Standup, and People & Cost views:
-
-| Field | Notes |
+| Template | Working days |
 |---|---|
-| **Type** | Internal or Client. Determines how the project's hours are classified in People & Cost and the client-hours figure in Standup. |
-| **Status** | **Not Started** (the default), Backlog, In Progress, or Done. Drives the Overview status filter and parts of the risk model. |
-| **Progress** | **Derived, not entered** — confirmed engineer time ÷ planned work. Shown read-only on the card and as a bar in Overview / Standup. It climbs as time is confirmed in the **Timesheet** (a project with no plan shows "—"). |
-| **Estimated value** | **Required.** The expected GBP value of the initiative (≥ 0). ROI = estimated value − labour cost. |
-| **Value note** | A short label for where the value comes from, e.g. "Fixed-price engagement". |
-| **Description** | A short description shown under the project name in Overview. |
-| **Chargeable** | A flag, independent of type — a project can be internal but chargeable, or client but not. Drives the Overview "Chargeable only" filter and the Chargeable badge. |
+| **Standard** | Scoping 2 · Build 8 · Final Push 3 · Handover 2 (15) |
+| **Short Sprint** | Scoping 1 · Build 5 · Handover 2 (8) |
+| **Long Project** | Scoping 3 · Build 12 · Waiting 3 · Final Push 4 · Handover 2 (24) |
+| **Support / Maintenance** | Scoping 2 · Handover 3 (5) |
 
-All edits flow through the normal undo/redo history and persist with the active plan. Changes are reflected immediately in the commercial views.
+Pick a template, a default assignee and a start date, review the preview, then **Apply**. Reassign or adjust individual phases afterwards.
 
-### Drag to Resize / Move
+### Leave / availability
 
-The fastest way to adjust phase timing:
-
-- **Left edge**: Hover over the left edge of a bar — the cursor changes to a resize arrow. Drag left or right to change the start date.
-- **Right edge**: Same behaviour, but changes the end date.
-- **Middle**: Hover over the bar label — the cursor changes to a grab hand. Drag to slide the entire phase to new dates. The duration stays the same.
-
-Changes are saved instantly on mouse release. Made a mistake? Press **Ctrl+Z** to undo.
-
-### Quick Plan (Phase Templates)
-
-When you expand a project in the sidebar, click **"Quick Plan"** to apply a predefined phase sequence:
-
-| Template | Sequence | Total Duration |
-|---|---|---|
-| **Standard** | Scoping (1mo) → Build (3mo) → Final Push (1mo) → Handover (1mo) | 6 months |
-| **Short Sprint** | Scoping (1mo) → Build (2mo) → Handover (1mo) | 4 months |
-| **Long Project** | Scoping (2mo) → Build (5mo) → Waiting (1mo) → Final Push (2mo) → Handover (1mo) | 11 months |
-| **Support/Maintenance** | Scoping (1mo) → Handover (2mo) | 3 months |
-
-In the Quick Plan modal:
-1. Pick a template — the description shows the phase flow
-2. Choose a **default assignee** — all phases will be assigned to this person initially
-3. Set a **start month** — phases are laid out sequentially from this date
-4. Review the **preview** showing exact dates and durations
-5. Click **Apply** to create all phases at once
-
-After applying, you can edit individual phases to reassign them to different people, adjust dates, or tweak intensity.
-
-### Putting a Project on Hold
-
-When a project is paused (e.g. waiting on client, budget approval, or deprioritised), you can put it on hold to free up the engineer's capacity without deleting any phases.
-
-**To hold a project:**
-1. In the sidebar, find the project and click the **pause icon** (two vertical bars)
-2. Choose a hold duration:
-
-| Duration | Effect |
-|---|---|
-| **1 week** | 25% load reduction for the current month |
-| **2 weeks** | 50% load reduction for the current month |
-| **1 month** | 100% load removed for the current month |
-| **2 months** | 100% load removed for this month and next |
-| **Until resumed** | 100% load removed indefinitely until you manually resume |
-
-**While a project is on hold:**
-- A **"HELD"** badge appears next to the project name in the sidebar
-- The project name is struck through and dimmed
-- Phase bars on the timeline turn **grey with a striped pattern**
-- The held project's load is **reduced or removed** from the heatmap, freeing up capacity
-- All phases remain intact — nothing is deleted
-
-**To resume a project:**
-- Click the **play icon** (triangle) next to the held project — it immediately returns to normal
-
-**Why sub-month holds?** Since the app runs at monthly resolution, a "1 week hold" translates to a 25% reduction in that project's load for the current month. This is useful when a project is only briefly paused — the engineer is mostly free but not entirely.
-
-### Leave / Reduced Capacity
-
-Click the **calendar icon** next to a team member's name in the sidebar to open the Leave Modal.
-
-- Set a **date range** (from/to months)
-- Set **available capacity** as a percentage:
-  - **0%** = completely off (holiday, sick leave, parental leave)
-  - **25%** = one day a week
-  - **50%** = half-time
-  - **75%** = mostly available with some reduction
-- Use the **preset buttons** for quick selection, or the **slider** for fine control
-- **Existing overrides** appear as removable chips — click the x on any chip to remove it
-- **Clear all** removes every override for that person
-
-This directly affects the heatmap. A person with 50% capacity who has 50% load will show as **orange** (100% effective utilisation), not green. This prevents the common mistake of assuming someone is free just because their project load is low, when they're actually on half-time.
-
-### What-If Mode
-
-Use this to evaluate the impact of a hypothetical new project before committing to it.
-
-**Workflow:**
-
-1. Click **"What-If Mode"** in the sidebar
-2. An amber banner appears at the top of the screen
-3. **Name** your hypothetical project, set a **deadline**, and pick a **colour** in the banner
-4. **Add phases** to it — click empty cells on the timeline, or use the Phase Modal (the what-if project appears in the project dropdown)
-5. What-if phases appear with **dashed borders and diagonal stripes** on the timeline
-6. The heatmap updates live — what-if load shows as **"+N%"** with **amber dashed borders**
-7. The Availability Finder accounts for what-if phases
-8. When you're satisfied: click **Commit Project** to add it permanently
-9. Changed your mind? Click **Discard** to throw it away (confirms if phases exist)
+The **calendar** icon by a person opens the Leave card: set a **From/To** range and choose **Full day**, **AM only** or **PM only**. Existing leave shows as removable chips. Leave makes those slots unavailable on every grid and in the Availability Finder.
 
 ### Availability Finder
 
-Click the **search icon** (magnifying glass) in the header to open the finder bar.
+The **search icon** in the header opens the finder. Set **how many free days** you need (1–10); it highlights everyone with that many **consecutive free working days**, and reports "N of M have …". Highlights appear on the Planning, Heatmap and Project grids. This answers *"who's free for a 3-day block, and when?"*
 
-- Select a **phase type** (e.g. Active Build at 100%)
-- Set a **duration** using the +/- buttons (e.g. 3 months)
-- The finder instantly highlights all person/month slots where that phase could fit without exceeding 100% capacity
-- Highlighted slots appear as **green-bordered cells** on both the timeline and heatmap
-- A summary message shows "X of Y available"
+### What-If Mode
 
-This directly answers: *"I need someone for a 3-month Active Build — who's free and when?"*
+Model a hypothetical project before committing:
 
-Click the search icon again or the X button to close the finder and clear highlights.
+1. Click **What-If Mode** — a bar appears.
+2. Set its **name**, **deadline**, **estimated value** and **colour**.
+3. Allocate phases (it appears in the Phase card's project list and on the grids as dashed bars).
+4. The bar shows the **added hours, cost and projected ROI**, and **⚠ overloads** if it double-books anyone.
+5. **Commit Project** to keep it, or **Discard** to throw it away.
 
-### Undo / Redo
+### Risk scoring
 
-Every action is undoable — adding, editing, removing phases/projects/team members, applying templates, setting leave, importing data.
+Risk is a transparent score. Each signal adds points by severity — **high = 3, medium = 2, low = 1** — and the total maps to a band:
 
-- **Ctrl+Z** (Cmd+Z on Mac) to undo
-- **Ctrl+Y** or **Ctrl+Shift+Z** (Cmd+Shift+Z on Mac) to redo
-- Or click the **curved arrow buttons** in the header
-- History stores up to **50 steps**
-- Switching documents or loading a saved plan resets the undo history
-
-### Document Management (Plans)
-
-Click the **plan name** in the header to open the document menu.
-
-| Action | What it does |
+| Score | Band |
 |---|---|
-| **Rename** | Edit the plan name inline — press Enter to save |
-| **New Plan** | Creates a blank plan (empty team, no projects). Your current plan is saved automatically before switching. |
-| **Save As Copy** | Duplicates the current plan under a new name. Useful for "what if we hired?" variations or quarterly snapshots. |
-| **Load** (listed plans) | Switch to a different saved plan. All plans are listed with their last-modified date. |
-| **Delete** (trash icon) | Remove a saved plan permanently (with confirmation). |
-| **Export to PDF** | Opens your browser's Print dialog. Choose "Save as PDF" to save a file. |
-| **Delete This Plan** | Remove the currently active plan. |
+| 0 | Low |
+| 1–2 | Watch |
+| 3–5 | At risk |
+| 6+ | Critical |
 
-All plans **auto-save** to localStorage as you work. You can have as many plans as you like — "Q3 2026 Plan", "Scenario A", "Pre-hire plan", etc.
+The signals:
+
+| Factor | Severity | Fires when |
+|---|---|---|
+| Negative ROI | High | Value is set and labour cost exceeds it |
+| Assigned person double-booked | High | Someone on the project is double-booked on a slot it claims |
+| Behind schedule | High / Med | Delivered progress lags the % of the timeline elapsed by ≥40 / ≥20 points |
+| Past deadline | High | The deadline has passed and it isn't done |
+| Deadline approaching | Med | The deadline is within 14 days and it isn't done |
+| Scheduled work, no one assigned | Med | The project has phases but nobody on them |
+| Scheduled but not started | Low | Status is Not Started / Backlog but the start date has passed |
+| Marked done but under 100% | Low | Status is Done but delivered progress < 100% |
+
+Separately, a **Needs info** chip flags data gaps that are *not* scored: **no estimated value**, or **no initiative details set**.
+
+### Undo / redo
+
+Almost everything is undoable — allocation, phases, projects, members, leave, templates, imports.
+
+- **Ctrl+Z** / **Cmd+Z** = undo · **Ctrl+Y** or **Ctrl+Shift+Z** = redo, or the header arrows.
+- Loading a different plan resets the undo history.
+
+### Plans (documents)
+
+Click the plan name in the header:
+
+| Action | Effect |
+|---|---|
+| **Rename** | Edit the plan name |
+| **New Plan** | A blank plan |
+| **Save As Copy** | Duplicate under a new name (great for scenarios) |
+| **Load** | Switch to another saved plan |
+| **Delete** | Remove a plan (confirms) |
+| **Export to PDF** | Opens the browser print dialog — choose "Save as PDF" |
+
+Plans **auto-save** as you work — there's no Save button. **Ctrl+S** just shows a "Saved" confirmation.
+
+### Shared workspace & conflicts
+
+Everyone edits the **same** plans. If a teammate saves changes to the plan you're editing, a **banner** appears offering **Reload theirs** or **Keep / Overwrite with mine**. Auto-save pauses until you choose, so nothing is silently clobbered.
 
 ### Export / Import (JSON)
 
-The **down-arrow** and **up-arrow** buttons in the header handle JSON backup:
-
-- **Export** (down arrow): Downloads a `.json` file containing all data for the current plan (team, projects, phases, capacity overrides)
-- **Import** (up arrow): Loads a `.json` file, replacing the current plan's data. Validates the file format before applying.
-
-Use this for:
-- Backing up your data (especially before clearing browser storage)
-- Sharing a plan with a colleague (they import your JSON file)
-- Moving data between machines
+The header's **export** button downloads the current plan as `headroom-export-<date>.json`; **import** loads one back (it validates the file first). Use it for backups or moving a plan between workspaces.
 
 ### Export to PDF
 
-From the document menu, click **Export to PDF**. This opens your browser's print dialog.
-
-- Select **"Save as PDF"** as the destination
-- The layout automatically switches to **landscape orientation** with a **white background**
-- The sidebar, buttons, and interactive elements are hidden
-- The current view (timeline or heatmap) is printed with the plan name as a title
-- On the heatmap, a **colour legend** is included explaining what green/amber/orange/red mean
-
-For best results, print the **Heatmap View** — it's the most useful thing to share in meetings since it shows the capacity picture at a glance.
+From the plan menu, **Export to PDF** opens the print dialog in landscape with a clean layout (sidebar/buttons hidden). The **Heatmap** is the most useful view to share.
 
 ---
 
@@ -436,157 +335,84 @@ For best results, print the **Heatmap View** — it's the most useful thing to s
 | Shortcut | Action |
 |---|---|
 | **Ctrl+Z** / **Cmd+Z** | Undo |
-| **Ctrl+Y** / **Ctrl+Shift+Z** / **Cmd+Shift+Z** | Redo |
-| **Ctrl+S** / **Cmd+S** | Shows a "Saved" confirmation (auto-save is always active) |
+| **Ctrl+Y** / **Ctrl+Shift+Z** | Redo |
+| **Ctrl+S** / **Cmd+S** | "Saved" confirmation (auto-save is always on) |
+| **Enter** / **Esc** (in cards) | Save / close |
 
 ---
 
 ## Common Workflows
 
 ### "A new project just landed — who can take it?"
+1. Open the **Availability Finder**, set the number of free days needed.
+2. Note who's highlighted.
+3. Switch to **What-If Mode**, add the project and tentative phases.
+4. Check the **Heatmap** — anyone in the red?
+5. Adjust, then **Commit Project**.
 
-1. Open the **Availability Finder** (search icon in header)
-2. Set the phase type to **Active Build** and the expected duration
-3. Look at the highlighted slots — these are people with enough room
-4. Switch to **What-If Mode** and add the project with tentative phases
-5. Check the heatmap — is anyone pushed into the red?
-6. Adjust assignments until it works, then **Commit** the project
+### "Someone's on leave next week"
+1. Click the **calendar** icon by their name; set the range and AM/PM/full day.
+2. Check the **Heatmap** — re-allocate anything that now clashes.
 
-### "Someone is going on holiday next month"
+### "Which initiatives are paying off?"
+1. Set the **Rate £/h** to your true blended cost.
+2. Make sure each project's **type, status and estimated value** are filled in (the card).
+3. Open **Overview**, sort by **ROI**, and read **Net ROI** for the filtered set.
 
-1. In the sidebar, click the **calendar icon** next to their name
-2. Set the date range and capacity (0% for full leave, 50% for half-time)
-3. Switch to the **Heatmap View** — check if any months are now red
-4. If overcommitted: drag their phase bars to shift work to other months, or reassign phases to colleagues
+### "Run the monthly R&D claim"
+1. Engineers confirm their week on the **Timesheet**.
+2. A manager **Authorises** and **Locks** the period on **Authorise**.
+3. On **R&D → Classify Time**, set funding + classification (+ R&D project / work package) for the confirmed entries.
+4. On **R&D → Packs**, generate the **Grant claim** and **Tax-relief** packs and download the CSVs for your specialist/IAR.
 
-### "A project is on hold — client went quiet"
-
-1. Click the **pause icon** next to the project in the sidebar
-2. Choose **"Until resumed"** (or a specific duration if you know when it'll restart)
-3. The heatmap immediately shows the freed capacity — that engineer now has room
-4. If you want to reallocate that time, add phases for other projects in the freed months
-5. When the client comes back: click the **play icon** to resume — all phases come back as they were
-
-### "Client moved a deadline forward by 2 months"
-
-1. Click the project in the sidebar to expand it
-2. Update the **deadline** in the month picker
-3. Switch to **Project View** for that project
-4. **Drag phase bars** to compress the schedule — drag right edges left to shorten phases
-5. Check the **Heatmap** — if the compressed schedule overloads someone, consider reassigning phases or adding team members
-
-### "Quarterly planning — lay out next quarter"
-
-1. Create a **new plan** via the document menu (or Save As Copy to branch from the current one)
-2. Add any new projects using **Quick Plan** templates
-3. Assign people and adjust dates
-4. Use the **Heatmap** to balance load across the team
-5. Use the **Utilisation Summary** to check no one is consistently over 80%
-6. **Export to PDF** and share in the planning meeting
-
-### "What if we hired another engineer?"
-
-1. **Save As Copy** your current plan (name it "With new hire" or similar)
-2. Add the new team member
-3. Reassign some phases to them
-4. Compare the heatmaps between the two plans to see the impact
-5. Export both to PDF for the business case
-
-### "Which initiatives are actually paying off?"
-
-1. Set the **Rate £/h** in the header to your true blended cost
-2. Expand each project and fill in its **Initiative details** — type, estimated value, status, progress
-3. Open the **Overview** tab and sort by **ROI**
-4. Use the filters to focus, e.g. **Client + Chargeable only**, to see external revenue work; or **Internal** to see what your improvement initiatives are costing
-5. Read **Net ROI** in the metrics strip for the filtered total
-
-### "How much of the team's time is chargeable client work?"
-
-1. Make sure project **types** (client/internal) are set in Initiative details
-2. Open **People & Cost** — each engineer's bar splits into client vs internal hours
-3. Use **Standup** to drill into one person: their client-hours figure and per-project breakdown for a one-to-one or capacity-vs-billability conversation
+### "Quarterly planning"
+1. **Save As Copy** (or New Plan).
+2. Add projects with **Quick Plan**, assign people, adjust dates.
+3. Balance load on the **Heatmap**; sanity-check costs on **People & Cost**.
+4. **Export to PDF** for the planning meeting.
 
 ---
 
-## Data Storage
+## Data & Storage
 
-All data is stored in your **browser's localStorage**. There is no server, no account, no cloud sync. Your data stays on your machine.
+Headroom is **cloud-backed** (a Neon/Postgres database behind serverless `/api` functions). Plans live in the cloud and are shared across the team — there's no per-browser copy of plan data to lose.
 
-Each named plan is stored separately. The data includes:
+- **Plans** hold: team members (name + structured fields), projects (colour, dates, phases, initiative metadata), half-day allocations, and leave.
+- **Time entries** (the R&D actuals) live in a **separate table**, not inside the plan blob.
+- The browser only remembers small preferences locally: your **theme**, your **display name** (name-only mode), and which plan you had open.
 
-- **Team members**: Name and optional role
-- **Projects**: Name, colour, contract deadline, a list of phases, and optional **initiative** metadata (type, status, progress, estimated value, value note, description, chargeable)
-- **Phases**: Assigned person, type, start/end month, and optional intensity override
-- **Capacity overrides**: Per-person, per-month available capacity (default 100%)
-- **Settings**: The plan's blended hourly rate (`settings.blendedRate`, default 45)
-
-Plans created before the initiative layer existed load safely — missing `initiative` and `settings` fields are filled with defaults on load, and nothing is overwritten destructively.
-
-### Important notes about storage
-
-- **localStorage has a size limit** (typically 5-10MB per site). For normal use this is more than enough, but if you hit the limit, the app will show an error toast. Export your data as JSON backup if this happens.
-- **Clearing browser data will delete all plans.** Use JSON export as a backup.
-- **Different browsers have separate storage.** A plan saved in Chrome won't appear in Firefox.
-- **Incognito/private mode** may not persist data between sessions.
-
-### Resetting
-
-To reset to sample data: clear localStorage for `localhost:5173` in your browser's developer tools (F12 → Application → Local Storage → right-click → Clear), then refresh the page.
+Because it's a shared, last-write-wins workspace, the **conflict banner** is your safety net when two people edit the same plan at once.
 
 ---
 
 ## Troubleshooting
 
-**The app won't start / shows a blank page**
-- Make sure the terminal running `npm run dev` is still open
-- Check the terminal for error messages
-- Try `http://localhost:5173` directly in your browser
-- If the port is in use, close other Vite instances or change the port in `start.bat`
+**I get bounced to the Planning tab.**
+The tab lives in the page address and defaults to Planning. A full refresh, a new deploy, or the sign-in redirect lands you there. Use a view's URL (e.g. `#overview`) to deep-link.
 
-**My data disappeared**
-- Check you haven't switched to a different plan (click the plan name in the header to see all saved plans)
-- Check you haven't cleared browser data recently
-- If you have a JSON export, use the import button to restore it
+**Progress shows 0% / "—" everywhere.**
+Progress is *delivered* time ÷ planned. With a fresh plan no time is confirmed yet, so it reads 0% (or "—" if there's no plan). It climbs once people **Confirm** time on the **Timesheet**.
 
-**Phase bars look wrong or overlap oddly**
-- Try scrolling the timeline (use the arrow buttons in the header) — the bar might extend outside the visible range
-- Check the phase's start/end dates in the Edit Phase modal
+**The Heatmap shows red.**
+That person is **double-booked** — two projects on the same half-day. Hover the cell to see which, then move one allocation.
 
-**The heatmap shows red but I don't think the person is overloaded**
-- Check if they have reduced capacity set (look for the "L" badge and "/50" indicators)
-- Hover over the cell to see the tooltip breakdown of which projects contribute to the load
+**A teammate's changes overwrote mine (or vice-versa).**
+It's a shared workspace. Watch for the **conflict banner** and choose Reload/Keep — and avoid two people editing the same plan simultaneously where possible.
 
-**Export to PDF looks wrong**
-- Make sure you're using Chrome or Edge (best print CSS support)
-- In the print dialog, set the layout to **Landscape** if it isn't already
-- Uncheck "Headers and footers" in the print options for a cleaner result
-- For the best output, print the Heatmap View rather than the Timeline View
+**I can't edit a timesheet entry.**
+**Authorised** entries are locked for hours/description (classification stays editable); **Locked** entries are fully immutable — correct them with an **Adjust** (adjusting entry).
 
-**Ctrl+Z doesn't work**
-- Make sure the browser window is focused (click somewhere in the app first)
-- Undo history resets when you switch between saved plans
-- History stores a maximum of 50 steps
+**Export to PDF looks wrong.**
+Use Chrome/Edge, set landscape, uncheck headers/footers, and print the **Heatmap**.
 
 ---
 
-## Tips for Effective Use
+## Tips
 
-1. **Update weekly, not daily.** Spend 2 minutes on Monday morning dragging bars and checking the heatmap. That's enough.
-
-2. **Start with deadlines.** Enter project deadlines first, then work backwards to place phases. The deadline markers make it obvious when things don't fit.
-
-3. **Use the heatmap to spot problems.** Red cells = overcommitment. Multiple months of red for one person = burnout risk. Act before it happens.
-
-4. **What-If before committing.** When a new project comes in, use What-If Mode to see where it fits. Don't just assign it — check the capacity impact first.
-
-5. **Quick Plan then adjust.** For new projects, Quick Plan gets the structure in place fast. Then drag bars and reassign people as needed.
-
-6. **Leave matters.** Mark holidays and part-time arrangements. A 50% capacity person with 60% load is overcommitted — the heatmap will show this, but only if you tell it about the leave.
-
-7. **Export regularly.** Export your data as JSON backup after significant planning sessions. It takes one click and could save you from losing work.
-
-8. **Use Save As Copy for scenarios.** Before making big changes, duplicate your plan. This lets you compare alternatives side by side.
-
-9. **Print the heatmap for meetings.** The PDF export with the colour legend is the most useful artefact to share — it shows the capacity picture at a glance without needing access to the tool.
-
-10. **Don't over-model.** If a phase is "roughly 3 months," say 3 months. The tool is designed for approximate planning, not precision scheduling. Getting within a month is good enough.
+1. **Plan in half-days, not hours.** Click AM/PM — it's meant to take seconds.
+2. **Watch the red.** Double-booking is the signal that matters; keep the Heatmap clean.
+3. **Fill in value + dates.** They power ROI and the risk model — empty ones show as "Needs info".
+4. **What-If before you commit.** See the capacity and ROI impact first.
+5. **Confirm time weekly.** It's what makes progress, risk and the R&D packs real.
+6. **Use Save As Copy for scenarios.** Compare "with a new hire" against today.
+7. **Share the Heatmap PDF.** It's the clearest one-page capacity picture for a meeting.
