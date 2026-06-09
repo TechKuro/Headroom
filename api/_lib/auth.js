@@ -3,6 +3,7 @@
 // sends it as `Authorization: Bearer <token>`. We verify the signature against
 // Entra's published JWKS and check issuer + audience.
 import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { parseAllowlist, isManagerIdentity } from './roles.js';
 
 const tenantId = process.env.AZURE_TENANT_ID;
 const clientId = process.env.AZURE_CLIENT_ID;
@@ -56,4 +57,17 @@ export async function requireUser(req) {
     email: payload.preferred_username || payload.upn || payload.email || null,
     name: payload.name || null,
   };
+}
+
+// Like requireUser, but also requires the caller to be a manager — used for the
+// privileged time transitions (authorise, lock). Enforcement is opt-in: with no
+// MANAGER_NAMES/MANAGER_EMAILS configured the gate is open (pre-SSO/shared mode
+// keeps working); set either list to switch enforcement on. 403 if not allowed.
+export async function requireManager(req) {
+  const user = await requireUser(req);
+  const names = parseAllowlist(process.env.MANAGER_NAMES);
+  const emails = parseAllowlist(process.env.MANAGER_EMAILS);
+  if (names.length === 0 && emails.length === 0) return user; // not configured → open
+  if (isManagerIdentity(user, { names, emails })) return user;
+  throw httpError(403, 'Only managers can authorise or lock time.');
 }

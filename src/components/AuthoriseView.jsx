@@ -2,9 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from '../store';
 import { api } from '../api';
 import { getCurrentDate, addDays, getWorkingDayRange, claimableHours, isLateConfirmation, formatHours } from '../utils';
-import { MAX_HOURS_PER_DAY } from '../constants';
+import { MAX_HOURS_PER_DAY, MEMBER_MANAGERS } from '../constants';
+import { getAccountName } from '../auth/authConfig';
 import { addToast } from '../toast';
 import { confirmDialog } from '../confirm';
+
+const norm = s => (s || '').trim().toLowerCase();
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -18,6 +21,19 @@ const STATUS_LABEL = { draft: 'Draft', confirmed: 'Confirmed', authorised: 'Auth
 // entries are made as adjusting entries.
 export default function AuthoriseView() {
   const { team, projects } = useStore();
+  const me = getAccountName();
+  // Who reports to whom, and whether the current user is a manager at all.
+  const managerByPerson = useMemo(() => {
+    const m = new Map();
+    for (const mem of team) m.set(mem.id, mem.manager || '');
+    return m;
+  }, [team]);
+  const isManager = useMemo(
+    () => MEMBER_MANAGERS.some(n => norm(n) === norm(me)) || team.some(mem => norm(mem.manager) === norm(me)),
+    [me, team],
+  );
+  const [lens, setLens] = useState(isManager ? 'team' : 'all'); // 'team' = my reports | 'all'
+
   const [weekStart, setWeekStart] = useState(() => mondayOf(getCurrentDate()));
   const [entries, setEntries] = useState([]);
   const [selected, setSelected] = useState(new Set());
@@ -66,7 +82,13 @@ export default function AuthoriseView() {
     return [...byPerson.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [entries, team, projName]);
 
-  const confirmedIds = useMemo(() => entries.filter(e => e.status === 'confirmed').map(e => e.id), [entries]);
+  // "My team" shows only the current manager's reports; "Everyone" shows all.
+  const visiblePeople = useMemo(
+    () => (lens === 'team' ? people.filter(p => norm(managerByPerson.get(p.id)) === norm(me)) : people),
+    [people, lens, managerByPerson, me],
+  );
+
+  const confirmedIds = useMemo(() => visiblePeople.flatMap(p => p.rows).filter(e => e.status === 'confirmed').map(e => e.id), [visiblePeople]);
   const allConfirmedSelected = confirmedIds.length > 0 && confirmedIds.every(id => selected.has(id));
 
   function toggle(id) {
@@ -83,7 +105,10 @@ export default function AuthoriseView() {
       const res = await api.authoriseTimeEntries([...selected]);
       addToast(`Authorised ${res.authorised} entr${res.authorised === 1 ? 'y' : 'ies'}`, 'success');
       await load();
-    } catch (e) { setError(e?.message || 'Authorise failed.'); }
+    } catch (e) {
+      const msg = e?.status === 403 ? 'Only managers can authorise time.' : (e?.message || 'Authorise failed.');
+      setError(msg); addToast(msg, 'error');
+    }
     finally { setLoading(false); }
   }
 
@@ -99,7 +124,10 @@ export default function AuthoriseView() {
       const res = await api.lockTimePeriod({ from, to });
       addToast(`Locked ${res.locked}${res.pendingConfirmed ? ` · ${res.pendingConfirmed} confirmed but not authorised (left unlocked)` : ''}`, res.pendingConfirmed ? 'warn' : 'success');
       await load();
-    } catch (e) { setError(e?.message || 'Lock failed.'); }
+    } catch (e) {
+      const msg = e?.status === 403 ? 'Only managers can lock a period.' : (e?.message || 'Lock failed.');
+      setError(msg); addToast(msg, 'error');
+    }
     finally { setLoading(false); }
   }
 
@@ -134,6 +162,13 @@ export default function AuthoriseView() {
           <button className="icon-btn" onClick={() => setWeekStart(w => mondayOf(addDays(w, 7)))} title="Next week">›</button>
         </div>
         <span className="alloc-hint">{dayLabel(from)} – {dayLabel(to)}</span>
+        <div className="av-lens">
+          <span className="alloc-hint">Approving as <strong>{me || '—'}</strong></span>
+          <div className="seg-group">
+            <button className={`seg-btn ${lens === 'team' ? 'active' : ''}`} onClick={() => setLens('team')}>My team</button>
+            <button className={`seg-btn ${lens === 'all' ? 'active' : ''}`} onClick={() => setLens('all')}>Everyone</button>
+          </div>
+        </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button className="btn btn-primary" onClick={authorise} disabled={loading || selected.size === 0}>
             Authorise selected ({selected.size})
@@ -145,7 +180,7 @@ export default function AuthoriseView() {
       <div className="ts-advisory">
         Authorise confirmed time, then lock the period. Flags: <span className="av-flag">late</span> = confirmed &gt;7 days after the work;
         <span className="av-flag over"> over</span> = day exceeds the {MAX_HOURS_PER_DAY}h claimable cap (only the cap is claimable).
-        Authorisation &amp; locking are advisory until server-enforced roles are enabled.
+        Authorising and locking are restricted to managers — until Microsoft sign-in is enabled this is based on your display name.
       </div>
 
       {error && <div className="ts-error">{error}</div>}
@@ -156,11 +191,16 @@ export default function AuthoriseView() {
         </label>
       )}
 
-      {people.length === 0 ? (
-        <div className="empty-state"><p>No time entries in this week.</p></div>
-      ) : people.map(person => (
+      {visiblePeople.length === 0 ? (
+        <div className="empty-state"><p>{lens === 'team' && people.length > 0
+          ? 'No confirmed time from your team this week — switch to "Everyone" to see all.'
+          : 'No time entries in this week.'}</p></div>
+      ) : visiblePeople.map(person => (
         <div key={person.id} className="av-person">
-          <div className="av-person-head">{person.name}</div>
+          <div className="av-person-head">
+            {person.name}
+            {managerByPerson.get(person.id) && <span className="av-reports-to"> · reports to {managerByPerson.get(person.id)}</span>}
+          </div>
           {person.rows.map(e => {
             const dayTotal = person.dayHours[e.date] || 0;
             const over = dayTotal > MAX_HOURS_PER_DAY;

@@ -3,11 +3,11 @@
 // are immutable — corrections are made via adjusting entries. Confirmed-but-not-
 // authorised entries are reported back so the manager knows what was left out.
 import { sql, ensureTimeSchema, readBody } from '../_lib/db.js';
-import { requireUser } from '../_lib/auth.js';
+import { requireManager } from '../_lib/auth.js';
 
 export default async function handler(req, res) {
   try {
-    const user = await requireUser(req);
+    const user = await requireManager(req);
     await ensureTimeSchema();
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
