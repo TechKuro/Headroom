@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, projectsFromWorkloadCsv } from '../utils';
+import { genId, projectsFromWorkloadCsv, reconcileImportedProjects } from '../utils';
 import { addToast } from '../toast';
 
 // "Import CSV" — appends projects parsed from a SharePoint-style workload export
@@ -22,12 +22,13 @@ export default function ImportProjectsButton() {
         addToast('No projects found — expected a CSV with a "Task Name" column.', 'error');
         return;
       }
-      const withIds = parsed.map(p => ({ ...p, id: genId() }));
-      dispatch({ type: 'IMPORT_PROJECTS', payload: withIds });
-      addToast(
-        `Imported ${withIds.length} project${withIds.length === 1 ? '' : 's'}${skipped ? ` · skipped ${skipped} blank row${skipped === 1 ? '' : 's'}` : ''}`,
-        'success',
-      );
+      // Upsert by name: update projects already present, add genuinely new ones.
+      const { projects: next, added, updated } = reconcileImportedProjects(projects, parsed, genId);
+      dispatch({ type: 'SET_PROJECTS', payload: next });
+      const bits = [`${added} added`];
+      if (updated) bits.push(`${updated} updated`);
+      if (skipped) bits.push(`skipped ${skipped} blank`);
+      addToast(`Import: ${bits.join(' · ')}`, 'success');
     } catch {
       addToast('Could not read that CSV file.', 'error');
     }

@@ -559,6 +559,43 @@ export function projectsFromWorkloadCsv(text, { startColorIndex = 0 } = {}) {
   return { projects, skipped };
 }
 
+// Upsert parsed CSV projects into the existing list, matched by name
+// (case-insensitive). A match is updated with the CSV-owned fields (company,
+// dates, status, description) but keeps Headroom-only fields the user may have
+// set (estimated value, type, chargeable, colour, phases) — so a re-import
+// syncs from the source without duplicating or clobbering local edits.
+// Returns the new projects array plus added/updated counts.
+export function reconcileImportedProjects(existing, parsed, makeId) {
+  const byName = new Map(existing.map(p => [(p.name || '').trim().toLowerCase(), p]));
+  const projects = [...existing];
+  let added = 0, updated = 0;
+  for (const inc of parsed) {
+    const key = inc.name.trim().toLowerCase();
+    const match = byName.get(key);
+    if (match) {
+      projects[projects.indexOf(match)] = {
+        ...match,
+        name: inc.name,
+        customer: inc.customer || match.customer || '',
+        start: inc.start || match.start || '',
+        deadline: inc.deadline || match.deadline || '',
+        initiative: {
+          ...getInitiative(match),
+          status: inc.initiative.status,
+          description: inc.initiative.description || match.initiative?.description || '',
+        },
+      };
+      updated++;
+    } else {
+      const np = { ...inc, id: makeId() };
+      projects.push(np);
+      byName.set(key, np);
+      added++;
+    }
+  }
+  return { projects, added, updated };
+}
+
 /**
  * Delivery progress from confirmed engineer time vs planned work.
  * pct = confirmed ÷ planned hours, capped at 100 for display. Returns
