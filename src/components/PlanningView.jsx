@@ -1,13 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import { useStore, useDispatch } from '../store';
 import { getWorkingDayRange, getCurrentDate, getPersonSlotMap, isSlotAvailable, genId } from '../utils';
-import { SLOT_WIDTH, DAY_WIDTH, HALVES } from '../constants';
+import { HALVES } from '../constants';
 import { addToast } from '../toast';
+
+// Planning uses a slightly wider half-day cell than the other grids so each
+// allocation can carry a short project code, and to use the screen width.
+const SLOT_W = 40;
+const DAY_W = SLOT_W * 2;
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function dayLabel(date) {
   const dt = new Date(date + 'T12:00:00');
   return `${DOW[dt.getDay()]} ${dt.getDate()}`;
+}
+
+// 2–3 char code from a project name, e.g. "API Migration" → "AM".
+function projectShort(name) {
+  const words = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return '';
+  return words.length === 1
+    ? words[0].slice(0, 3).toUpperCase()
+    : words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
 }
 
 // Planning is the half-day allocation grid: people × (working day × AM/PM) over
@@ -20,7 +34,7 @@ export default function PlanningView({ viewStart, viewEnd, whatIfProject, finder
   const days = useMemo(() => getWorkingDayRange(viewStart, viewEnd), [viewStart, viewEnd]);
   const today = getCurrentDate();
   const allProjects = whatIfProject ? [...projects, whatIfProject] : projects;
-  const gridWidth = days.length * DAY_WIDTH;
+  const gridWidth = days.length * DAY_W;
 
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? null);
   const selected = projects.find(p => p.id === selectedProjectId) || projects[0] || null;
@@ -59,11 +73,11 @@ export default function PlanningView({ viewStart, viewEnd, whatIfProject, finder
           <div className="timeline-label-col">Team Member</div>
           <div className="alloc-days">
             {days.map(d => (
-              <div key={d} className={`alloc-day ${d === today ? 'current' : ''}`} style={{ width: DAY_WIDTH }}>
+              <div key={d} className={`alloc-day ${d === today ? 'current' : ''}`} style={{ width: DAY_W }}>
                 <div className="alloc-day-label">{dayLabel(d)}</div>
                 <div className="alloc-halves">
-                  <span style={{ width: SLOT_WIDTH }}>AM</span>
-                  <span style={{ width: SLOT_WIDTH }}>PM</span>
+                  <span style={{ width: SLOT_W }}>AM</span>
+                  <span style={{ width: SLOT_W }}>PM</span>
                 </div>
               </div>
             ))}
@@ -71,7 +85,7 @@ export default function PlanningView({ viewStart, viewEnd, whatIfProject, finder
         </div>
 
         {todayIdx >= 0 && (
-          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${todayIdx * DAY_WIDTH}px)` }} />
+          <div className="current-month-line" style={{ left: `calc(var(--label-width) + ${todayIdx * DAY_W}px)` }} />
         )}
 
         {team.length === 0 ? (
@@ -119,14 +133,19 @@ const PersonRow = React.memo(function PersonRow({ person, allProjects, days, gri
           const title = claims.length
             ? `${claims.map(c => c.projectName).join(' + ')} — ${dayLabel(date)} ${half.toUpperCase()}${over ? ' (double-booked)' : ''}`
             : `${avail ? 'Free' : 'On leave'} — ${dayLabel(date)} ${half.toUpperCase()}`;
+          // Label the block with its project (×N when double-booked) so you
+          // don't have to map colour → project in your head.
+          const code = over ? `×${claims.length}` : (claims.length ? projectShort(claims[0].projectName) : '');
           return (
             <button
               key={key}
               className={`alloc-cell ${half === 'pm' ? 'day-end' : ''} ${over ? 'over' : ''} ${!avail ? 'leave' : ''} ${date === today ? 'current' : ''} ${finderSlots?.has(key) ? 'finder-match' : ''}`}
-              style={{ width: SLOT_WIDTH, background: claims.length && !over ? claims[0].projectColor : undefined }}
+              style={{ width: SLOT_W, background: claims.length && !over ? claims[0].projectColor : undefined }}
               title={title}
               onClick={() => onToggle(person, date, half)}
-            />
+            >
+              {code && <span className="alloc-cell-code">{code}</span>}
+            </button>
           );
         }))}
       </div>
