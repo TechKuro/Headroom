@@ -18,7 +18,8 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
   const [color, setColor] = useState(project?.color ?? defaultColor ?? PROJECT_COLORS[0]);
   const [type, setType] = useState(init.type);
   const [status, setStatus] = useState(init.status);
-  const [estimatedValue, setEstimatedValue] = useState(init.estimatedValue);
+  // Blank for a new project so the mandatory field isn't pre-filled with 0.
+  const [estimatedValue, setEstimatedValue] = useState(project ? init.estimatedValue : '');
   const [valueNote, setValueNote] = useState(init.valueNote);
   const [description, setDescription] = useState(init.description);
   const [chargeable, setChargeable] = useState(init.chargeable);
@@ -38,7 +39,7 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
     ? getProgress(getProjectLabourSummary(project, 0).totalHours, hoursByProject[project.id] || 0)
     : null;
 
-  const canSave = name.trim().length > 0;
+  const canSave = name.trim().length > 0 && Number(estimatedValue) > 0;
 
   function save(e) {
     e.preventDefault();
@@ -115,9 +116,9 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="project-value">Est. value £</label>
+                <label htmlFor="project-value">Est. value £ <span className="req">*</span></label>
                 <input id="project-value" type="number" min="0" className="form-input" value={estimatedValue}
-                  onChange={e => setEstimatedValue(e.target.value)} />
+                  placeholder="0" onChange={e => setEstimatedValue(e.target.value)} />
               </div>
             </div>
 

@@ -613,9 +613,9 @@ export function getProjectRisk(project, opts = {}) {
       add('unassigned', 'Scheduled work with no one assigned', 'med');
     }
 
-    // Backlog on paper, but already scheduled to have started.
-    if (init.status === 'backlog' && startDate && startDate <= currentDate) {
-      add('backlog-started', 'Backlog but already scheduled', 'low');
+    // Not started / backlog on paper, but already scheduled to have begun.
+    if ((init.status === 'backlog' || init.status === 'not-started') && startDate && startDate <= currentDate) {
+      add('backlog-started', 'Scheduled but not started', 'low');
     }
   }
 

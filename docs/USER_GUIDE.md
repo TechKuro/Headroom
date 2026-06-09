@@ -32,11 +32,10 @@ To start a fresh plan, use the document menu (see below).
 ### Quick-start: setting up your real plan
 
 1. **Create a new plan**: Click the plan name in the header (e.g. "Sample Plan"), then click **New Plan**. Name it something like "Q3 2026".
-2. **Add your team**: In the sidebar under "Team", type each person's name and press Enter.
-3. **Add your projects**: Under "Projects", type each project name and press Enter.
-4. **Set deadlines**: Click a project to expand it, then set its contract deadline using the month picker.
-5. **Add phases**: Either click **Quick Plan** to apply a template, or click **+ Add** to create phases one by one. For each phase, pick the person, phase type, and date range.
-6. **Check the heatmap**: Switch to the Heatmap tab. Red cells mean someone is overcommitted — adjust phases until the plan works.
+2. **Add your team**: In the sidebar under "Team", click **+ Add member** to open a card. First name, Second name, Manager and Team are all required — then click **Save**.
+3. **Add your projects**: Under "Projects", click **+ Add project** to open a card. Name and Estimated value are required; you can also set Start, Deadline, Colour, Type, Status, and the other initiative fields. Click **Save**.
+4. **Add phases**: Click a project to expand it, then click **Quick Plan** to apply a template, or **+ Add** to create phases one by one. Phases allocate half-day (AM/PM) slots to a person.
+5. **Check the heatmap / planning grid**: Red cells mean someone is over-committed (double-booked on a half-day) — adjust phases until the plan works.
 
 The whole setup should take under 10 minutes for a typical team. After that, weekly updates take seconds.
 
@@ -93,27 +92,22 @@ From left to right:
 Three collapsible sections:
 
 #### Team
-- Lists all team members
-- **Add**: Type a name in the text box and press Enter (or click +)
-- **Rename**: Double-click a name to edit it inline. Press Enter or click away to save.
-- **Leave/Capacity**: Click the calendar icon next to a name to set leave or reduced hours
-- **Remove**: Click the x button (confirms first; warns you how many phases will be deleted)
-- An **"L"** badge appears next to people with leave or capacity overrides set
+- Lists all team members, with their **Team** shown as a subtitle
+- **Add**: Click **+ Add member** (top of the section) to open a pop-out card. Capture **First name**, **Second name**, **Manager** and **Team** — all required — then **Save**. Manager and Team are fixed pick-lists (Managers: *Jason Roberts, John Babb*; Teams: *Projects, Engineer, Automation*).
+- **Edit**: Double-click a name, or click the **pencil** icon, to reopen the card.
+- **Leave/Capacity**: Click the calendar icon next to a name to set leave (AM / PM / full day)
+- **Remove**: Click the × button (confirms first; warns you how many phases will be deleted)
+- An **"L"** badge appears next to people with leave set
+
+> Managers (Jason Roberts, John Babb) are for reporting/sign-off and are **not** part of the team roster — they aren't allocated work or costed.
 
 #### Projects
-- Lists all projects with a colour dot
-- **Add**: Type a name and press Enter (or click +)
-- **Expand**: Click a project to reveal its details:
-  - **Deadline**: Set the contract end date via the month picker
-  - **Colour**: Pick from 10 colour swatches
-  - **Phases list**: Shows all phases with their type, person, dates, and any intensity override
-  - **Initiative details**: Set the project's commercial metadata (see below) — type, status, progress, estimated value, value note, description, and chargeable flag
-  - **Quick Plan**: Apply a pre-built phase template (see Quick Plan section)
-  - **+ Add**: Add a single new phase
-  - Click any phase row to open it for editing
-  - **View project arrow**: Switch to the Project View filtered to this project
-- **Rename**: Double-click the project name
-- **Remove**: Click the x button (confirms first, shows phase count)
+- Lists all projects, **grouped by customer** (the first word of the project name), each with a colour dot
+- **Add**: Click **+ Add project** (top of the section) to open a pop-out card capturing **Name** (required), Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable. Click **Save**.
+- **Edit**: Double-click the project name, or click the **pencil** icon, to reopen the same card.
+- **Expand**: Click a project to reveal its **phases** — the phase list (each showing type, person, dates and half-day count), with **Quick Plan** / **+ Add**, and a **View project →** link. Click any phase row to edit it.
+- **Collapse all / Expand all**: toggle at the top-right of the Projects heading.
+- **Remove**: Click the × button (confirms first, shows phase count)
 
 #### What-If Mode
 - Click "What-If Mode" to start a hypothetical project
@@ -136,7 +130,7 @@ The commercial dashboard — first tab in the strip. It answers "which initiativ
 - **Net ROI** — estimated value minus labour cost (shown with an explicit + / − sign)
 - **Avg progress** — mean progress across the filtered initiatives
 
-**Filters**: by status (Done / In progress / Backlog), by type (Internal / Client), and a **Chargeable only** toggle.
+**Filters**: by status (Not Started / Backlog / In Progress / Done), by type (Internal / Client), a **Chargeable only** toggle, a **Risk** level filter, and a **Needs info** toggle.
 
 **Sort**: by ROI, Labour cost, Progress, Est. hours, or Name. Click the active sort again to flip direction (↑ / ↓).
 
@@ -267,14 +261,14 @@ Click any phase bar on the timeline, or click a phase row in the sidebar project
 
 ### Editing Initiative Details
 
-Expand a project in the sidebar to find the **Initiative details** panel. This is where you set the commercial metadata that powers the Overview, Standup, and People & Cost views:
+Open a project's **card** (double-click its name, click the pencil icon, or **+ Add project** for a new one) to set the commercial metadata that powers the Overview, Standup, and People & Cost views:
 
 | Field | Notes |
 |---|---|
 | **Type** | Internal or Client. Determines how the project's hours are classified in People & Cost and the client-hours figure in Standup. |
-| **Status** | Backlog, In progress, or Done. Used by the Overview status filter. |
-| **Progress** | 0–100%, set with a slider. Shown as a progress bar in Overview and Standup. |
-| **Estimated value** | The expected GBP value of the initiative (clamped to ≥ 0). ROI = estimated value − labour cost. |
+| **Status** | **Not Started** (the default), Backlog, In Progress, or Done. Drives the Overview status filter and parts of the risk model. |
+| **Progress** | **Derived, not entered** — confirmed engineer time ÷ planned work. Shown read-only on the card and as a bar in Overview / Standup. It climbs as time is confirmed in the **Timesheet** (a project with no plan shows "—"). |
+| **Estimated value** | **Required.** The expected GBP value of the initiative (≥ 0). ROI = estimated value − labour cost. |
 | **Value note** | A short label for where the value comes from, e.g. "Fixed-price engagement". |
 | **Description** | A short description shown under the project name in Overview. |
 | **Chargeable** | A flag, independent of type — a project can be internal but chargeable, or client but not. Drives the Overview "Chargeable only" filter and the Chargeable badge. |

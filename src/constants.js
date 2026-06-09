@@ -18,7 +18,7 @@ export const MEMBER_TEAMS = ['Projects', 'Engineer', 'Automation'];
 // a project predates the initiative layer (old localStorage docs, imports).
 export const DEFAULT_INITIATIVE = {
   type: 'internal',       // 'internal' | 'client'
-  status: 'backlog',      // 'done' | 'progress' | 'backlog'
+  status: 'not-started',  // 'not-started' | 'backlog' | 'progress' | 'done'
   progress: 0,            // 0-100
   estimatedValue: 0,      // GBP
   description: '',
@@ -32,9 +32,10 @@ export const INITIATIVE_TYPES = {
 };
 
 export const INITIATIVE_STATUSES = {
-  done:     { label: 'Done' },
-  progress: { label: 'In Progress' },
-  backlog:  { label: 'Backlog' },
+  'not-started': { label: 'Not Started' },
+  backlog:       { label: 'Backlog' },
+  progress:      { label: 'In Progress' },
+  done:          { label: 'Done' },
 };
 
 // --- R&D module (tax relief + Innovate UK grants) ---

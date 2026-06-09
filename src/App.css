@@ -2036,6 +2036,7 @@ body {
 }
 .badge-type-client    { background: var(--info-soft);    color: var(--info-text); }
 .badge-type-internal  { background: rgba(160, 168, 190, 0.12); color: var(--text-2); }
+.badge-status-not-started { background: transparent; color: var(--text-3); border-style: dashed; }
 .badge-status-done    { background: var(--success-soft); color: var(--success-text); }
 .badge-status-progress{ background: var(--warning-soft); color: var(--warning-text); }
 .badge-status-backlog { background: rgba(99, 107, 130, 0.18); color: var(--text-2); }
