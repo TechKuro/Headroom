@@ -2613,8 +2613,10 @@ body {
    ============================================ */
 .authorise-view { padding: 16px 20px; overflow: auto; height: 100%; }
 .av-selectall { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin-bottom: 12px; }
+.av-lens { display: flex; align-items: center; gap: 8px; }
 .av-person { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
 .av-person-head { padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-1); }
+.av-reports-to { color: var(--text-3); font-weight: 400; font-size: 12px; }
 .av-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13px; }
 .av-row:first-of-type { border-top: none; }
 .av-row.av-adjust { background: color-mix(in srgb, var(--info) 6%, transparent); }

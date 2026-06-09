@@ -202,9 +202,12 @@ Where an engineer confirms **actual** time against the plan (the start of the R&
 
 ### Authorise
 
-The **manager** flow.
+The **manager** flow — restricted to managers (Jason Roberts / John Babb).
 
-- Pick the week (optionally filter by person). Tick **confirmed** entries (or **select all**) and click **Authorise selected (N)**.
+- The view shows **"Approving as {you}"** and a **My team / Everyone** toggle. **My team** shows only the people who report to you (from each member's **Manager** field); **Everyone** shows the whole team.
+- Pick the week. Tick **confirmed** entries (or **select all**) and click **Authorise selected (N)**.
+
+> Only managers can authorise or lock. Once Microsoft sign-in is enabled this is enforced against your verified identity; in the current shared mode it's based on the display name you signed in with, so it's a soft guardrail rather than a hard lock.
 - **Lock week** closes the period — all *authorised* entries become **Locked** (immutable). Any still-confirmed-but-unauthorised entries are reported back.
 - Locked/authorised time is corrected via an **adjusting entry**: click **Adjust**, enter the corrected hours, Save — this appends a new confirmed entry linked to the original (marked "(adj.)").
 - Flags: **late** (confirmed more than 7 days after the work) and **over** (day exceeds the 8h claimable cap).

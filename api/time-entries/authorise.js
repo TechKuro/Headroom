@@ -1,11 +1,11 @@
 // POST /api/time-entries/authorise  { ids: [...] }
 // Manager action: move confirmed entries → authorised (counts toward claims).
 import { sql, ensureTimeSchema, readBody } from '../_lib/db.js';
-import { requireUser } from '../_lib/auth.js';
+import { requireManager } from '../_lib/auth.js';
 
 export default async function handler(req, res) {
   try {
-    const user = await requireUser(req);
+    const user = await requireManager(req);
     await ensureTimeSchema();
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
