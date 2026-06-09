@@ -2503,10 +2503,17 @@ body {
 .alloc-cells { display: flex; position: relative; }
 .alloc-cell {
   height: 34px; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
   border: none; border-left: 1px solid var(--border);
   background: var(--surface-2); cursor: pointer; transition: filter 0.1s;
 }
 .alloc-cell:hover { filter: brightness(1.25); }
+/* Short project code inside an allocated block — readable on any project colour. */
+.alloc-cell-code {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.3px; line-height: 1;
+  color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+  pointer-events: none; user-select: none;
+}
 .alloc-cell.day-end { border-right: 1px solid var(--border-light); }
 .alloc-cell.current { box-shadow: inset 0 0 0 1px var(--border-light); }
 .alloc-cell.over { background: #dc2626 !important; }
