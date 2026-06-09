@@ -32,12 +32,20 @@ function mondayOf(date) {
   return d;
 }
 
+// The tab lives in the URL hash (e.g. #overview) so a refresh, deploy or SSO
+// redirect keeps you on the same view, and views can be bookmarked/shared.
+const VIEWS = ['overview', 'planning', 'timeline', 'heatmap', 'project', 'standup', 'people', 'timesheet', 'authorise', 'rnd'];
+function viewFromHash() {
+  const h = window.location.hash.replace(/^#/, '');
+  return VIEWS.includes(h) ? h : 'planning';
+}
+
 export default function App() {
   const store = useStore();
   const dispatch = useDispatch();
   const { canUndo, canRedo } = useHistory();
   const blendedRate = store.settings?.blendedRate ?? 110;
-  const [view, setView] = useState('planning');
+  const [view, setView] = useState(viewFromHash);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [phaseModal, setPhaseModal] = useState(null);
   const [whatIfProject, setWhatIfProject] = useState(null);
@@ -52,6 +60,19 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('headroom-theme', theme); } catch { /* ignore */ }
   }, [theme]);
+
+  // Keep the URL hash in step with the active tab (skip the default so a fresh
+  // load stays at a clean URL until the user navigates).
+  useEffect(() => {
+    if (viewFromHash() !== view) window.location.hash = view;
+  }, [view]);
+
+  // Follow browser back/forward (and any external hash change) back into state.
+  useEffect(() => {
+    const onHash = () => setView(viewFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const [viewStart, setViewStart] = useState(() => mondayOf(getCurrentDate()));
   const viewEnd = addDays(viewStart, 27); // four working weeks
