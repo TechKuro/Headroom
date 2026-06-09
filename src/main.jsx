@@ -18,7 +18,7 @@ function renderMessage(html) {
       color:#a0a8be;font-family:Inter,sans-serif;font-size:14px;text-align:center;padding:24px">${html}</div>`;
 }
 
-// Hydrate the document cache (cloud: API, local: localStorage), then render.
+// Hydrate the document cache from the cloud API, then render.
 async function renderApp() {
   await docManager.init({ makeSeed: createSampleData });
   root.render(
