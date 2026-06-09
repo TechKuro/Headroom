@@ -3,7 +3,7 @@
 // Advisory only; never computes monetary relief. Returns a single JSON object.
 import { readBody } from './_lib/db.js';
 import { requireUser } from './_lib/auth.js';
-import { callAnthropic, safeJson, modelName } from './_lib/anthropic.js';
+import { callModel, safeJson, deploymentName } from './_lib/aiClient.js';
 import { ensureRdAuditSchema, recordRdAiCall } from './_lib/rdAudit.js';
 
 const SYSTEM = `You are a UK R&D Tax Relief advisor (post-April-2024 merged scheme) assessing a company's whole R&D claim for HMRC readiness. Be strict. Score each section 0-10 and overall 0-10, list concrete gaps with recommendations, and draft a concise Additional Information Form (AIF) narrative. You are advisory only and must NOT compute any monetary relief or £ figures. Output raw JSON only — no prose, no markdown, no code fences. The first character must be { and the last must be }.`;
@@ -29,12 +29,12 @@ ${actualsSummary ? `Actuals summary (confirmed time): ${JSON.stringify(actualsSu
 Return ONLY this JSON:
 {"overallScore":0,"ragStatus":"amber","sectionScores":{"advance":0,"uncertainty":0,"baseline":0,"workPackages":0,"boundary":0,"funding":0},"gaps":[{"severity":"high","section":"","description":"","recommendation":""}],"aifNarrative":"","hmrcReadinessSummary":""}`;
 
-    const { text, usage } = await callAnthropic({ system: SYSTEM, user: userMsg, maxTokens: MAX_TOKENS });
+    const { text, usage } = await callModel({ system: SYSTEM, user: userMsg, maxTokens: MAX_TOKENS });
     const parsed = safeJson(text);
     if (!parsed) { const e = new Error('Could not parse the AI response (it may have been truncated).'); e.status = 502; throw e; }
 
     await recordRdAiCall({
-      rndProjectId, kind: 'assess', model: modelName(),
+      rndProjectId, kind: 'assess', model: deploymentName(),
       score: parsed.overallScore, ragStatus: parsed.ragStatus, usage, calledBy: user.name,
       detail: { gaps: parsed.gaps, sectionScores: parsed.sectionScores },
     });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { safeJson } from './anthropic.js';
+import { safeJson } from './aiClient.js';
 
 describe('safeJson', () => {
   it('parses a clean JSON object', () => {

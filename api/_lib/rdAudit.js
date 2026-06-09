@@ -31,7 +31,9 @@ export async function recordRdAiCall({ rndProjectId, kind, section, model, score
         (rnd_project_id, kind, section, model, score, rag_status, input_tokens, output_tokens, called_by, detail)
       VALUES
         (${rndProjectId || null}, ${kind}, ${section || null}, ${model || null},
-         ${score ?? null}, ${ragStatus || null}, ${usage?.input_tokens ?? null}, ${usage?.output_tokens ?? null},
+         ${score ?? null}, ${ragStatus || null},
+         ${usage?.prompt_tokens ?? usage?.input_tokens ?? null},
+         ${usage?.completion_tokens ?? usage?.output_tokens ?? null},
          ${calledBy || null}, ${JSON.stringify(detail || {})}::jsonb)`;
   } catch { /* swallow — audit is not on the critical path */ }
 }
