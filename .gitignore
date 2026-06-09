@@ -6,3 +6,6 @@ dist
 .env.*
 !.env.example
 .vercel
+
+# R&D wizard decision docs — kept local for stakeholder review, not committed.
+docs/RD_WIZARD_*.md
