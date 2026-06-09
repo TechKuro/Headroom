@@ -2658,6 +2658,50 @@ body {
 .rnd-wp { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
 .rnd-wp .init-text { flex: 1; }
 
+/* --- R&D Projects list (compact rows that open the claim builder) --- */
+.rnd-proj-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 10px 12px; margin-bottom: 6px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color 0.1s, background 0.1s;
+}
+.rnd-proj-row:hover { border-color: var(--border-light); background: var(--bg-2); }
+.rnd-proj-name { flex: 1; font-weight: 600; color: var(--text-1); font-size: 13px; }
+.rnd-proj-unassessed { font-size: 11px; color: var(--text-3); font-style: italic; }
+.rnd-proj-complete { font-size: 12px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; min-width: 38px; text-align: right; }
+.rnd-proj-open { color: var(--text-3); font-size: 18px; line-height: 1; }
+
+/* Readiness RAG badges (reuse semantic tints). */
+.badge-rag-green { background: var(--success-soft); color: var(--success-text); }
+.badge-rag-amber { background: var(--warning-soft); color: var(--warning-text); }
+.badge-rag-red   { background: var(--danger-soft);  color: var(--danger-text); }
+
+/* --- R&D claim builder (focused drill-down) --- */
+.rnd-builder-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.rnd-builder-title { font-size: 16px; font-weight: 700; color: var(--text-1); }
+.rnd-complete { font-size: 12px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; }
+.rnd-builder-body { display: flex; gap: 18px; align-items: flex-start; }
+.rnd-steps { display: flex; flex-direction: column; gap: 2px; width: 200px; flex-shrink: 0; }
+.rnd-step {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 8px 10px; border-radius: 6px; border: none; background: transparent;
+  color: var(--text-2); font-size: 13px; text-align: left; cursor: pointer; transition: background 0.1s, color 0.1s;
+}
+.rnd-step:hover { background: var(--bg-2); color: var(--text-1); }
+.rnd-step.active { background: var(--bg-3); color: var(--text-1); font-weight: 600; }
+.rnd-step-flag { color: var(--danger); font-weight: 700; }
+.rnd-step-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.rnd-wp-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.rnd-issue { font-size: 12px; padding: 6px 10px; border-radius: 6px; }
+.rnd-issue.high { background: var(--danger-soft); color: var(--danger-text); }
+.rnd-issue.med, .rnd-issue.amber { background: var(--warning-soft); color: var(--warning-text); }
+.rnd-issue.ok { background: var(--success-soft); color: var(--success-text); }
+.rnd-issue[role="button"] { cursor: pointer; }
+.rnd-fund-sum { font-size: 12px; }
+.rnd-fund-sum.ok { color: var(--success-text); }
+.rnd-fund-sum.bad { color: var(--warning-text); }
+.rnd-review { display: flex; flex-direction: column; gap: 10px; }
+.rnd-review-stat { display: flex; align-items: center; gap: 12px; }
+
 .rnd-classify { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .rnd-classify-head, .rnd-classify-row {
   display: grid; grid-template-columns: 70px 110px 60px 1.2fr 1fr 1.2fr 1.4fr; gap: 8px;

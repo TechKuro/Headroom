@@ -6,11 +6,14 @@ import {
   isQualifying, classificationComplete,
 } from '../utils';
 import {
-  CLASSIFICATIONS, FUNDING_SOURCES, RND_STATUSES, DEFAULT_RND_PROJECT, DEFAULT_GRANT,
+  CLASSIFICATIONS, FUNDING_SOURCES, RND_CLAIM_STATUSES, RAG_STATUSES,
+  DEFAULT_RND_PROJECT, DEFAULT_GRANT,
 } from '../constants';
+import { validateRndProject } from '../rdValidation';
 import { addToast } from '../toast';
 import { confirmDialog } from '../confirm';
 import RnDPacks from './RnDPacks';
+import RnDClaimBuilder from './RnDClaimBuilder';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayLabel = d => { const dt = new Date(d + 'T12:00:00'); return `${DOW[dt.getDay()]} ${dt.getDate()}`; };
@@ -37,49 +40,43 @@ export default function RnDView() {
 }
 
 function RnDProjects() {
-  const { rndProjects, projects } = useStore();
+  const { rndProjects } = useStore();
   const dispatch = useDispatch();
-  const update = (id, patch) => dispatch({ type: 'UPDATE_RND_PROJECT', payload: { id, ...patch } });
-  const add = () => dispatch({ type: 'ADD_RND_PROJECT', payload: { id: genId(), ...DEFAULT_RND_PROJECT, name: 'New R&D project' } });
+  const [openId, setOpenId] = useState(null);
+  const add = () => {
+    const id = genId();
+    dispatch({ type: 'ADD_RND_PROJECT', payload: { id, ...DEFAULT_RND_PROJECT, name: 'New R&D project' } });
+    setOpenId(id); // drop straight into the builder for a new project
+  };
+
+  const open = (rndProjects || []).find(r => r.id === openId);
+  if (open) return <RnDClaimBuilder project={open} onBack={() => setOpenId(null)} />;
 
   return (
     <div className="rnd-section">
-      <div className="rnd-section-head"><h3>R&amp;D Projects <span className="rnd-hint">— the tax unit; narrative feeds the relief pack</span></h3><button className="text-btn-sm" onClick={add}>+ Add</button></div>
+      <div className="rnd-section-head"><h3>R&amp;D Projects <span className="rnd-hint">— the tax unit; open one to build its claim narrative</span></h3><button className="text-btn-sm" onClick={add}>+ Add</button></div>
       {(rndProjects || []).length === 0 && <div className="empty-state"><p>No R&amp;D projects yet.</p></div>}
-      {(rndProjects || []).map(r => (
-        <div key={r.id} className="rnd-card">
-          <div className="rnd-card-top">
-            <input className="rnd-name" value={r.name} onChange={e => update(r.id, { name: e.target.value })} />
-            <select className="init-select" value={r.status} onChange={e => update(r.id, { status: e.target.value })}>
-              {Object.entries(RND_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <button className="icon-btn-sm danger" title="Remove" onClick={async () => { if (await confirmDialog({ title: 'Remove R&D project', message: `Remove "${r.name}"?`, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_RND_PROJECT', payload: r.id }); }}>×</button>
+      {(rndProjects || []).map(r => {
+        const { completeness } = validateRndProject(r);
+        const rag = r.lastAssessment?.ragStatus;
+        return (
+          <div key={r.id} className="rnd-proj-row" role="button" tabIndex={0}
+            onClick={() => setOpenId(r.id)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenId(r.id); } }}>
+            <span className="rnd-proj-name">{r.name || 'Untitled R&D project'}</span>
+            <span className={`badge badge-status-${r.claimStatus === 'ready' ? 'done' : r.claimStatus === 'in-review' ? 'progress' : 'not-started'}`}>{RND_CLAIM_STATUSES[r.claimStatus]?.label || 'Draft'}</span>
+            {rag
+              ? <span className={`badge badge-rag-${rag}`}>{RAG_STATUSES[rag]?.label}{r.lastAssessment?.overallScore != null ? ` · ${r.lastAssessment.overallScore}/10` : ''}</span>
+              : <span className="rnd-proj-unassessed">not assessed</span>}
+            <span className="rnd-proj-complete">{completeness}%</span>
+            <button className="icon-btn-sm danger" title="Remove" onClick={async e => {
+              e.stopPropagation();
+              if (await confirmDialog({ title: 'Remove R&D project', message: `Remove "${r.name}"?`, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_RND_PROJECT', payload: r.id });
+            }}>×</button>
+            <span className="rnd-proj-open" aria-hidden="true">›</span>
           </div>
-          <Field label="Accounting period(s)" value={r.accountingPeriods} onChange={v => update(r.id, { accountingPeriods: v })} placeholder="e.g. FY 2026" />
-          <Field label="Advance sought" area value={r.advanceSought} onChange={v => update(r.id, { advanceSought: v })} />
-          <Field label="Technological uncertainty" area value={r.technologicalUncertainty} onChange={v => update(r.id, { technologicalUncertainty: v })} />
-          <Field label="Baseline / not readily deducible" area value={r.baseline} onChange={v => update(r.id, { baseline: v })} />
-          <Field label="How resolved" area value={r.howResolved} onChange={v => update(r.id, { howResolved: v })} />
-          <Field label="Competent professional" value={r.competentProfessional} onChange={v => update(r.id, { competentProfessional: v })} />
-          <div className="rnd-field">
-            <label>Linked tracker projects</label>
-            <div className="rnd-links">
-              {projects.map(p => {
-                const on = (r.trackerProjectIds || []).includes(p.id);
-                return (
-                  <label key={p.id} className={`rnd-link ${on ? 'on' : ''}`}>
-                    <input type="checkbox" checked={on} onChange={() => {
-                      const ids = on ? r.trackerProjectIds.filter(x => x !== p.id) : [...(r.trackerProjectIds || []), p.id];
-                      update(r.id, { trackerProjectIds: ids });
-                    }} />
-                    <span className="project-dot" style={{ background: p.color }} />{p.name}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
