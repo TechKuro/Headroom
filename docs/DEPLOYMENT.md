@@ -97,10 +97,12 @@ for Production and Preview as needed:
 | `VITE_AZURE_API_SCOPE` | frontend | `api://<client-id>/access_as_user` |
 | `AZURE_CLIENT_ID` | API (token validation) | same client ID, no `VITE_` prefix |
 | `AZURE_TENANT_ID` | API (token validation) | same tenant ID, no `VITE_` prefix |
-| `ANTHROPIC_API_KEY` | API (R&D claim AI) | Anthropic key — enables the R&D coach/assessment; leave unset to disable. Server-side only. |
-| `RD_AI_MODEL` *(optional)* | API (R&D claim AI) | model id, default `claude-sonnet-4-6` |
+| `AZURE_OPENAI_ENDPOINT` | API (R&D claim AI) | Azure OpenAI resource URL, e.g. `https://<resource>.openai.azure.com`. Leave the AI env unset to disable the feature. |
+| `AZURE_OPENAI_DEPLOYMENT` | API (R&D claim AI) | the model deployment name (e.g. `gpt-4o`) |
+| `AZURE_OPENAI_API_KEY` | API (R&D claim AI) | resource key (server-side only) |
+| `AZURE_OPENAI_API_VERSION` *(optional)* | API (R&D claim AI) | default `2024-10-21` |
 
-> **R&D AI cost control:** set a **monthly spend limit** on the key in the Anthropic Console (Billing → limits) — that's the hard $ ceiling. Per-call output size is capped by `RD_COACH_MAX_TOKENS` / `RD_ASSESS_MAX_TOKENS` (defaults 4000 / 8000). Usage tokens are logged per call in the `rd_ai_audit` table.
+> **R&D AI** runs on an **Azure OpenAI deployment in Azure AI Foundry**. Cost is governed by your Azure subscription budgets / cost management (the deployment's tokens-per-minute quota also caps throughput). Per-call output size is capped by `RD_COACH_MAX_TOKENS` / `RD_ASSESS_MAX_TOKENS` (defaults 4000 / 8000). Usage tokens are logged per call in the `rd_ai_audit` table. Auth is the resource api-key today; switching to a managed identity / Entra token is a one-spot change in `api/_lib/aiClient.js`.
 
 > The `VITE_`-prefixed vars are bundled into the client at build time; the
 > unprefixed `AZURE_*` vars are read server-side by the functions to verify the
