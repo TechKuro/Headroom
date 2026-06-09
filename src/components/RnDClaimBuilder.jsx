@@ -3,6 +3,10 @@ import { useStore, useDispatch } from '../store';
 import { genId } from '../utils';
 import { RND_STATUSES, RND_CLAIM_STATUSES, RND_CATEGORIES, RND_WP_OUTCOMES, RAG_STATUSES, DEFAULT_RND_WORK_PACKAGE } from '../constants';
 import { validateRndProject, canExportClaim } from '../rdValidation';
+import { api } from '../api';
+import { addToast } from '../toast';
+import { getAccountName } from '../auth/authConfig';
+import RnDCoachPanel from './RnDCoachPanel';
 
 // Grouped builder sections. `key` matches the section keys validateRndProject
 // emits, so issues can be counted per step.
@@ -29,6 +33,18 @@ function Field({ label, value, onChange, area, type = 'text', placeholder, rows 
   );
 }
 
+// "Review with AI" button + the resulting coach panel for a section.
+function CoachControls({ section, busy, onReview, result, onApply }) {
+  return (
+    <div className="rnd-coach-wrap">
+      <button className="btn btn-secondary btn-sm" disabled={busy === section} onClick={() => onReview(section)}>
+        {busy === section ? 'Reviewing…' : '✨ Review with AI'}
+      </button>
+      <RnDCoachPanel result={result} onApply={onApply} />
+    </div>
+  );
+}
+
 // The focused, full-width claim builder for one R&D project. Edits the live
 // rndProject in place (no import/export). AI coaching/assessment is wired in a
 // later step; until then this captures and validates the claim.
@@ -36,9 +52,61 @@ export default function RnDClaimBuilder({ project, onBack }) {
   const { team, projects } = useStore();
   const dispatch = useDispatch();
   const [active, setActive] = useState('meta');
+  const [coach, setCoach] = useState({}); // section -> AI review result
+  const [busy, setBusy] = useState('');   // which AI call is running
 
   const update = patch => dispatch({ type: 'UPDATE_RND_PROJECT', payload: { id: project.id, ...patch } });
   const updateNested = (key, k, v) => update({ [key]: { ...(project[key] || {}), [k]: v } });
+
+  // What each section sends to the AI coach.
+  const sectionContent = section => {
+    const b = project.boundary || {};
+    switch (section) {
+      case 'advance': return { advanceSought: project.advanceSought };
+      case 'uncertainty': return { technologicalUncertainty: project.technologicalUncertainty };
+      case 'baseline': return { baseline: project.baseline, priorArt: project.priorArt, whyNotDeducible: project.whyNotDeducible, howResolved: project.howResolved };
+      case 'workpackages': return { workPackages: (project.workPackages || []).map(w => ({ title: w.title, hypothesis: w.hypothesis, method: w.method, metrics: w.metrics, outcome: w.outcome })) };
+      case 'boundary': return { activities: b.activities, apportionmentBasis: b.apportionmentBasis };
+      default: return {};
+    }
+  };
+
+  async function runCoach(section) {
+    setBusy(section);
+    try {
+      const res = await api.rdCoach({ section, rndProjectId: project.id, content: sectionContent(section), context: { name: project.name, category: project.category } });
+      setCoach(c => ({ ...c, [section]: res }));
+    } catch (e) { addToast(e?.message || 'AI review failed.', 'error'); }
+    finally { setBusy(''); }
+  }
+
+  async function runAssess() {
+    setBusy('assess');
+    try {
+      const cpd = project.competentProfessionalDetail || {};
+      const b = project.boundary || {};
+      const payload = {
+        name: project.name, category: project.category,
+        advanceSought: project.advanceSought, technologicalUncertainty: project.technologicalUncertainty,
+        baseline: project.baseline, priorArt: project.priorArt, whyNotDeducible: project.whyNotDeducible, howResolved: project.howResolved,
+        competentProfessional: cpd.name ? `${cpd.name}${cpd.role ? ', ' + cpd.role : ''}${cpd.years ? ' (' + cpd.years + ' yrs)' : ''}` : project.competentProfessional,
+        boundary: { activities: b.activities, apportionmentBasis: b.apportionmentBasis },
+        funding: project.funding,
+        workPackages: (project.workPackages || []).map(w => ({ title: w.title, hypothesis: w.hypothesis, method: w.method, metrics: w.metrics, outcome: w.outcome, rdHoursEstimate: w.rdHoursEstimate })),
+      };
+      const res = await api.rdAssess({ rndProjectId: project.id, project: payload });
+      update({
+        lastAssessment: {
+          overallScore: res.overallScore, ragStatus: res.ragStatus, sectionScores: res.sectionScores,
+          gaps: res.gaps, hmrcReadinessSummary: res.hmrcReadinessSummary,
+          generatedAt: new Date().toISOString(), by: getAccountName(),
+        },
+        ...(res.aifNarrative ? { aifNarrative: res.aifNarrative } : {}),
+      });
+      addToast(`Assessment complete — ${res.overallScore}/10`, res.ragStatus === 'red' ? 'warn' : 'success');
+    } catch (e) { addToast(e?.message || 'Assessment failed.', 'error'); }
+    finally { setBusy(''); }
+  }
 
   const validation = validateRndProject(project);
   const exportable = canExportClaim(project);
@@ -128,13 +196,19 @@ export default function RnDClaimBuilder({ project, onBack }) {
           )}
 
           {active === 'advance' && (
-            <Field label="Advance sought" area rows={8} value={project.advanceSought} onChange={v => update({ advanceSought: v })}
-              hint="the technological advance — a new capability/architecture, not a client benefit" />
+            <>
+              <Field label="Advance sought" area rows={8} value={project.advanceSought} onChange={v => update({ advanceSought: v })}
+                hint="the technological advance — a new capability/architecture, not a client benefit" />
+              <CoachControls section="advance" busy={busy} onReview={runCoach} result={coach.advance} onApply={t => update({ advanceSought: t })} />
+            </>
           )}
 
           {active === 'uncertainty' && (
-            <Field label="Technological uncertainty" area rows={8} value={project.technologicalUncertainty} onChange={v => update({ technologicalUncertainty: v })}
-              hint="what was genuinely uncertain that a competent professional could not readily resolve" />
+            <>
+              <Field label="Technological uncertainty" area rows={8} value={project.technologicalUncertainty} onChange={v => update({ technologicalUncertainty: v })}
+                hint="what was genuinely uncertain that a competent professional could not readily resolve" />
+              <CoachControls section="uncertainty" busy={busy} onReview={runCoach} result={coach.uncertainty} onApply={t => update({ technologicalUncertainty: t })} />
+            </>
           )}
 
           {active === 'baseline' && (
@@ -143,6 +217,7 @@ export default function RnDClaimBuilder({ project, onBack }) {
               <Field label="Prior art reviewed" area rows={3} value={project.priorArt} onChange={v => update({ priorArt: v })} hint="vendor docs, OSS, standards, papers, internal projects…" />
               <Field label="Why not readily deducible" area rows={4} value={project.whyNotDeducible} onChange={v => update({ whyNotDeducible: v })} />
               <Field label="How resolved" area rows={4} value={project.howResolved} onChange={v => update({ howResolved: v })} />
+              <CoachControls section="baseline" busy={busy} onReview={runCoach} result={coach.baseline} onApply={t => update({ baseline: t })} />
             </>
           )}
 
@@ -182,6 +257,7 @@ export default function RnDClaimBuilder({ project, onBack }) {
                 </div>
               ))}
               <button className="text-btn-sm" onClick={addWp}>+ Add work package</button>
+              <CoachControls section="workpackages" busy={busy} onReview={runCoach} result={coach.workpackages} />
             </>
           )}
 
@@ -206,6 +282,7 @@ export default function RnDClaimBuilder({ project, onBack }) {
             <>
               <Field label="Non-R&D activities" area rows={4} value={boundary.activities} onChange={v => updateNested('boundary', 'activities', v)} hint="routine config, deployment, support, PM, UI…" />
               <Field label="Apportionment basis" area rows={3} value={boundary.apportionmentBasis} onChange={v => updateNested('boundary', 'apportionmentBasis', v)} hint="how R&D vs non-R&D time is split — e.g. Headroom slots/phases" />
+              <CoachControls section="boundary" busy={busy} onReview={runCoach} result={coach.boundary} onApply={t => updateNested('boundary', 'activities', t)} />
             </>
           )}
 
@@ -240,11 +317,33 @@ export default function RnDClaimBuilder({ project, onBack }) {
                     </div>
                   ))}
 
+              <button className="btn btn-primary" disabled={busy === 'assess'} onClick={runAssess}>
+                {busy === 'assess' ? 'Assessing…' : '✨ Run AI readiness assessment'}
+              </button>
+
+              {project.lastAssessment && (
+                <div className="rnd-assessment">
+                  {project.lastAssessment.sectionScores && (
+                    <div className="rnd-score-chips">
+                      {Object.entries(project.lastAssessment.sectionScores).map(([k, v]) => (
+                        <span key={k} className="rnd-score-chip">{k}: {v}/10</span>
+                      ))}
+                    </div>
+                  )}
+                  {(project.lastAssessment.gaps || []).map((g, n) => (
+                    <div key={n} className={`rnd-issue ${g.severity === 'high' ? 'high' : 'med'}`}>
+                      {g.severity === 'high' ? '⛔' : '⚠'} <strong>{g.section}:</strong> {g.description}{g.recommendation && <span className="rnd-hint"> → {g.recommendation}</span>}
+                    </div>
+                  ))}
+                  {project.lastAssessment.hmrcReadinessSummary && <p className="rnd-coach-note">{project.lastAssessment.hmrcReadinessSummary}</p>}
+                </div>
+              )}
+
               <Field label="AIF narrative draft" area rows={8} value={project.aifNarrative} onChange={v => update({ aifNarrative: v })}
-                hint="the Additional Information Form narrative — editable; AI drafting arrives with the assessment step" />
+                hint="the Additional Information Form narrative — AI fills this on assessment; editable before export" />
 
               <div className="ts-advisory">
-                AI section review &amp; readiness assessment are added in the next step (they need the AI key configured). Until then, fill the sections and use the validation above. Export from the <strong>Packs</strong> tab unlocks at readiness ≥ 6/10 with no blocking issues.
+                AI guidance is advisory and must be reviewed before submission — it is not a substitute for professional tax advice. Export from the <strong>Packs</strong> tab unlocks at readiness ≥ 6/10 with no blocking issues.
               </div>
 
               {!exportable.ok && (

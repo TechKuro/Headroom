@@ -97,6 +97,10 @@ for Production and Preview as needed:
 | `VITE_AZURE_API_SCOPE` | frontend | `api://<client-id>/access_as_user` |
 | `AZURE_CLIENT_ID` | API (token validation) | same client ID, no `VITE_` prefix |
 | `AZURE_TENANT_ID` | API (token validation) | same tenant ID, no `VITE_` prefix |
+| `ANTHROPIC_API_KEY` | API (R&D claim AI) | Anthropic key — enables the R&D coach/assessment; leave unset to disable. Server-side only. |
+| `RD_AI_MODEL` *(optional)* | API (R&D claim AI) | model id, default `claude-sonnet-4-6` |
+
+> **R&D AI cost control:** set a **monthly spend limit** on the key in the Anthropic Console (Billing → limits) — that's the hard $ ceiling. Per-call output size is capped by `RD_COACH_MAX_TOKENS` / `RD_ASSESS_MAX_TOKENS` (defaults 4000 / 8000). Usage tokens are logged per call in the `rd_ai_audit` table.
 
 > The `VITE_`-prefixed vars are bundled into the client at build time; the
 > unprefixed `AZURE_*` vars are read server-side by the functions to verify the
