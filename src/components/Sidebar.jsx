@@ -8,24 +8,17 @@ import { confirmDialog } from '../confirm';
 import { activateOnKey } from '../a11y';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
+import MemberModal from './MemberModal';
 
 export default function Sidebar({ selectedProjectId, setSelectedProjectId, setView, onAddPhase, onEditPhase, whatIfProject, setWhatIfProject }) {
   const { team, projects, capacityOverrides } = useStore();
   const dispatch = useDispatch();
-  const [newMember, setNewMember] = useState('');
   const [newProject, setNewProject] = useState('');
-  const [editingMember, setEditingMember] = useState(null);
   const [editingProject, setEditingProject] = useState(null);
+  const [memberModal, setMemberModal] = useState(null); // { mode:'add' } | { mode:'edit', member }
   const [leaveModal, setLeaveModal] = useState(null); // person object
   const [quickPlanModal, setQuickPlanModal] = useState(null); // projectId
   const [collapsedCustomers, setCollapsedCustomers] = useState(() => new Set());
-
-  function addMember(e) {
-    e.preventDefault();
-    if (!newMember.trim()) return;
-    dispatch({ type: 'ADD_TEAM_MEMBER', payload: { id: genId(), name: newMember.trim(), role: '' } });
-    setNewMember('');
-  }
 
   function addProject(e) {
     e.preventDefault();
@@ -73,41 +66,31 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
       {/* Team Members */}
       <section className="sidebar-section">
         <h3 className="sidebar-heading">Team</h3>
+        <button type="button" className="btn btn-secondary btn-sm sidebar-add-btn" onClick={() => setMemberModal({ mode: 'add' })}>
+          + Add member
+        </button>
         <ul className="sidebar-list">
           {team.map(m => (
             <li key={m.id} className="sidebar-item">
-              {editingMember === m.id ? (
-                <form onSubmit={e => { e.preventDefault(); setEditingMember(null); }} className="inline-edit">
-                  <input
-                    autoFocus value={m.name}
-                    onChange={e => dispatch({ type: 'UPDATE_TEAM_MEMBER', payload: { id: m.id, name: e.target.value } })}
-                    onBlur={() => setEditingMember(null)} className="inline-input"
-                  />
-                </form>
-              ) : (
-                <>
-                  <span className="member-name" onDoubleClick={() => setEditingMember(m.id)}>{m.name}</span>
-                  {m.role && <span className="member-role">{m.role}</span>}
-                  {hasLeave(m.id) && <span className="leave-indicator" title="Has leave/reduced capacity">L</span>}
-                  <button className="icon-btn-sm" onClick={() => setLeaveModal(m)} title="Set leave / capacity">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  </button>
-                  <button className="icon-btn-sm danger" onClick={async () => {
-                    const phaseCount = projects.reduce((sum, p) => sum + p.phases.filter(ph => getPhasePersonIds(ph).includes(m.id)).length, 0);
-                    const message = phaseCount > 0
-                      ? `Remove ${m.name}? This will also remove them from ${phaseCount} assigned phase${phaseCount !== 1 ? 's' : ''}.`
-                      : `Remove ${m.name}?`;
-                    if (await confirmDialog({ title: 'Remove team member', message, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_TEAM_MEMBER', payload: m.id });
-                  }} title="Remove">×</button>
-                </>
-              )}
+              <span className="member-name" onDoubleClick={() => setMemberModal({ mode: 'edit', member: m })}>{m.name}</span>
+              {(m.team || m.department || m.role) && <span className="member-role">{m.team || m.department || m.role}</span>}
+              {hasLeave(m.id) && <span className="leave-indicator" title="Has leave/reduced capacity">L</span>}
+              <button className="icon-btn-sm" onClick={() => setMemberModal({ mode: 'edit', member: m })} title="Edit details">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+              </button>
+              <button className="icon-btn-sm" onClick={() => setLeaveModal(m)} title="Set leave / capacity">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+              <button className="icon-btn-sm danger" onClick={async () => {
+                const phaseCount = projects.reduce((sum, p) => sum + p.phases.filter(ph => getPhasePersonIds(ph).includes(m.id)).length, 0);
+                const message = phaseCount > 0
+                  ? `Remove ${m.name}? This will also remove them from ${phaseCount} assigned phase${phaseCount !== 1 ? 's' : ''}.`
+                  : `Remove ${m.name}?`;
+                if (await confirmDialog({ title: 'Remove team member', message, confirmLabel: 'Remove', danger: true })) dispatch({ type: 'REMOVE_TEAM_MEMBER', payload: m.id });
+              }} title="Remove">×</button>
             </li>
           ))}
         </ul>
-        <form onSubmit={addMember} className="sidebar-add">
-          <input value={newMember} onChange={e => setNewMember(e.target.value)} placeholder="Add member…" className="sidebar-input" />
-          <button type="submit" className="icon-btn-sm" disabled={!newMember.trim()}>+</button>
-        </form>
       </section>
 
       {/* Projects */}
@@ -241,6 +224,12 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
         )}
       </section>
 
+      {memberModal && (
+        <MemberModal
+          member={memberModal.mode === 'edit' ? memberModal.member : null}
+          onClose={() => setMemberModal(null)}
+        />
+      )}
       {leaveModal && <LeaveModal person={leaveModal} onClose={() => setLeaveModal(null)} />}
       {quickPlanModal && <QuickPlanModal projectId={quickPlanModal} onClose={() => setQuickPlanModal(null)} />}
     </aside>
