@@ -1,32 +1,28 @@
 import React, { useState } from 'react';
 import { useStore, useDispatch } from '../store';
-import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, getPhasePersonIds, formatDateShort, getInitiative, getProjectLabourSummary, getProgress } from '../utils';
-import { useProjectHours } from '../timeSummary';
+import { genId, getCurrentDate, addDays, getWorkingDayRange, isSlotAvailable, getPhasePersonIds, formatDateShort } from '../utils';
 import { HALVES } from '../constants';
-import { PROJECT_COLORS, PHASE_TYPES, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
+import { PROJECT_COLORS } from '../constants';
 import { confirmDialog } from '../confirm';
 import { activateOnKey } from '../a11y';
 import LeaveModal from './LeaveModal';
 import QuickPlanModal from './QuickPlanModal';
 import MemberModal from './MemberModal';
+import ProjectModal from './ProjectModal';
 
 export default function Sidebar({ selectedProjectId, setSelectedProjectId, setView, onAddPhase, onEditPhase, whatIfProject, setWhatIfProject }) {
   const { team, projects, capacityOverrides } = useStore();
   const dispatch = useDispatch();
-  const [newProject, setNewProject] = useState('');
-  const [editingProject, setEditingProject] = useState(null);
   const [memberModal, setMemberModal] = useState(null); // { mode:'add' } | { mode:'edit', member }
+  const [projectModal, setProjectModal] = useState(null); // { mode:'add' } | { mode:'edit', project }
   const [leaveModal, setLeaveModal] = useState(null); // person object
   const [quickPlanModal, setQuickPlanModal] = useState(null); // projectId
   const [collapsedCustomers, setCollapsedCustomers] = useState(() => new Set());
 
-  function addProject(e) {
-    e.preventDefault();
-    if (!newProject.trim()) return;
-    const usedColors = projects.map(p => p.color);
-    const color = PROJECT_COLORS.find(c => !usedColors.includes(c)) || PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
-    dispatch({ type: 'ADD_PROJECT', payload: { id: genId(), name: newProject.trim(), color, deadline: '', phases: [] } });
-    setNewProject('');
+  // Next unused palette colour, for a new project's default.
+  function nextColor() {
+    const used = projects.map(p => p.color);
+    return PROJECT_COLORS.find(c => !used.includes(c)) || PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
   }
 
   function startWhatIf() {
@@ -103,10 +99,9 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
             </button>
           )}
         </div>
-        <form onSubmit={addProject} className="sidebar-add">
-          <input value={newProject} onChange={e => setNewProject(e.target.value)} placeholder="Add project…" className="sidebar-input" />
-          <button type="submit" className="icon-btn-sm" disabled={!newProject.trim()}>+</button>
-        </form>
+        <button type="button" className="btn btn-secondary btn-sm sidebar-add-btn" onClick={() => setProjectModal({ mode: 'add' })}>
+          + Add project
+        </button>
         <ul className="sidebar-list">
           {customerGroups.map(group => {
             const collapsed = collapsedCustomers.has(group.customer);
@@ -126,15 +121,10 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 onClick={() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id)}
                 onKeyDown={activateOnKey(() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id))}>
                 <span className="project-dot" style={{ background: p.color }} />
-                {editingProject === p.id ? (
-                  <form onSubmit={e => { e.preventDefault(); setEditingProject(null); }} className="inline-edit" onClick={e => e.stopPropagation()}>
-                    <input autoFocus value={p.name}
-                      onChange={e => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, name: e.target.value } })}
-                      onBlur={() => setEditingProject(null)} className="inline-input" />
-                  </form>
-                ) : (
-                  <span className="project-name" onDoubleClick={e => { e.stopPropagation(); setEditingProject(p.id); }}>{p.name}</span>
-                )}
+                <span className="project-name" onDoubleClick={e => { e.stopPropagation(); setProjectModal({ mode: 'edit', project: p }); }}>{p.name}</span>
+                <button className="icon-btn-sm" onClick={e => { e.stopPropagation(); setProjectModal({ mode: 'edit', project: p }); }} title="Edit project">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                </button>
                 <button className="icon-btn-sm danger" onClick={async e => {
                   e.stopPropagation();
                   if (await confirmDialog({ title: 'Remove project', message: `Remove "${p.name}" and all its ${p.phases.length} phase${p.phases.length !== 1 ? 's' : ''}?`, confirmLabel: 'Remove', danger: true })) {
@@ -145,30 +135,6 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
 
               {selectedProjectId === p.id && (
                 <div className="project-detail">
-                  <div className="detail-row">
-                    <label>Start</label>
-                    <input type="date" value={p.start || ''}
-                      onChange={e => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, start: e.target.value } })}
-                      className="month-input" />
-                  </div>
-                  <div className="detail-row">
-                    <label>Deadline</label>
-                    <input type="date" value={p.deadline || ''}
-                      onChange={e => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, deadline: e.target.value } })}
-                      className="month-input" />
-                  </div>
-                  <div className="detail-row">
-                    <label>Colour</label>
-                    <div className="color-picker">
-                      {PROJECT_COLORS.map(c => (
-                        <button key={c} className={`color-swatch ${p.color === c ? 'active' : ''}`} style={{ background: c }}
-                          onClick={() => dispatch({ type: 'UPDATE_PROJECT', payload: { id: p.id, color: c } })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <InitiativeEditor project={p} />
-
                   <div className="phase-list">
                     <div className="phase-list-header">
                       <span>Phases ({p.phases.length})</span>
@@ -230,78 +196,15 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
           onClose={() => setMemberModal(null)}
         />
       )}
+      {projectModal && (
+        <ProjectModal
+          project={projectModal.mode === 'edit' ? projectModal.project : null}
+          defaultColor={nextColor()}
+          onClose={() => setProjectModal(null)}
+        />
+      )}
       {leaveModal && <LeaveModal person={leaveModal} onClose={() => setLeaveModal(null)} />}
       {quickPlanModal && <QuickPlanModal projectId={quickPlanModal} onClose={() => setQuickPlanModal(null)} />}
     </aside>
-  );
-}
-
-function InitiativeEditor({ project }) {
-  const dispatch = useDispatch();
-  const init = getInitiative(project);
-  const update = patch => dispatch({ type: 'UPDATE_INITIATIVE', payload: { projectId: project.id, initiative: patch } });
-  // Progress is derived (confirmed time ÷ planned work), not hand-entered.
-  const { hoursByProject } = useProjectHours();
-  const planned = getProjectLabourSummary(project, 0).totalHours;
-  const progress = getProgress(planned, hoursByProject[project.id] || 0);
-
-  return (
-    <div className="initiative-editor">
-      <div className="initiative-heading">Initiative details</div>
-
-      <div className="detail-row">
-        <label>Type</label>
-        <div className="seg-group">
-          {Object.entries(INITIATIVE_TYPES).map(([k, v]) => (
-            <button key={k} className={`seg-btn ${init.type === k ? 'active' : ''}`} onClick={() => update({ type: k })}>{v.label}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="detail-row">
-        <label>Status</label>
-        <select className="init-select" value={init.status} onChange={e => update({ status: e.target.value })}>
-          {Object.entries(INITIATIVE_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-      </div>
-
-      <div className="detail-row">
-        <label>Progress</label>
-        <div className="init-progress-edit">
-          <span className="init-progress-pct">{progress.pct == null ? '—' : `${progress.pct}%`}</span>
-          <span className="init-progress-hint">
-            {progress.pct == null ? 'no planned work yet' : 'from confirmed time'}
-          </span>
-        </div>
-      </div>
-
-      <div className="detail-row">
-        <label>Est. value £</label>
-        <input type="number" min="0" className="init-num" value={init.estimatedValue}
-          onChange={e => {
-            const raw = e.target.value;
-            const v = raw === '' ? 0 : Math.max(0, Math.round(Number(raw) || 0));
-            update({ estimatedValue: v });
-          }} />
-      </div>
-
-      <div className="detail-row">
-        <label>Value note</label>
-        <input type="text" className="init-text" value={init.valueNote} placeholder="e.g. Fixed-price"
-          onChange={e => update({ valueNote: e.target.value })} />
-      </div>
-
-      <div className="detail-row detail-row-stacked">
-        <label>Description</label>
-        <textarea className="init-textarea" rows={3} value={init.description}
-          placeholder="What is this project and what's the goal? Shown on the Standup card."
-          onChange={e => update({ description: e.target.value })} />
-      </div>
-
-      <label className="init-checkbox">
-        <input type="checkbox" checked={init.chargeable} onChange={e => update({ chargeable: e.target.checked })} />
-        Chargeable
-      </label>
-    </div>
   );
 }
