@@ -114,10 +114,10 @@ Three sections: **Team**, **Projects**, and **What-If Mode**.
 > Managers (Jason Roberts, John Babb) are for **reporting and sign-off only** — they're not part of the roster, so they aren't allocated work or costed. They become the approvers in the R&D timesheet flow.
 
 #### Projects
-- Projects are **grouped by company/customer** — a project's **Company** field when set, otherwise the first word of its name. Use **Collapse all / Expand all** at the top right.
+- Projects are **grouped by company/customer** — a project's **Company** field when set, otherwise the first word of its name — and the companies are listed **alphabetically**. Use **Collapse all / Expand all** at the top right.
 - **+ Add project** (top) opens a card: **Name** (required), Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable.
 - **Edit**: double-click the name or click the **pencil** icon.
-- **Import CSV** (top of the section) bulk-adds projects from a spreadsheet/SharePoint export — it **appends** to the current plan (doesn't replace it). It maps the columns that have a sensible home — **Task Name → name**, **Description**, **Start/End Date** (ISO or `M/D/YYYY`), **Status** (New → Not Started, In Progress, Done), and **Company Name → Company** (so projects group by company) — and defaults the rest (Internal, £0 value, auto colour). Blank rows are skipped; it reports how many were imported.
+- **Import CSV** (top of the section) bulk-loads projects from a spreadsheet/SharePoint export. It **upserts by name**: projects already in the plan are *updated* from the file, new ones are *added* — so re-importing is safe (no duplicates). It maps the columns with a sensible home — **Task Name → name**, **Description**, **Start/End Date** (ISO or `M/D/YYYY`), **Status** (New → Not Started, In Progress, Done), and **Company Name → Company** (so projects group by company) — and defaults the rest (Internal, £0 value, auto colour). When updating an existing project it keeps your local edits (estimated value, type, chargeable, colour, phases) and only syncs the CSV-owned fields. Blank rows are skipped; it reports added / updated counts.
 - **Expand** a project (click it) to see its **phases** — each phase shows its type, who's on it, the dates and the half-day count — with **Quick Plan**, **+ Add**, and **View project →**.
 - **Remove**: the **×** button (confirms; shows the phase count).
 

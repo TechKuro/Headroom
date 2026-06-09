@@ -5,7 +5,7 @@ import {
   getPhasePersonIds, getPhaseIntensity,
   migratePhase, migrateData,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
-  parseCsv, projectsFromWorkloadCsv,
+  parseCsv, projectsFromWorkloadCsv, reconcileImportedProjects,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
   getPersonWorkload, getWhatIfImpact, findAvailableSlots,
   claimableHours, daysAfter, isLateConfirmation, isQualifying, classificationComplete,
@@ -254,6 +254,37 @@ describe('projectsFromWorkloadCsv', () => {
 
   it('returns nothing when there is no Task Name header', () => {
     expect(projectsFromWorkloadCsv('foo,bar\n1,2')).toEqual({ projects: [], skipped: 0 });
+  });
+});
+
+describe('reconcileImportedProjects', () => {
+  const existing = [{
+    id: 'p1', name: 'Build Agent', color: '#aaa', customer: '', start: '', deadline: '',
+    phases: ['ph'],
+    initiative: { type: 'client', status: 'progress', estimatedValue: 5000, chargeable: true, description: 'old', valueNote: 'fixed' },
+  }];
+  const parsed = [
+    { name: 'build agent', color: '#bbb', customer: 'Nexian', start: '2026-05-01', deadline: '', phases: [], initiative: { type: 'internal', status: 'done', estimatedValue: 0, chargeable: false, description: 'new desc', valueNote: '' } },
+    { name: 'Fresh Project', color: '#ccc', customer: 'Acme', start: '', deadline: '', phases: [], initiative: { type: 'internal', status: 'not-started', estimatedValue: 0, chargeable: false, description: '', valueNote: '' } },
+  ];
+
+  it('updates matches by name (CSV-owned fields) and keeps local edits; adds new', () => {
+    let n = 0;
+    const { projects, added, updated } = reconcileImportedProjects(existing, parsed, () => `gen${++n}`);
+    expect(added).toBe(1);
+    expect(updated).toBe(1);
+    const match = projects[0];
+    expect(match.id).toBe('p1');                 // same project, not duplicated
+    expect(match.customer).toBe('Nexian');       // company synced from CSV
+    expect(match.start).toBe('2026-05-01');      // date synced
+    expect(match.initiative.status).toBe('done');// status synced
+    expect(match.initiative.description).toBe('new desc');
+    expect(match.initiative.estimatedValue).toBe(5000); // local value preserved
+    expect(match.initiative.type).toBe('client');       // local type preserved
+    expect(match.color).toBe('#aaa');            // colour preserved
+    expect(match.phases).toEqual(['ph']);        // phases preserved
+    expect(projects[1].id).toBe('gen1');         // new project gets an id
+    expect(projects[1].customer).toBe('Acme');
   });
 });
 

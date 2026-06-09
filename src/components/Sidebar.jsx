@@ -53,6 +53,8 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
     if (!g) { g = { customer: c, projects: [] }; groupIndex.set(c, g); customerGroups.push(g); }
     g.projects.push(p);
   }
+  // List companies alphabetically (case-insensitive).
+  customerGroups.sort((a, b) => a.customer.localeCompare(b.customer, undefined, { sensitivity: 'base' }));
   const toggleCustomer = c => setCollapsedCustomers(s => {
     const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n;
   });
