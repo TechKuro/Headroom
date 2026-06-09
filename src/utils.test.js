@@ -217,11 +217,11 @@ describe('projectsFromWorkloadCsv', () => {
   // A trimmed SharePoint-style export: schema preamble line, header, then rows.
   const csv = [
     'ListSchema={"junk":"ignore this line"}',
-    '"Task Name","Description","Start Date","End Date","Status","Progress Stage"',
-    '"Build Agent","Does a thing","2026-05-17T23:00:00Z","2026-05-21T23:00:00Z","Done","Done"',
-    '"Migrate API","Move to v2",,,"In Progress","Development"',
-    '"New Idea","Maybe later",,,"New","Backlog"',
-    '"",,"","","New","Backlog"',
+    '"Task Name","Description","Start Date","End Date","Status","Progress Stage","Company Name"',
+    '"Build Agent","Does a thing","2026-05-17T23:00:00Z","2026-05-21T23:00:00Z","Done","Done","Nexian"',
+    '"Migrate API","Move to v2",,,"In Progress","Development","Acme"',
+    '"New Idea","Maybe later","5/18/2026",,"New","Backlog","Acme"',
+    '"",,"","","New","Backlog",""',
   ].join('\n');
 
   it('skips the preamble, maps the sensible columns and skips blank-name rows', () => {
@@ -230,8 +230,10 @@ describe('projectsFromWorkloadCsv', () => {
     expect(skipped).toBe(1);
     expect(projects.map(p => p.name)).toEqual(['Build Agent', 'Migrate API', 'New Idea']);
     expect(projects.map(p => p.initiative.status)).toEqual(['done', 'progress', 'not-started']);
+    expect(projects.map(p => p.customer)).toEqual(['Nexian', 'Acme', 'Acme']);
     expect(projects[0].initiative.description).toBe('Does a thing');
     expect(projects[0].deadline).toBe('2026-05-22'); // 23:00Z → next UK calendar day
+    expect(projects[2].start).toBe('2026-05-18'); // US M/D/YYYY parsed explicitly
     expect(projects[1].start).toBe(''); // blank stays blank
     expect(projects[0].initiative.estimatedValue).toBe(0);
     expect(projects[0].initiative.type).toBe('internal');

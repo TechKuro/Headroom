@@ -13,6 +13,7 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
   const init = getInitiative(project);
 
   const [name, setName] = useState(project?.name ?? '');
+  const [customer, setCustomer] = useState(project?.customer ?? '');
   const [start, setStart] = useState(project?.start ?? '');
   const [deadline, setDeadline] = useState(project?.deadline ?? '');
   const [color, setColor] = useState(project?.color ?? defaultColor ?? PROJECT_COLORS[0]);
@@ -51,9 +52,9 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
       description: description.trim(),
     };
     if (isEditing) {
-      dispatch({ type: 'UPDATE_PROJECT', payload: { id: project.id, name: name.trim(), color, start, deadline, initiative } });
+      dispatch({ type: 'UPDATE_PROJECT', payload: { id: project.id, name: name.trim(), customer: customer.trim(), color, start, deadline, initiative } });
     } else {
-      dispatch({ type: 'ADD_PROJECT', payload: { id: genId(), name: name.trim(), color, start, deadline, phases: [], initiative } });
+      dispatch({ type: 'ADD_PROJECT', payload: { id: genId(), name: name.trim(), customer: customer.trim(), color, start, deadline, phases: [], initiative } });
     }
     onClose();
   }
@@ -73,6 +74,12 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
               <label htmlFor="project-name">Name <span className="req">*</span></label>
               <input id="project-name" className="form-input" autoFocus value={name}
                 onChange={e => setName(e.target.value)} placeholder="e.g. Acme Portal Redesign" />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="project-company">Company</label>
+              <input id="project-company" className="form-input" value={customer}
+                onChange={e => setCustomer(e.target.value)} placeholder="Groups projects in the sidebar — e.g. Nexian" />
             </div>
 
             <div className="form-row">

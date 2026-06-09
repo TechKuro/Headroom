@@ -491,17 +491,24 @@ export function parseCsv(text) {
 // SharePoint "Status" → Headroom initiative status. Anything else → not-started.
 const CSV_STATUS = { 'new': 'not-started', 'in progress': 'progress', 'done': 'done' };
 
-// Date cell → YYYY-MM-DD, resolved in UK time so a SharePoint "…T23:00:00Z"
-// (UK local midnight under BST) lands on the intended calendar date regardless
-// of the runtime timezone. Blank/invalid → ''.
+// Date cell → YYYY-MM-DD. Handles the two shapes SharePoint exports use:
+//  - US M/D/YYYY (e.g. 5/18/2026) — parsed explicitly to avoid locale ambiguity
+//  - ISO with a "…T23:00:00Z" time (UK local midnight under BST) — resolved in
+//    UK time so it lands on the intended calendar day regardless of runtime tz.
+// Blank/invalid → ''.
 function csvDate(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return '';
+  const us = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (us) {
+    const [, m, d, y] = us;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const dt = new Date(raw);
+  if (isNaN(dt.getTime())) return '';
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(d);
+  }).format(dt);
 }
 
 // Map a SharePoint-style workload CSV export into Headroom project objects
@@ -523,6 +530,7 @@ export function projectsFromWorkloadCsv(text, { startColorIndex = 0 } = {}) {
   const header = rows[0].map(c => c.trim().toLowerCase());
   const idx = name => header.indexOf(name);
   const iName = idx('task name'), iDesc = idx('description'), iStart = idx('start date'), iEnd = idx('end date'), iStatus = idx('status');
+  const iCompany = idx('company name');
 
   const projects = [];
   let skipped = 0, ci = startColorIndex;
@@ -533,6 +541,7 @@ export function projectsFromWorkloadCsv(text, { startColorIndex = 0 } = {}) {
     projects.push({
       name,
       color: PROJECT_COLORS[ci % PROJECT_COLORS.length],
+      customer: iCompany >= 0 ? (cells[iCompany] || '').trim() : '',
       start: iStart >= 0 ? csvDate(cells[iStart]) : '',
       deadline: iEnd >= 0 ? csvDate(cells[iEnd]) : '',
       phases: [],

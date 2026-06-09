@@ -42,12 +42,13 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
       .some(date => HALVES.some(h => !isSlotAvailable(personId, date, h, capacityOverrides)));
   }
 
-  // Group projects by customer = the first word of the project name.
-  const customerOf = name => (name || '').trim().split(/\s+/)[0] || 'Other';
+  // Group projects by customer: the project's explicit company/customer when
+  // set (e.g. from a CSV import), otherwise the first word of the name.
+  const customerOf = p => (p.customer || '').trim() || ((p.name || '').trim().split(/\s+/)[0] || 'Other');
   const customerGroups = [];
   const groupIndex = new Map();
   for (const p of projects) {
-    const c = customerOf(p.name);
+    const c = customerOf(p);
     let g = groupIndex.get(c);
     if (!g) { g = { customer: c, projects: [] }; groupIndex.set(c, g); customerGroups.push(g); }
     g.projects.push(p);
