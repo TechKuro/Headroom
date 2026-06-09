@@ -29,7 +29,7 @@ Your name appears top-right, with a **sign-out** button next to it.
 
 The workspace comes pre-loaded with a **Sample Plan** — four people (Alice, Bob, Charlie, Dana), four projects, some allocated half-days (including a deliberate double-booking so the over-commitment view has something to show), plus a sample R&D project and Innovate UK grant. Explore it, then create your own plan when ready.
 
-The app opens on the **Planning** tab. The tab you're on is stored in the page address, so a refresh — or a bookmarked link like `…/#overview` — keeps (or opens) that view.
+The app opens on the **Overview** tab. The tab you're on is stored in the page address, so a refresh — or a bookmarked link like `…/#planning` — keeps (or opens) that view.
 
 ### Quick start: your real plan
 
@@ -391,8 +391,8 @@ Because it's a shared, last-write-wins workspace, the **conflict banner** is you
 
 ## Troubleshooting
 
-**I get bounced to the Planning tab.**
-The tab lives in the page address and defaults to Planning. A full refresh, a new deploy, or the sign-in redirect lands you there. Use a view's URL (e.g. `#overview`) to deep-link.
+**I get bounced to the Overview tab.**
+The tab lives in the page address and defaults to Overview. A full refresh, a new deploy, or the sign-in redirect lands you there. Use a view's URL (e.g. `#planning`) to deep-link.
 
 **Progress shows 0% / "—" everywhere.**
 Progress is *delivered* time ÷ planned. With a fresh plan no time is confirmed yet, so it reads 0% (or "—" if there's no plan). It climbs once people **Confirm** time on the **Timesheet**.
