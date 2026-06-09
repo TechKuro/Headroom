@@ -6,6 +6,12 @@ export const PHASE_TYPES = {
   handover:      { label: 'Handover',             weight: 30,  short: 'H/O' },
 };
 
+// --- Team member onboarding ---
+// Fixed pick-lists for the member card, so manager/team stay consistent and
+// reportable. Edit here to change the available options.
+export const MEMBER_MANAGERS = ['Jason Roberts', 'John Babb'];
+export const MEMBER_TEAMS = ['Projects', 'Engineer', 'Automation'];
+
 // --- Initiative / commercial layer ---
 
 // Default per-project initiative metadata. Applied as a safe fallback wherever

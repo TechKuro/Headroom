@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch } from '../store';
 import { genId } from '../utils';
+import { MEMBER_MANAGERS, MEMBER_TEAMS } from '../constants';
 import { useFocusTrap } from '../a11y';
 
 // Split a stored "First Last" name into parts, for editing legacy members that
@@ -21,7 +22,9 @@ export default function MemberModal({ member, onClose }) {
   const [firstName, setFirstName] = useState(member?.firstName ?? seed.firstName);
   const [lastName, setLastName] = useState(member?.lastName ?? seed.lastName);
   const [manager, setManager] = useState(member?.manager ?? '');
-  const [department, setDepartment] = useState(member?.department ?? '');
+  // `team` here is the member's functional team (Projects/Engineer/…), distinct
+  // from the app's team[] roster. Falls back to a legacy department value.
+  const [team, setTeam] = useState(member?.team ?? member?.department ?? '');
 
   const modalRef = useRef(null);
   useFocusTrap(modalRef);
@@ -42,8 +45,8 @@ export default function MemberModal({ member, onClose }) {
       name,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      manager: manager.trim(),
-      department: department.trim(),
+      manager,
+      team,
     };
     if (isEditing) {
       dispatch({ type: 'UPDATE_TEAM_MEMBER', payload: { id: member.id, ...fields } });
@@ -77,14 +80,20 @@ export default function MemberModal({ member, onClose }) {
               </div>
             </div>
             <div className="form-group">
-              <label htmlFor="member-manager">Manager name</label>
-              <input id="member-manager" className="form-input" value={manager}
-                onChange={e => setManager(e.target.value)} placeholder="Who they report to" />
+              <label htmlFor="member-manager">Manager</label>
+              <select id="member-manager" className="form-select" value={manager} onChange={e => setManager(e.target.value)}>
+                <option value="">— Select manager —</option>
+                {MEMBER_MANAGERS.map(mgr => <option key={mgr} value={mgr}>{mgr}</option>)}
+                {manager && !MEMBER_MANAGERS.includes(manager) && <option value={manager}>{manager}</option>}
+              </select>
             </div>
             <div className="form-group">
-              <label htmlFor="member-dept">Department</label>
-              <input id="member-dept" className="form-input" value={department}
-                onChange={e => setDepartment(e.target.value)} placeholder="e.g. Engineering" />
+              <label htmlFor="member-team">Team</label>
+              <select id="member-team" className="form-select" value={team} onChange={e => setTeam(e.target.value)}>
+                <option value="">— Select team —</option>
+                {MEMBER_TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+                {team && !MEMBER_TEAMS.includes(team) && <option value={team}>{team}</option>}
+              </select>
             </div>
           </div>
 

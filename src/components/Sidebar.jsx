@@ -73,7 +73,7 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
           {team.map(m => (
             <li key={m.id} className="sidebar-item">
               <span className="member-name" onDoubleClick={() => setMemberModal({ mode: 'edit', member: m })}>{m.name}</span>
-              {(m.department || m.role) && <span className="member-role">{m.department || m.role}</span>}
+              {(m.team || m.department || m.role) && <span className="member-role">{m.team || m.department || m.role}</span>}
               {hasLeave(m.id) && <span className="leave-indicator" title="Has leave/reduced capacity">L</span>}
               <button className="icon-btn-sm" onClick={() => setMemberModal({ mode: 'edit', member: m })} title="Edit details">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
