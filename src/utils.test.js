@@ -3,7 +3,7 @@ import {
   addMonths, monthDiff, getMonthRange, monthToString,
   isWorkingDay, getWorkingDayRange, enumerateSlots, slotKey, isSlotAvailable,
   getPhasePersonIds, getPhaseIntensity,
-  migratePhase, migrateData,
+  migratePhase, migrateData, migrateRndProject,
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
   parseCsv, projectsFromWorkloadCsv, reconcileImportedProjects,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
@@ -102,6 +102,34 @@ describe('migratePhase / migrateData (saved-plan safety)', () => {
     expect(out.settings).toEqual(DEFAULT_SETTINGS);
     expect(out.projects[0].initiative).toEqual(DEFAULT_INITIATIVE);
     expect(out.projects[0].phases[0].slots).toEqual([]);
+  });
+
+  it('migrateRndProject backfills claim-builder fields without losing existing data', () => {
+    // A legacy R&D project (only the original 9 fields).
+    const legacy = { id: 'r1', name: 'Pipeline', status: 'active', advanceSought: 'kept', trackerProjectIds: ['p1'] };
+    const out = migrateRndProject(legacy);
+    expect(out.name).toBe('Pipeline');
+    expect(out.advanceSought).toBe('kept');          // existing value preserved
+    expect(out.trackerProjectIds).toEqual(['p1']);
+    expect(out.claimStatus).toBe('draft');           // new field defaulted
+    expect(out.funding.selfPct).toBe(100);           // nested default
+    expect(out.competentProfessionalDetail).toEqual({ name: '', role: '', years: 0, experienceSummary: '' });
+    expect(out.workPackages).toEqual([]);
+    expect(out.lastAssessment).toBeNull();
+  });
+
+  it('migrateRndProject merges nested objects and work packages, and is idempotent', () => {
+    const partial = { id: 'r2', funding: { grantPct: 40 }, workPackages: [{ id: 'w1', title: 'WP1' }] };
+    const once = migrateRndProject(partial);
+    expect(once.funding).toEqual({ selfPct: 100, grantPct: 40, otherSubsidisedPct: 0, notifiedStateAid: false, claimNotificationMade: false });
+    expect(once.workPackages[0]).toEqual({ id: 'w1', title: 'WP1', hypothesis: '', method: '', metrics: '', outcome: 'ongoing', rdHoursEstimate: 0, teamMemberIds: [] });
+    expect(migrateRndProject(once)).toEqual(once); // idempotent
+  });
+
+  it('migrateData runs rndProjects through the backfill', () => {
+    const out = migrateData({ team: [], projects: [], rndProjects: [{ id: 'r1', name: 'X' }] });
+    expect(out.rndProjects[0].claimStatus).toBe('draft');
+    expect(out.rndProjects[0].boundary.roles).toEqual([]);
   });
 });
 

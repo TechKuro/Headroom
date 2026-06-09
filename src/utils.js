@@ -1,4 +1,4 @@
-import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS, MAX_HOURS_PER_DAY, MAX_HOURS_PER_WEEK, PROJECT_COLORS } from './constants';
+import { PHASE_TYPES, DEFAULT_INITIATIVE, DEFAULT_SETTINGS, HOURS_PER_HALF_DAY, HALVES, WORKING_DAYS, LATE_CONFIRMATION_DAYS, MAX_HOURS_PER_DAY, MAX_HOURS_PER_WEEK, PROJECT_COLORS, DEFAULT_RND_PROJECT, DEFAULT_RND_WORK_PACKAGE } from './constants';
 
 // --- Month arithmetic (YYYY-MM strings) ---
 
@@ -157,12 +157,26 @@ export function migratePhase(phase) {
  * Pure and side-effect free — used by the store on load/import and covered by
  * tests, since a silent change here can corrupt saved plans.
  */
+// Backfill an R&D project with the claim-builder fields so docs from before the
+// R&D module load safely (additive defaults; existing values win). Nested
+// objects/arrays are merged so a partially-populated record keeps its data.
+export function migrateRndProject(r = {}) {
+  return {
+    ...DEFAULT_RND_PROJECT,
+    ...r,
+    competentProfessionalDetail: { ...DEFAULT_RND_PROJECT.competentProfessionalDetail, ...(r.competentProfessionalDetail || {}) },
+    boundary: { ...DEFAULT_RND_PROJECT.boundary, ...(r.boundary || {}) },
+    funding: { ...DEFAULT_RND_PROJECT.funding, ...(r.funding || {}) },
+    workPackages: Array.isArray(r.workPackages) ? r.workPackages.map(w => ({ ...DEFAULT_RND_WORK_PACKAGE, ...w })) : [],
+  };
+}
+
 export function migrateData(data) {
   return {
     ...data,
     capacityOverrides: data.capacityOverrides || {},
     settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
-    rndProjects: Array.isArray(data.rndProjects) ? data.rndProjects : [],
+    rndProjects: (Array.isArray(data.rndProjects) ? data.rndProjects : []).map(migrateRndProject),
     grants: Array.isArray(data.grants) ? data.grants : [],
     projects: data.projects.map(p => ({
       ...p,

@@ -58,13 +58,50 @@ export const RND_STATUSES = {
   complete: { label: 'Complete' },
 };
 
+// Claim-builder pick-lists / enums (R&D module).
+export const RND_CLAIM_STATUSES = {
+  draft:       { label: 'Draft' },
+  'in-review': { label: 'In review' },
+  ready:       { label: 'Ready' },
+};
+export const RND_CATEGORIES = ['Security Analytics', 'Automation Framework', 'Complex Integration', 'Software Application', 'Other'];
+export const RND_WP_OUTCOMES = {
+  ongoing:   { label: 'Ongoing' },
+  confirmed: { label: 'Confirmed' },
+  partial:   { label: 'Partial' },
+  refuted:   { label: 'Refuted' },
+};
+// Readiness RAG (AI assessment + the project list badge).
+export const RAG_STATUSES = {
+  red:   { label: 'Red',   order: 0 },
+  amber: { label: 'Amber', order: 1 },
+  green: { label: 'Green', order: 2 },
+};
+
+// A rich R&D work package (the technical-narrative unit for the AIF). Distinct
+// from grant work packages (DEFAULT_GRANT.workPackages = {id,name}).
+export const DEFAULT_RND_WORK_PACKAGE = {
+  id: '', title: '', hypothesis: '', method: '', metrics: '',
+  outcome: 'ongoing', rdHoursEstimate: 0, teamMemberIds: [],
+};
+
 // An R&D project (the tax unit — a body of work resolving a technological
 // uncertainty). Links many-to-many to tracker projects via trackerProjectIds.
+// The claim-builder fields are additive; old docs backfill via migrateRndProject.
 export const DEFAULT_RND_PROJECT = {
   name: '', status: 'active', accountingPeriods: '',
   advanceSought: '', technologicalUncertainty: '', baseline: '',
   howResolved: '', competentProfessional: '',
   trackerProjectIds: [],
+  // --- claim-builder fields ---
+  internalCode: '', claimStatus: 'draft', lead: '', category: '',
+  context: '', priorArt: '', whyNotDeducible: '',
+  competentProfessionalDetail: { name: '', role: '', years: 0, experienceSummary: '' },
+  boundary: { activities: '', roles: [], apportionmentBasis: '' },
+  funding: { selfPct: 100, grantPct: 0, otherSubsidisedPct: 0, notifiedStateAid: false, claimNotificationMade: false },
+  workPackages: [],     // [DEFAULT_RND_WORK_PACKAGE]
+  aifNarrative: '',
+  lastAssessment: null, // { overallScore, ragStatus, sectionScores, gaps[], hmrcReadinessSummary, generatedAt, by } | null
 };
 
 // A grant (default Innovate UK) with child work packages.
