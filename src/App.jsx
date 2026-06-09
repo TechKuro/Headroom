@@ -37,7 +37,7 @@ function mondayOf(date) {
 const VIEWS = ['overview', 'planning', 'timeline', 'heatmap', 'project', 'standup', 'people', 'timesheet', 'authorise', 'rnd'];
 function viewFromHash() {
   const h = window.location.hash.replace(/^#/, '');
-  return VIEWS.includes(h) ? h : 'planning';
+  return VIEWS.includes(h) ? h : 'overview';
 }
 
 export default function App() {
