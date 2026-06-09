@@ -49,4 +49,8 @@ export const api = {
   deleteTimeEntry: (id) => apiFetch(`/time-entries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   authoriseTimeEntries: (ids) => apiFetch('/time-entries/authorise', { method: 'POST', body: JSON.stringify({ ids }) }),
   lockTimePeriod: ({ from, to }) => apiFetch('/time-entries/lock', { method: 'POST', body: JSON.stringify({ from, to }) }),
+
+  // R&D claim AI (advisory; key held server-side).
+  rdCoach: (payload) => apiFetch('/rd-coach', { method: 'POST', body: JSON.stringify(payload) }),
+  rdAssess: (payload) => apiFetch('/rd-assess', { method: 'POST', body: JSON.stringify(payload) }),
 };

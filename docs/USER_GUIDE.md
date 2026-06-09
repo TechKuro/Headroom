@@ -226,7 +226,7 @@ The **manager** flow — restricted to managers (Jason Roberts / John Babb).
 
 Four sub-sections for tax relief and grant claims:
 
-1. **R&D Projects** — the tax unit. Capture the narrative HMRC expects (technological uncertainty, baseline, how it was resolved, the competent professional, accounting periods, advance sought) and **link the tracker projects** that contribute to it.
+1. **R&D Projects** — the tax unit. The section is a compact list (name · claim status · readiness · % complete); click one to open the **Claim builder** — a guided, full-width flow (Setup → Advance → Uncertainty → Baseline → Work packages → Competent professional → Boundary → Funding → Review) that captures the full HMRC narrative, links the tracker projects, and validates as you go. Each narrative section has a **Review with AI** button (advisory scoring + a suggested rewrite you can apply), and **Review** runs a full **readiness assessment** that scores the claim, lists gaps and drafts the **AIF narrative**. AI guidance is advisory — review before submission. *(The AI features activate once the server's `ANTHROPIC_API_KEY` is set.)*
 2. **Grants** — funder, reference, budget, dates, claim cadence, IAR milestones, and **work packages**.
 3. **Classify Time** — for each confirmed entry in the week, set **Funding source** (Self-funded / Grant-funded / Other subsidised), **Classification** (Qualifying — direct / indirect, or Non-qualifying), the **R&D project**, and **work package**. A qualifying classification **requires** a funding source.
 4. **Packs** — generate evidence:
