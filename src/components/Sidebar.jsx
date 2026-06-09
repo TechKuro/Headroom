@@ -151,12 +151,14 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                         <div key={ph.id} className="phase-item" role="button" tabIndex={0}
                           onClick={() => onEditPhase(p.id, ph)}
                           onKeyDown={activateOnKey(() => onEditPhase(p.id, ph))}>
-                          <span className="phase-type-badge" style={{ background: p.color + '33', color: p.color }}>
-                            {ph.type}
-                          </span>
-                          <span className="phase-person">{names || '??'}</span>
+                          <div className="phase-item-row">
+                            <span className="phase-type-badge" style={{ background: p.color + '33', color: p.color }}>
+                              {ph.type}
+                            </span>
+                            <span className="phase-person">{names || 'Unassigned'}</span>
+                            <span className="phase-override">{halves} half{halves !== 1 ? 's' : ''}</span>
+                          </div>
                           <span className="phase-dates">{formatDateShort(ph.startMonth)} → {formatDateShort(ph.endMonth)}</span>
-                          <span className="phase-override">{halves} half{halves !== 1 ? 's' : ''}</span>
                         </div>
                       );
                     })}

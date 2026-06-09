@@ -22,7 +22,7 @@
   --surface: #1c2029;
   --surface-2: #282d3c;
   --label-width: 180px;
-  --sidebar-width: 280px;
+  --sidebar-width: 320px;
   --header-height: 52px;
 
   /* --- Design tokens (governance: prefer these over ad-hoc values) --- */
@@ -662,9 +662,9 @@ body {
 
 .phase-item {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
   background: var(--bg-3);
   border-radius: 4px;
   cursor: pointer;
@@ -673,17 +673,21 @@ body {
 }
 .phase-item:hover { background: var(--border); }
 
+/* Top line: type + who + workload; dates sit underneath so nothing crams. */
+.phase-item-row { display: flex; align-items: center; gap: 6px; }
+
 .phase-type-badge {
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 
-.phase-person { color: var(--text-2); flex: 1; }
+.phase-person { color: var(--text-1); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .phase-dates { color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
-.phase-override { color: var(--warning); font-size: 10px; font-weight: 600; }
+.phase-override { color: var(--warning); font-size: 10px; font-weight: 600; flex-shrink: 0; }
 
 .view-project-btn { align-self: flex-start; margin-top: 4px; }
 
