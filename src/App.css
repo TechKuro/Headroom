@@ -543,6 +543,9 @@ body {
   margin-top: 6px;
 }
 
+/* Full-width "+ Add member" button that opens the member card. */
+.sidebar-add-btn { width: 100%; margin-top: 6px; }
+
 .sidebar-input {
   flex: 1;
   padding: 5px 8px;
