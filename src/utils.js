@@ -132,6 +132,15 @@ export function getPhasePersonIds(phase) {
   return [];
 }
 
+// Everyone "on" a project: explicitly assigned (assignedMemberIds) PLUS anyone
+// with allocated half-day slots. Assignment is independent of allocation — a
+// person can be assigned to a project with no time booked yet.
+export function getProjectMemberIds(project) {
+  const ids = new Set(project.assignedMemberIds || []);
+  for (const ph of project.phases || []) for (const id of getPhasePersonIds(ph)) ids.add(id);
+  return [...ids];
+}
+
 /** Migrate a phase to the current shape (personIds[], YYYY-MM-DD dates, slots[]). */
 export function migratePhase(phase) {
   const migrated = { ...phase };
@@ -182,6 +191,7 @@ export function migrateData(data) {
       ...p,
       initiative: { ...DEFAULT_INITIATIVE, ...(p.initiative || {}) },
       checkIns: Array.isArray(p.checkIns) ? p.checkIns : [],
+      assignedMemberIds: Array.isArray(p.assignedMemberIds) ? p.assignedMemberIds : [],
       phases: p.phases.map(ph => migratePhase(ph)),
     })),
   };
@@ -783,12 +793,17 @@ export function getPersonWorkload(personId, projects, blendedRate) {
   const byProject = [];
   for (const p of projects) {
     const hours = getProjectLabourSummary(p, blendedRate).assignedHoursByPerson[personId] || 0;
-    if (hours <= 0) continue;
+    // Include a project if the person is assigned to it OR has time on it —
+    // so assigned-but-unallocated projects still show (with zero hours).
+    const onProject = getProjectMemberIds(p).includes(personId);
+    if (hours <= 0 && !onProject) continue;
     const init = getInitiative(p);
-    totalHours += hours;
-    if (init.type === 'client') clientHours += hours; else internalHours += hours;
-    if (init.chargeable) billableHours += hours;
-    byProject.push({ id: p.id, name: p.name, color: p.color, hours });
+    if (hours > 0) {
+      totalHours += hours;
+      if (init.type === 'client') clientHours += hours; else internalHours += hours;
+      if (init.chargeable) billableHours += hours;
+    }
+    byProject.push({ id: p.id, name: p.name, color: p.color, hours, assignedOnly: hours <= 0 });
   }
   byProject.sort((a, b) => b.hours - a.hours);
   return {
@@ -796,6 +811,8 @@ export function getPersonWorkload(personId, projects, blendedRate) {
     cost: totalHours * blendedRate,
     billablePct: totalHours > 0 ? (billableHours / totalHours) * 100 : 0,
     byProject,
+    projectCount: byProject.length,
+    assignedOnlyCount: byProject.filter(b => b.assignedOnly).length,
   };
 }
 

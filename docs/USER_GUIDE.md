@@ -124,7 +124,8 @@ Three sections: **Team**, **Projects**, and **What-If Mode**.
 
 #### Projects
 - Projects are **grouped by company/customer** — a project's **Company** field when set, otherwise the first word of its name — and the companies are listed **alphabetically**. Use **Collapse all / Expand all** at the top right.
-- **+ Add project** (top) opens a card: **Name** (required), Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable.
+- **+ Add project** (top) opens a card: **Name** (required), Company, **Assigned engineers**, Start, Deadline, Colour, and the initiative details — Type, Status, **Estimated value** (required), Value note, Description, Chargeable.
+- **Assigned engineers** records *who owns* a project, independent of time allocation — so a project can be assigned to someone before any half-days are booked. The expanded row lists them (those with no time yet are marked), the row shows an assigned count, and **People & Cost** counts each engineer's projects (including assigned-but-unallocated).
 - **Edit**: double-click the name or click the **pencil** icon.
 - **Import CSV** (top of the section) bulk-loads projects from a spreadsheet/SharePoint export. It **upserts by name**: projects already in the plan are *updated* from the file, new ones are *added* — so re-importing is safe (no duplicates). It maps the columns with a sensible home — **Task Name → name**, **Description**, **Start/End Date** (ISO or `M/D/YYYY`), **Status** (New → Not Started, In Progress, Done), and **Company Name → Company** (so projects group by company) — and defaults the rest (Internal, £0 value, auto colour). When updating an existing project it keeps your local edits (estimated value, type, chargeable, colour, phases) and only syncs the CSV-owned fields. Blank rows are skipped; it reports added / updated counts.
 - **Expand** a project (click it) to see its **phases** — each phase shows its type, who's on it, the dates and the half-day count — with **Quick Plan**, **+ Add**, and **View project →**.
@@ -198,7 +199,7 @@ A person-by-person check-in, for stand-ups and one-to-ones.
 
 The team **ranked by workload** (busiest first), each as a card showing:
 
-- **Hours**, **Cost**, **Billable %** (chargeable share), **Avg fill**, and **Double-booked** day count.
+- **Projects** (how many they're on — including any they're assigned to with no time booked yet; amber if some are unallocated), **Hours**, **Cost**, **Billable %** (chargeable share), **Avg fill**, and **Double-booked** day count.
 - A **utilisation forecast** strip for the next ~20 working days, coloured by how full each day is (green part-day → amber full → red over-committed).
 - A **client vs internal** split bar, top projects, and when they next have availability.
 

@@ -129,6 +129,9 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
                 onKeyDown={activateOnKey(() => setSelectedProjectId(selectedProjectId === p.id ? null : p.id))}>
                 <span className="project-dot" style={{ background: p.color }} />
                 <span className="project-name" onDoubleClick={e => { e.stopPropagation(); setProjectModal({ mode: 'edit', project: p }); }}>{p.name}</span>
+                {(p.assignedMemberIds || []).length > 0 && (
+                  <span className="proj-assign-count" title={`${p.assignedMemberIds.length} engineer${p.assignedMemberIds.length === 1 ? '' : 's'} assigned`}>{p.assignedMemberIds.length}</span>
+                )}
                 <button className="icon-btn-sm" onClick={e => { e.stopPropagation(); setProjectModal({ mode: 'edit', project: p }); }} title="Edit project">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
                 </button>
@@ -142,6 +145,24 @@ export default function Sidebar({ selectedProjectId, setSelectedProjectId, setVi
 
               {selectedProjectId === p.id && (
                 <div className="project-detail">
+                  {(() => {
+                    const allocated = new Set();
+                    for (const ph of p.phases) for (const id of getPhasePersonIds(ph)) allocated.add(id);
+                    const assigned = p.assignedMemberIds || [];
+                    return (
+                      <div className="proj-assignees-block">
+                        <span className="proj-assignees-label">Assigned</span>
+                        {assigned.length === 0
+                          ? <span className="rnd-hint">none — edit the project to assign engineers</span>
+                          : assigned.map(id => {
+                              const m = team.find(t => t.id === id);
+                              if (!m) return null;
+                              const idle = !allocated.has(id);
+                              return <span key={id} className={`proj-assignee ${idle ? 'idle' : ''}`} title={idle ? 'Assigned — no time allocated yet' : 'Assigned and allocated'}>{m.name}{idle ? ' • no time yet' : ''}</span>;
+                            })}
+                      </div>
+                    );
+                  })()}
                   <div className="phase-list">
                     <div className="phase-list-header">
                       <span>Phases ({p.phases.length})</span>
