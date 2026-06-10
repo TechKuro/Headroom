@@ -784,7 +784,7 @@ export function getProjectRisk(project, opts = {}) {
  * billable), cost, and a per-project breakdown sorted by contribution.
  *
  * This is the EFFORT/COST lens — hours come from getProjectLabourSummary
- * (allocated half-days × 4h). "Billable" keys off the initiative `chargeable`
+ * (allocated half-days × HOURS_PER_HALF_DAY). "Billable" keys off the initiative `chargeable`
  * flag, a different axis from client/internal type. Compare with
  * getPersonUtilisation (the scheduling lens).
  */

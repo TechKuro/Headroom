@@ -144,10 +144,10 @@ describe('getInitiative', () => {
 describe('getProjectLabourSummary (slot-based)', () => {
   const rate = 100;
 
-  it('hours = allocated half-days × 4, cost = hours × rate', () => {
+  it('hours = allocated half-days × HOURS_PER_HALF_DAY, cost = hours × rate', () => {
     const p = { initiative: { type: 'internal' }, phases: [phase([slot('p1', 0), slot('p1', 1), slot('p1', 2)])] };
     const s = getProjectLabourSummary(p, rate);
-    expect(s.totalHours).toBe(3 * HOURS_PER_HALF_DAY);     // 12
+    expect(s.totalHours).toBe(3 * HOURS_PER_HALF_DAY);
     expect(s.cost).toBe(3 * HOURS_PER_HALF_DAY * rate);
     expect(s.assignedHoursByPerson).toEqual({ p1: 3 * HOURS_PER_HALF_DAY });
   });
@@ -155,14 +155,14 @@ describe('getProjectLabourSummary (slot-based)', () => {
   it('counts each person their own slots', () => {
     const p = { phases: [phase([slot('p1', 0), slot('p1', 0, 'pm'), slot('p2', 0)])] };
     const s = getProjectLabourSummary(p, rate);
-    expect(s.assignedHoursByPerson).toEqual({ p1: 8, p2: 4 });
-    expect(s.totalHours).toBe(12);
+    expect(s.assignedHoursByPerson).toEqual({ p1: 2 * HOURS_PER_HALF_DAY, p2: HOURS_PER_HALF_DAY });
+    expect(s.totalHours).toBe(3 * HOURS_PER_HALF_DAY);
   });
 
   it('routes hours to client vs internal by initiative type', () => {
     const slots = [slot('p1', 0), slot('p1', 1)];
-    expect(getProjectLabourSummary({ initiative: { type: 'client' }, phases: [phase(slots)] }, rate).clientHours).toBe(8);
-    expect(getProjectLabourSummary({ initiative: { type: 'internal' }, phases: [phase(slots)] }, rate).internalHours).toBe(8);
+    expect(getProjectLabourSummary({ initiative: { type: 'client' }, phases: [phase(slots)] }, rate).clientHours).toBe(2 * HOURS_PER_HALF_DAY);
+    expect(getProjectLabourSummary({ initiative: { type: 'internal' }, phases: [phase(slots)] }, rate).internalHours).toBe(2 * HOURS_PER_HALF_DAY);
   });
 
   it('an unallocated phase contributes nothing', () => {
@@ -212,17 +212,17 @@ describe('getPlannedByDayProject (timesheet pre-fill)', () => {
     const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0), slot('p1', 0, 'pm'), slot('p1', 1)])] };
     const rows = getPlannedByDayProject('p1', [WK[0], WK[1]], [a]);
     expect(rows).toEqual([
-      { date: WK[0], trackerProjectId: 'A', projectName: 'A', projectColor: '#f00', hours: 8 },
-      { date: WK[1], trackerProjectId: 'A', projectName: 'A', projectColor: '#f00', hours: 4 },
+      { date: WK[0], trackerProjectId: 'A', projectName: 'A', projectColor: '#f00', hours: 2 * HOURS_PER_HALF_DAY },
+      { date: WK[1], trackerProjectId: 'A', projectName: 'A', projectColor: '#f00', hours: HOURS_PER_HALF_DAY },
     ]);
   });
 
-  it('splits a day across projects (4h each)', () => {
+  it('splits a day across projects (a half-day each)', () => {
     const a = { id: 'A', name: 'A', color: '#f00', phases: [phase([slot('p1', 0, 'am')])] };
     const b = { id: 'B', name: 'B', color: '#0f0', phases: [phase([slot('p1', 0, 'pm')])] };
     const rows = getPlannedByDayProject('p1', [WK[0]], [a, b]);
     expect(rows).toHaveLength(2);
-    expect(rows.map(r => r.hours)).toEqual([4, 4]);
+    expect(rows.map(r => r.hours)).toEqual([HOURS_PER_HALF_DAY, HOURS_PER_HALF_DAY]);
   });
 
   it('returns nothing for a person with no planned slots', () => {
@@ -336,7 +336,7 @@ describe('getPersonWorkload — assignment vs allocation', () => {
     const w = getPersonWorkload('p1', [allocated, assignedOnly], 100);
     expect(w.projectCount).toBe(2);
     expect(w.assignedOnlyCount).toBe(1);
-    expect(w.totalHours).toBe(8); // only the allocated project contributes hours
+    expect(w.totalHours).toBe(2 * HOURS_PER_HALF_DAY); // only the allocated project contributes hours
     const y = w.byProject.find(b => b.id === 'y');
     expect(y).toMatchObject({ hours: 0, assignedOnly: true });
   });
@@ -422,12 +422,12 @@ describe('getPersonWorkload', () => {
 
   it('splits hours by type and billable flag and totals cost', () => {
     const w = getPersonWorkload('p1', [client, internal], 100);
-    expect(w.totalHours).toBe(4 * HOURS_PER_HALF_DAY);   // 16
-    expect(w.clientHours).toBe(8);
-    expect(w.internalHours).toBe(8);
-    expect(w.billableHours).toBe(8);
+    expect(w.totalHours).toBe(4 * HOURS_PER_HALF_DAY);       // 2 client + 2 internal half-days
+    expect(w.clientHours).toBe(2 * HOURS_PER_HALF_DAY);
+    expect(w.internalHours).toBe(2 * HOURS_PER_HALF_DAY);
+    expect(w.billableHours).toBe(2 * HOURS_PER_HALF_DAY);
     expect(w.billablePct).toBe(50);
-    expect(w.cost).toBe(16 * 100);
+    expect(w.cost).toBe(4 * HOURS_PER_HALF_DAY * 100);
     expect(w.byProject).toHaveLength(2);
   });
 
@@ -452,8 +452,9 @@ describe('getWhatIfImpact', () => {
   it('projects ROI when an estimated value is set', () => {
     const wif = { id: 'w', name: 'New', initiative: { estimatedValue: 20000 }, phases: [phase([slot('p2', 0), slot('p2', 1)])] };
     const r = getWhatIfImpact(wif, { projects: [committed], team, blendedRate: 100 });
-    expect(r.roi).toBe(20000 - 2 * HOURS_PER_HALF_DAY * 100);
-    expect(Math.round(r.roiPercent)).toBe(2400);
+    const cost = 2 * HOURS_PER_HALF_DAY * 100;
+    expect(r.roi).toBe(20000 - cost);
+    expect(Math.round(r.roiPercent)).toBe(Math.round(((20000 - cost) / cost) * 100));
   });
 
   it('flags the days a what-if double-books someone', () => {
