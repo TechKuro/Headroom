@@ -85,7 +85,7 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
             </div>
 
             <div className="form-group">
-              <label>Assigned engineers <span className="rnd-hint">— who's on this project (independent of time allocation)</span></label>
+              <label>Assigned engineers <span className="rnd-hint">— who's on this project</span></label>
               {team.length === 0
                 ? <span className="rnd-hint">Add team members first.</span>
                 : (
