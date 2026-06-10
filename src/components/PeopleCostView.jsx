@@ -74,6 +74,7 @@ export default function PeopleCostView() {
                   {p.role && <span className="pc-role">{p.role}</span>}
                 </div>
                 <div className="pc-stats">
+                  <Stat label="Projects" value={w.projectCount} tone={w.assignedOnlyCount ? 'warn' : undefined} />
                   <Stat label="Hours" value={formatHours(w.totalHours)} />
                   <Stat label="Cost" value={formatCurrency(w.cost)} />
                   <Stat label="Billable" value={`${Math.round(w.billablePct)}%`} />
@@ -112,7 +113,8 @@ export default function PeopleCostView() {
                   <div className="pc-seg-labels">
                     {w.clientHours > 0 && <span className="pc-label client">{formatHours(w.clientHours)} client</span>}
                     {w.internalHours > 0 && <span className="pc-label internal">{formatHours(w.internalHours)} internal</span>}
-                    {w.totalHours === 0 && <span className="pc-label none">No assigned work</span>}
+                    {w.totalHours === 0 && w.projectCount === 0 && <span className="pc-label none">No assigned work</span>}
+                    {w.totalHours === 0 && w.projectCount > 0 && <span className="pc-label none">Assigned to {w.projectCount} project{w.projectCount === 1 ? '' : 's'} · no time booked yet</span>}
                     {w.byProject.length > 0 && (
                       <span className="pc-top-projects" title={w.byProject.map(b => `${b.name}: ${formatHours(b.hours)}`).join('\n')}>
                         Top: {w.byProject.slice(0, 2).map(b => b.name).join(', ')}

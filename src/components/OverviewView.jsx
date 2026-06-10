@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import {
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
-  getPhasePersonIds, formatCurrency, formatSignedCurrency, formatHours,
+  getProjectMemberIds, formatCurrency, formatSignedCurrency, formatHours,
 } from '../utils';
 import { useProjectHours } from '../timeSummary';
 import { INITIATIVE_TYPES, INITIATIVE_STATUSES, RISK_LEVELS } from '../constants';
@@ -44,9 +44,7 @@ export default function OverviewView() {
     const progress = getProgress(summary.totalHours, confirmedHours);
     const risk = getProjectRisk(p, { projects, blendedRate, capacityOverrides, progress: progress.pct ?? 0 });
 
-    const peopleIds = new Set();
-    for (const ph of p.phases) for (const id of getPhasePersonIds(ph)) peopleIds.add(id);
-    const people = [...peopleIds].map(id => team.find(m => m.id === id)?.name).filter(Boolean);
+    const people = getProjectMemberIds(p).map(id => team.find(m => m.id === id)?.name).filter(Boolean);
 
     return {
       id: p.id, name: p.name, color: p.color, init,

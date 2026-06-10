@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDispatch } from '../store';
+import { useStore, useDispatch } from '../store';
 import { genId, getInitiative, getProjectLabourSummary, getProgress } from '../utils';
 import { PROJECT_COLORS, INITIATIVE_TYPES, INITIATIVE_STATUSES } from '../constants';
 import { useProjectHours } from '../timeSummary';
@@ -8,10 +8,12 @@ import { useFocusTrap } from '../a11y';
 // Pop-out card for creating / editing a project and its initiative details in
 // one place. Phases stay on the expandable sidebar row (allocation, not setup).
 export default function ProjectModal({ project, defaultColor, onClose }) {
+  const { team } = useStore();
   const dispatch = useDispatch();
   const isEditing = !!project;
   const init = getInitiative(project);
 
+  const [assignedMemberIds, setAssignedMemberIds] = useState(project?.assignedMemberIds ?? []);
   const [name, setName] = useState(project?.name ?? '');
   const [customer, setCustomer] = useState(project?.customer ?? '');
   const [start, setStart] = useState(project?.start ?? '');
@@ -52,9 +54,9 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
       description: description.trim(),
     };
     if (isEditing) {
-      dispatch({ type: 'UPDATE_PROJECT', payload: { id: project.id, name: name.trim(), customer: customer.trim(), color, start, deadline, initiative } });
+      dispatch({ type: 'UPDATE_PROJECT', payload: { id: project.id, name: name.trim(), customer: customer.trim(), color, start, deadline, assignedMemberIds, initiative } });
     } else {
-      dispatch({ type: 'ADD_PROJECT', payload: { id: genId(), name: name.trim(), customer: customer.trim(), color, start, deadline, phases: [], initiative } });
+      dispatch({ type: 'ADD_PROJECT', payload: { id: genId(), name: name.trim(), customer: customer.trim(), color, start, deadline, assignedMemberIds, phases: [], initiative } });
     }
     onClose();
   }
@@ -80,6 +82,26 @@ export default function ProjectModal({ project, defaultColor, onClose }) {
               <label htmlFor="project-company">Company</label>
               <input id="project-company" className="form-input" value={customer}
                 onChange={e => setCustomer(e.target.value)} placeholder="Groups projects in the sidebar — e.g. Nexian" />
+            </div>
+
+            <div className="form-group">
+              <label>Assigned engineers <span className="rnd-hint">— who's on this project (independent of time allocation)</span></label>
+              {team.length === 0
+                ? <span className="rnd-hint">Add team members first.</span>
+                : (
+                  <div className="rnd-links">
+                    {team.map(m => {
+                      const on = assignedMemberIds.includes(m.id);
+                      return (
+                        <label key={m.id} className={`rnd-link ${on ? 'on' : ''}`}>
+                          <input type="checkbox" checked={on}
+                            onChange={() => setAssignedMemberIds(on ? assignedMemberIds.filter(x => x !== m.id) : [...assignedMemberIds, m.id])} />
+                          {m.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
             </div>
 
             <div className="form-row">

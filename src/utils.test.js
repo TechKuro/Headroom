@@ -7,7 +7,7 @@ import {
   getInitiative, getProjectLabourSummary, getRoi, getProjectRisk, getProgress,
   parseCsv, projectsFromWorkloadCsv, reconcileImportedProjects,
   getPersonSlotMap, getPersonDayLoad, getOverCommitment, getPersonUtilisation, getPlannedByDayProject,
-  getPersonWorkload, getWhatIfImpact, findAvailableSlots,
+  getPersonWorkload, getWhatIfImpact, findAvailableSlots, getProjectMemberIds,
   claimableHours, daysAfter, isLateConfirmation, isQualifying, classificationComplete,
   resolveEffectiveEntries, getClaimableByPerson, toCsv,
   formatCurrency, formatSignedCurrency, formatHours,
@@ -313,6 +313,32 @@ describe('reconcileImportedProjects', () => {
     expect(match.phases).toEqual(['ph']);        // phases preserved
     expect(projects[1].id).toBe('gen1');         // new project gets an id
     expect(projects[1].customer).toBe('Acme');
+  });
+});
+
+describe('getProjectMemberIds', () => {
+  it('unions explicitly assigned members with anyone allocated via slots', () => {
+    const p = { assignedMemberIds: ['a', 'b'], phases: [phase([slot('b', 0), slot('c', 1)])] };
+    expect(getProjectMemberIds(p).sort()).toEqual(['a', 'b', 'c']);
+  });
+  it('handles a project with assignment but no phases', () => {
+    expect(getProjectMemberIds({ assignedMemberIds: ['a'], phases: [] })).toEqual(['a']);
+  });
+  it('handles allocation with no explicit assignment', () => {
+    expect(getProjectMemberIds({ phases: [phase([slot('a', 0)])] })).toEqual(['a']);
+  });
+});
+
+describe('getPersonWorkload — assignment vs allocation', () => {
+  it('includes an assigned-but-unallocated project with zero hours', () => {
+    const allocated = { id: 'x', name: 'X', initiative: { type: 'internal' }, phases: [phase([slot('p1', 0), slot('p1', 1)])] };
+    const assignedOnly = { id: 'y', name: 'Y', assignedMemberIds: ['p1'], initiative: { type: 'internal' }, phases: [] };
+    const w = getPersonWorkload('p1', [allocated, assignedOnly], 100);
+    expect(w.projectCount).toBe(2);
+    expect(w.assignedOnlyCount).toBe(1);
+    expect(w.totalHours).toBe(8); // only the allocated project contributes hours
+    const y = w.byProject.find(b => b.id === 'y');
+    expect(y).toMatchObject({ hours: 0, assignedOnly: true });
   });
 });
 

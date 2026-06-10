@@ -155,6 +155,7 @@ function reducer(state, action) {
         team: state.team.filter(m => m.id !== id),
         projects: state.projects.map(p => ({
           ...p,
+          assignedMemberIds: (p.assignedMemberIds || []).filter(pid => pid !== id),
           phases: p.phases
             .map(ph => {
               const slots = (ph.slots || []).filter(s => s.personId !== id);
