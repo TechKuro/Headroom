@@ -127,9 +127,12 @@ export const DEFAULT_SETTINGS = {
 
 // --- Half-day allocation model ---
 // Work is allocated in half-day slots: each working day (Mon–Fri) has an AM and
-// a PM half, and each half is HOURS_PER_HALF_DAY hours. Cost = allocated
-// half-days × HOURS_PER_HALF_DAY × blendedRate.
-export const HOURS_PER_HALF_DAY = 4;
+// a PM half. A half-day is assumed to be HOURS_PER_HALF_DAY of *productive
+// engineering* time — less than the 4h of clock time, allowing for calls,
+// breaks and context-switching — so cost/forecasts stay realistic. Cost =
+// allocated half-days × HOURS_PER_HALF_DAY × blendedRate. (This is distinct
+// from MAX_HOURS_PER_DAY below, the Innovate UK *claimable* cap on actuals.)
+export const HOURS_PER_HALF_DAY = 3;
 export const HALVES = ['am', 'pm'];
 export const WORKING_DAYS = [1, 2, 3, 4, 5]; // Date.getDay(): Mon–Fri
 export const VIEW_DAYS = 10;                 // 2 working weeks shown at once

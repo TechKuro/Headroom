@@ -45,7 +45,7 @@ The app opens on the **Overview** tab. The tab you're on is stored in the page a
 
 ### Half-day slots
 
-The working week is **Monday–Friday**, and each day has two **half-day slots**: **AM** and **PM**, each worth **4 hours** (so 8 hours/day). All allocation happens by clicking these half-day slots — there are no fractional hours to type.
+The working week is **Monday–Friday**, and each day has two **half-day slots**: **AM** and **PM**. A half-day is costed as **3 hours of productive engineering time** (not the full 4h of clock time — the rest covers calls, breaks and context-switching), so a planned day is ~6 productive hours. This keeps cost and forecasts realistic. All allocation happens by clicking these half-day slots — there are no fractional hours to type. *(This planning figure is separate from the R&D **claimable cap** of 8h/day, which applies to actual confirmed timesheet hours.)*
 
 ### Phases
 
